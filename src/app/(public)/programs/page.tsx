@@ -1,7 +1,24 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, type LevelOfCare, type PayerType } from '@/lib/constants';
+import { absoluteUrl } from '@/lib/seo';
+
+const PROGRAMS_TITLE = 'Browse Treatment Programs — Rehab & Recovery Directory';
+const PROGRAMS_DESCRIPTION =
+  'Browse our full directory of addiction and mental-health treatment programs — detox, residential, PHP, IOP, and outpatient — with accepted insurance and real-time bed availability.';
+
+export const metadata: Metadata = {
+  title: PROGRAMS_TITLE,
+  description: PROGRAMS_DESCRIPTION,
+  alternates: { canonical: '/programs' },
+  openGraph: {
+    title: PROGRAMS_TITLE,
+    description: PROGRAMS_DESCRIPTION,
+    url: absoluteUrl('/programs'),
+  },
+};
 
 type Row = {
   id: string;

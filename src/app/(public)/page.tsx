@@ -1,6 +1,12 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import Reveal from '@/components/Reveal';
+
+export const metadata: Metadata = {
+  // Home inherits the layout's default (brand) title + OG; just pin the canonical.
+  alternates: { canonical: '/' },
+};
 
 export default function LandingPage() {
   return (
@@ -181,7 +187,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl px-6">
           <div className="flex flex-wrap justify-between gap-6">
             <div>
-              <div className="font-semibold text-white">Wellness Companion</div>
+              <div className="font-semibold text-white">Clear Bed Recovery</div>
               <p className="mt-1 max-w-xs text-xs text-white/60">
                 A resource navigator — not a medical or crisis service. We connect you with treatment programs and
                 the counselors who work there.

@@ -1,6 +1,8 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import JsonLd from '@/components/JsonLd';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   LEVEL_LABELS,
@@ -10,7 +12,51 @@ import {
   type LevelOfCare,
   type PayerType,
 } from '@/lib/constants';
+import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from '@/lib/seo';
 import { addReview } from '../actions';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = createAdminClient();
+  const { data: f } = await supabase
+    .from('facilities')
+    .select('name, city, state, levels_of_care, description, images')
+    .eq('id', id)
+    .eq('is_published', true)
+    .maybeSingle();
+
+  if (!f) return { title: 'Program not found', robots: { index: false, follow: true } };
+
+  const loc = [f.city, f.state].filter(Boolean).join(', ');
+  const levels = ((f.levels_of_care ?? []) as string[])
+    .map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l)
+    .join(', ');
+  const title = `${f.name}${loc ? ` — ${loc}` : ''}`;
+  const description =
+    (f.description && f.description.trim().slice(0, 200)) ||
+    `${f.name}${loc ? ` in ${loc}` : ''} offers ${levels || 'addiction and mental-health treatment'}. ` +
+      `See levels of care, accepted insurance, bed availability, reviews, and how to reach their intake team.`;
+  const image = ((f.images ?? []) as string[])[0] || DEFAULT_OG_IMAGE.url;
+  const canonical = `/programs/${id}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: 'article',
+      title: `${title} | ${SITE_NAME}`,
+      description,
+      url: absoluteUrl(canonical),
+      images: [{ url: image }],
+    },
+    twitter: { card: 'summary_large_image', title, description, images: [image] },
+  };
+}
 
 type Cap = { level_of_care: string; beds_available: number; last_updated: string };
 type Payer = { payer_type: string; in_network: boolean };
@@ -71,6 +117,47 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
   const ratings = reviews.map((r) => r.rating).filter((r): r is number => typeof r === 'number');
   const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
 
+  // schema.org MedicalBusiness — drives rich results (rating stars, address, phone).
+  const jsonLd: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'MedicalBusiness',
+    name: f.name,
+    url: absoluteUrl(`/programs/${f.id}`),
+    address: {
+      '@type': 'PostalAddress',
+      ...(f.street ? { streetAddress: f.street } : {}),
+      ...(f.city ? { addressLocality: f.city } : {}),
+      ...(f.state ? { addressRegion: f.state } : {}),
+      ...(f.zip ? { postalCode: f.zip } : {}),
+      addressCountry: 'US',
+    },
+    medicalSpecialty: 'Addiction',
+    image: images.length ? images.slice(0, 3) : [absoluteUrl(DEFAULT_OG_IMAGE.url)],
+  };
+  if (f.description) jsonLd.description = f.description;
+  if (intakePhone) jsonLd.telephone = intakePhone;
+  if (f.website) jsonLd.sameAs = [f.website];
+  if (avg !== null && ratings.length) {
+    jsonLd.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: avg.toFixed(1),
+      reviewCount: reviews.length,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
+  if (reviews.length) {
+    jsonLd.review = reviews.slice(0, 5).map((r) => ({
+      '@type': 'Review',
+      author: { '@type': 'Person', name: r.author_name || 'Anonymous' },
+      ...(r.created_at ? { datePublished: r.created_at.slice(0, 10) } : {}),
+      reviewBody: r.body,
+      ...(r.rating
+        ? { reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 } }
+        : {}),
+    }));
+  }
+
   const goodToKnow: [string, string | null][] = [
     ['Setting', f.operator_type],
     ['Beds', f.bed_detail],
@@ -84,6 +171,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
+      <JsonLd data={jsonLd} />
       <div className="flex gap-4 text-sm text-teal-700">
         <Link href="/match" className="hover:underline">
           ← Your matches
