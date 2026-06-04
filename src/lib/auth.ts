@@ -42,6 +42,7 @@ export type Roles = {
   isAdmin: boolean;
   facilityIds: string[];
   isBd: boolean;
+  isSeeker: boolean;
 };
 
 /** Resolve every role the current user holds in one pass (for nav + routing). */
@@ -50,7 +51,10 @@ export async function getRoles(): Promise<Roles> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { user: null, isAdmin: false, facilityIds: [], isBd: false };
+  if (!user) return { user: null, isAdmin: false, facilityIds: [], isBd: false, isSeeker: false };
+
+  // Seekers are tagged at account creation; no extra query needed.
+  const isSeeker = (user.user_metadata as { role?: string } | null)?.role === 'seeker';
 
   const [adminRes, memberRes, bdRes] = await Promise.all([
     supabase.from('platform_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
@@ -63,6 +67,7 @@ export async function getRoles(): Promise<Roles> {
     isAdmin: !!adminRes.data,
     facilityIds: (memberRes.data ?? []).map((m) => m.facility_id),
     isBd: !!bdRes.data,
+    isSeeker,
   };
 }
 

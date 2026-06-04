@@ -7,9 +7,15 @@ import {
   welcomeEmail,
   treatmentInfoEmail,
   faceSheetEmail,
+  seekerAccountEmail,
   type SeekerFaceSheet,
 } from '@/lib/email/templates';
-import { createSeekerWithInterest, logEmail, markInterestInfoSent } from '@/lib/vault/seekers';
+import {
+  createSeekerWithInterest,
+  logEmail,
+  markInterestInfoSent,
+  setSeekerAuthUser,
+} from '@/lib/vault/seekers';
 
 // Seeker "complete & connect" endpoint.
 //
@@ -106,17 +112,6 @@ export async function POST(request: Request) {
     .map((f) => toFacilitySummary(f as unknown as FacilityRowForSummary))
     .filter((s): s is NonNullable<typeof s> => s !== null);
 
-  // Seeker emails (welcome + matched facilities) — with consent + an address.
-  if (consents.email && identity.email) {
-    const w = welcomeEmail(identity.name);
-    const wRes = await sendEmail({ to: identity.email, ...w });
-    await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: wRes.id });
-
-    const t = treatmentInfoEmail(identity.name, summaries);
-    const tRes = await sendEmail({ to: identity.email, ...t });
-    await logEmail({ seeker_id: seekerId, kind: 'treatment_info', to_email: identity.email, provider_id: tRes.id });
-  }
-
   // The full face sheet sent to each facility the seeker consented to share with.
   const sheet: SeekerFaceSheet = {
     name: str(fs.full_name),
@@ -151,6 +146,40 @@ export async function POST(request: Request) {
     urgency: str(fs.urgency),
     transportation_needs: str(fs.transportation_needs),
   };
+
+  // Seeker account + emails. With consent + an address, create a login so they can
+  // come back to their matches, and email their credentials + info + recommendations.
+  // If the email already has an account, fall back to the standard welcome + info.
+  if (consents.email && identity.email) {
+    const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`;
+    const tempPassword = `WC-${crypto.randomUUID().slice(0, 4)}-${crypto.randomUUID().slice(0, 4)}`;
+    const { data: created } = await supabase.auth.admin.createUser({
+      email: identity.email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { role: 'seeker', name: identity.name ?? null },
+    });
+
+    if (created?.user) {
+      if (seekerId) await setSeekerAuthUser(seekerId, created.user.id);
+      const acct = seekerAccountEmail({
+        email: identity.email,
+        password: tempPassword,
+        loginUrl,
+        faceSheet: sheet,
+        facilities: summaries,
+      });
+      const r = await sendEmail({ to: identity.email, ...acct });
+      await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: r.id });
+    } else {
+      const w = welcomeEmail(identity.name);
+      const wRes = await sendEmail({ to: identity.email, ...w });
+      await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: wRes.id });
+      const t = treatmentInfoEmail(identity.name, summaries);
+      const tRes = await sendEmail({ to: identity.email, ...t });
+      await logEmail({ seeker_id: seekerId, kind: 'treatment_info', to_email: identity.email, provider_id: tRes.id });
+    }
+  }
 
   if (consents.share) {
     for (const f of facilities) {

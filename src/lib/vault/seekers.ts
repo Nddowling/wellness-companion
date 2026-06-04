@@ -81,6 +81,53 @@ export async function logEmail(entry: {
   });
 }
 
+/** Link a created auth account to the seeker's vault record. */
+export async function setSeekerAuthUser(seekerId: string, authUserId: string): Promise<void> {
+  const vault = createVaultClient();
+  await vault.from('vault_seekers').update({ auth_user_id: authUserId }).eq('id', seekerId);
+}
+
+export type SeekerDashboard = {
+  name: string | null;
+  coverageStatus: string | null;
+  faceSheet: Record<string, unknown>;
+  facilities: (FacilitySummary & { id: string })[];
+};
+
+/** Load a logged-in seeker's saved info + recommended programs (for /me). */
+export async function getSeekerByAuthUser(authUserId: string): Promise<SeekerDashboard | null> {
+  const vault = createVaultClient();
+  const { data: seeker } = await vault
+    .from('vault_seekers')
+    .select('id, name, coverage_status, face_sheet')
+    .eq('auth_user_id', authUserId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!seeker) return null;
+
+  const { data: interests } = await vault
+    .from('vault_seeker_interest')
+    .select(
+      'facility_id, facilities(name, city, state, levels_of_care, referral_contact, facility_capacity(beds_available, last_updated), facility_payers(payer_type))'
+    )
+    .eq('seeker_id', seeker.id);
+
+  const facilities = (interests ?? [])
+    .map((i) => {
+      const summary = toFacilitySummary(i.facilities as unknown as FacilityRowForSummary);
+      return summary ? { id: i.facility_id as string, ...summary } : null;
+    })
+    .filter((f): f is FacilitySummary & { id: string } => f !== null);
+
+  return {
+    name: seeker.name,
+    coverageStatus: seeker.coverage_status,
+    faceSheet: (seeker.face_sheet as Record<string, unknown>) ?? {},
+    facilities,
+  };
+}
+
 export async function markInterestInfoSent(seekerId: string, facilityId: string): Promise<void> {
   const vault = createVaultClient();
   await vault

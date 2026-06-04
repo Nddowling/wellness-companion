@@ -129,6 +129,45 @@ export function treatmentInfoEmail(
   return { subject, html, text };
 }
 
+// 2b) Account — sent to a seeker when an account is created on completion. Includes
+// their login, a summary of what they shared, and the programs matched to them.
+export function seekerAccountEmail(params: {
+  email: string;
+  password: string;
+  loginUrl: string;
+  faceSheet: SeekerFaceSheet;
+  facilities: FacilitySummary[];
+}): { subject: string; html: string; text: string } {
+  const s = params.faceSheet;
+  const hi = s.name ? `Hi ${s.name.split(' ')[0]},` : 'Hi,';
+  const subject = 'Your Wellness Companion account & matched programs';
+
+  const info = (
+    [
+      ['Looking for', s.concern_category ? `help with ${s.concern_category.replace(/_/g, ' ')}` : undefined],
+      ['Insurance', s.insurance_carrier ?? s.insurance],
+      ['Coverage', s.coverage_status ? COVERAGE_LABELS[s.coverage_status as CoverageStatus] ?? s.coverage_status : undefined],
+    ] as [string, string | undefined][]
+  ).filter(([, v]) => v && v.trim()) as [string, string][];
+
+  const html = wrap('Welcome — your account is ready', `
+    <p>${esc(hi)}</p>
+    <p>We saved everything you shared so you can come back to your matches anytime — no need to start over.</p>
+    <div style="background:#e1f0ec;border-radius:8px;padding:12px;margin:12px 0">
+      <div style="font-weight:600;margin-bottom:6px">Your login</div>
+      <div style="font-size:14px">Email: <strong>${esc(params.email)}</strong></div>
+      <div style="font-size:14px">Temporary password: <strong>${esc(params.password)}</strong></div>
+      <div style="margin-top:8px"><a href="${esc(params.loginUrl)}" style="background:#2f6f6a;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:14px">Sign in to revisit your matches</a></div>
+    </div>
+    ${info.length ? `<div style="font-size:14px;color:#475569"><strong>What you shared:</strong> ${info.map(([k, v]) => `${esc(k)} — ${esc(v)}`).join(' · ')}</div>` : ''}
+    <h2 style="font-size:14px;color:#0f766e;margin-top:16px">Programs matched to you</h2>
+    ${params.facilities.map(facilityBlockHtml).join('')}
+    <p style="font-size:13px">Reach out to any of them whenever you're ready — there's no pressure and no wrong pace.</p>`);
+
+  const text = `${hi}\n\nYour Wellness Companion account is ready.\n\nSign in: ${params.loginUrl}\nEmail: ${params.email}\nTemporary password: ${params.password}\n\nPrograms matched to you:\n${params.facilities.map(facilityBlockText).join('\n')}\n\n${CRISIS}`;
+  return { subject, html, text };
+}
+
 // 3) Face sheet — sent to a FACILITY when the seeker consents to share details.
 export function faceSheetEmail(
   facilityName: string,

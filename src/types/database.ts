@@ -576,6 +576,7 @@ export type Database = {
       }
       vault_seekers: {
         Row: {
+          auth_user_id: string | null
           consent_at: string | null
           consent_email: boolean
           consent_share: boolean
@@ -594,6 +595,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auth_user_id?: string | null
           consent_at?: string | null
           consent_email?: boolean
           consent_share?: boolean
@@ -612,6 +614,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auth_user_id?: string | null
           consent_at?: string | null
           consent_email?: boolean
           consent_share?: boolean
