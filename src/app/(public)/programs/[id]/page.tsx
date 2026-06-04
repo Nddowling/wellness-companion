@@ -84,9 +84,14 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
-      <Link href="/match" className="text-sm text-teal-700">
-        ← Back to results
-      </Link>
+      <div className="flex gap-4 text-sm text-teal-700">
+        <Link href="/match" className="hover:underline">
+          ← Your matches
+        </Link>
+        <Link href="/programs" className="hover:underline">
+          Browse all programs
+        </Link>
+      </div>
 
       {/* Hero */}
       <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">

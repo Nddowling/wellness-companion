@@ -438,6 +438,12 @@ export default function MatchPage() {
               </div>
               );
             })}
+            <Link
+              href="/programs"
+              className="block pt-1 text-center text-sm font-medium text-teal-700 hover:underline"
+            >
+              Don&apos;t see the right fit? Browse all programs →
+            </Link>
           </div>
         )}
       </div>
