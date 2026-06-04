@@ -128,6 +128,93 @@ export async function getSeekerByAuthUser(authUserId: string): Promise<SeekerDas
   };
 }
 
+export type SeekerRow = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  dob: string | null;
+  insurance: string | null;
+  coverage_status: string | null;
+  status: string;
+  created_at: string;
+  face_sheet: Record<string, unknown>;
+};
+
+const SEEKER_COLS = 'id, name, email, phone, dob, insurance, coverage_status, status, created_at, face_sheet';
+
+async function facilitiesForSeeker(
+  vault: ReturnType<typeof createVaultClient>,
+  seekerId: string
+): Promise<(FacilitySummary & { id: string })[]> {
+  const { data: interests } = await vault
+    .from('vault_seeker_interest')
+    .select(
+      'facility_id, facilities(name, city, state, levels_of_care, referral_contact, facility_capacity(beds_available, last_updated), facility_payers(payer_type))'
+    )
+    .eq('seeker_id', seekerId);
+  return (interests ?? [])
+    .map((i) => {
+      const summary = toFacilitySummary(i.facilities as unknown as FacilityRowForSummary);
+      return summary ? { id: i.facility_id as string, ...summary } : null;
+    })
+    .filter((f): f is FacilitySummary & { id: string } => f !== null);
+}
+
+/** Admin: list all seeker records (PHI). */
+export async function listSeekers(): Promise<SeekerRow[]> {
+  const vault = createVaultClient();
+  const { data } = await vault.from('vault_seekers').select(SEEKER_COLS).order('created_at', { ascending: false });
+  return (data ?? []) as SeekerRow[];
+}
+
+/** Admin: one seeker + their matched programs. */
+export async function getSeekerById(
+  id: string
+): Promise<{ seeker: SeekerRow; facilities: (FacilitySummary & { id: string })[] } | null> {
+  const vault = createVaultClient();
+  const { data: seeker } = await vault.from('vault_seekers').select(SEEKER_COLS).eq('id', id).maybeSingle();
+  if (!seeker) return null;
+  return { seeker: seeker as SeekerRow, facilities: await facilitiesForSeeker(vault, id) };
+}
+
+/** Seeker dashboard: every past search for this account, newest first. */
+export async function getSearchesByAuthUser(
+  authUserId: string
+): Promise<{ search: SeekerRow; facilities: (FacilitySummary & { id: string })[] }[]> {
+  const vault = createVaultClient();
+  const { data: seekers } = await vault
+    .from('vault_seekers')
+    .select(SEEKER_COLS)
+    .eq('auth_user_id', authUserId)
+    .order('created_at', { ascending: false });
+  const out: { search: SeekerRow; facilities: (FacilitySummary & { id: string })[] }[] = [];
+  for (const s of (seekers ?? []) as SeekerRow[]) {
+    out.push({ search: s, facilities: await facilitiesForSeeker(vault, s.id) });
+  }
+  return out;
+}
+
+/** Seeker self-edit: update their own identity fields (scoped to their account). */
+export async function updateMyInfo(
+  authUserId: string,
+  seekerId: string,
+  patch: { name?: string; email?: string; phone?: string; dob?: string; insurance?: string }
+): Promise<void> {
+  const vault = createVaultClient();
+  await vault
+    .from('vault_seekers')
+    .update({
+      name: patch.name ?? null,
+      email: patch.email ?? null,
+      phone: patch.phone ?? null,
+      dob: patch.dob ?? null,
+      insurance: patch.insurance ?? null,
+    })
+    .eq('id', seekerId)
+    .eq('auth_user_id', authUserId);
+}
+
 export async function markInterestInfoSent(seekerId: string, facilityId: string): Promise<void> {
   const vault = createVaultClient();
   await vault

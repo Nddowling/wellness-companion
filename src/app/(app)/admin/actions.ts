@@ -5,6 +5,9 @@ import { redirect } from 'next/navigation';
 
 import { requireAdmin } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createVaultClient } from '@/lib/supabase/vault';
+import { sendEmail } from '@/lib/email/send';
 import { LEVELS_OF_CARE, PAYER_TYPES } from '@/lib/constants';
 
 function splitCsv(value: FormDataEntryValue | null): string[] {
@@ -115,4 +118,206 @@ export async function verifyFacility(formData: FormData) {
     .eq('id', facilityId);
   revalidatePath(`/admin/facilities/${facilityId}`);
   revalidatePath('/admin');
+}
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+function tempPassword(): string {
+  return `WC-${crypto.randomUUID().slice(0, 4)}-${crypto.randomUUID().slice(0, 4)}`;
+}
+
+async function findUserIdByEmail(
+  admin: ReturnType<typeof createAdminClient>,
+  email: string
+): Promise<string | null> {
+  const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  return data?.users.find((u) => u.email?.toLowerCase() === email.toLowerCase())?.id ?? null;
+}
+
+// ── facilities ────────────────────────────────────────────────────────────────
+/** Delete a facility (cascades capacity/payers/members/routes/reviews/claims). */
+export async function deleteFacility(formData: FormData) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const facilityId = String(formData.get('facility_id'));
+  await supabase.from('facilities').delete().eq('id', facilityId);
+  revalidatePath('/admin/facilities');
+  redirect('/admin/facilities');
+}
+
+/** Full edit of a facility's profile, levels, payers, flags (admin). */
+export async function adminUpdateFacility(formData: FormData) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const facilityId = String(formData.get('facility_id'));
+
+  const levels = LEVELS_OF_CARE.filter((l) => formData.get(`level_${l}`) === 'on');
+  const payers = PAYER_TYPES.filter((p) => formData.get(`payer_${p}`) === 'on');
+
+  await supabase
+    .from('facilities')
+    .update({
+      name: String(formData.get('name')),
+      street: String(formData.get('street') || '') || null,
+      city: String(formData.get('city') || '') || null,
+      state: String(formData.get('state') || '') || null,
+      zip: String(formData.get('zip') || '') || null,
+      operator_type: String(formData.get('operator_type') || '') || null,
+      priority_tier: String(formData.get('priority_tier') || '') || null,
+      website: String(formData.get('website') || '') || null,
+      description: String(formData.get('description') || '') || null,
+      specialty_programs: String(formData.get('specialty_programs') || '') || null,
+      levels_of_care: levels,
+      specialties: splitCsv(formData.get('specialties')),
+      populations_served: splitCsv(formData.get('populations_served')),
+      accreditations: splitCsv(formData.get('accreditations')),
+      carriers_named: splitCsv(formData.get('carriers_named')),
+      is_gated: formData.get('is_gated') === 'on',
+      is_faith_based: formData.get('is_faith_based') === 'on',
+      cash_rate: formData.get('cash_rate') ? Number(formData.get('cash_rate')) : null,
+      referral_contact: {
+        name: String(formData.get('contact_name') || ''),
+        email: String(formData.get('contact_email') || ''),
+        phone: String(formData.get('contact_phone') || ''),
+      },
+    })
+    .eq('id', facilityId);
+
+  await supabase.from('facility_payers').delete().eq('facility_id', facilityId);
+  if (payers.length) {
+    await supabase
+      .from('facility_payers')
+      .insert(payers.map((payer_type) => ({ facility_id: facilityId, payer_type })));
+  }
+  if (levels.length) {
+    await supabase
+      .from('facility_capacity')
+      .upsert(
+        levels.map((level_of_care) => ({ facility_id: facilityId, level_of_care, beds_available: 0 })),
+        { onConflict: 'facility_id,level_of_care', ignoreDuplicates: true }
+      );
+  }
+
+  revalidatePath(`/admin/facilities/${facilityId}`);
+  revalidatePath(`/programs/${facilityId}`);
+}
+
+// ── facility members + claims ─────────────────────────────────────────────────
+/** Add a person as a facility member by email; create their login if new + email it. */
+export async function addFacilityMember(formData: FormData) {
+  await requireAdmin();
+  const facilityId = String(formData.get('facility_id'));
+  const email = String(formData.get('email') || '').trim().toLowerCase();
+  if (!email) return;
+
+  const admin = createAdminClient();
+  const password = tempPassword();
+  const { data: created } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { role: 'facility' },
+  });
+
+  let userId = created?.user?.id ?? null;
+  if (created?.user) {
+    const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`;
+    await sendEmail({
+      to: email,
+      subject: 'Your Wellness Companion facility login',
+      html: `<p>You've been added to a facility on Wellness Companion.</p><p>Sign in: <a href="${loginUrl}">${loginUrl}</a><br>Email: <strong>${email}</strong><br>Temporary password: <strong>${password}</strong></p>`,
+      text: `You've been added to a facility on Wellness Companion.\nSign in: ${loginUrl}\nEmail: ${email}\nTemporary password: ${password}`,
+    });
+  } else {
+    userId = await findUserIdByEmail(admin, email);
+  }
+
+  if (userId) {
+    await admin
+      .from('facility_members')
+      .upsert(
+        { facility_id: facilityId, user_id: userId, role: 'staff' },
+        { onConflict: 'facility_id,user_id', ignoreDuplicates: true }
+      );
+  }
+  revalidatePath(`/admin/facilities/${facilityId}`);
+}
+
+export async function removeFacilityMember(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const memberId = String(formData.get('member_id'));
+  const facilityId = String(formData.get('facility_id'));
+  await admin.from('facility_members').delete().eq('id', memberId);
+  revalidatePath(`/admin/facilities/${facilityId}`);
+}
+
+export async function approveClaim(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const claimId = String(formData.get('claim_id'));
+  const { data: claim } = await admin
+    .from('facility_claims')
+    .select('user_id, facility_id')
+    .eq('id', claimId)
+    .single();
+  if (claim) {
+    await admin
+      .from('facility_members')
+      .upsert(
+        { facility_id: claim.facility_id, user_id: claim.user_id, role: 'staff' },
+        { onConflict: 'facility_id,user_id', ignoreDuplicates: true }
+      );
+    await admin.from('facility_claims').update({ status: 'approved' }).eq('id', claimId);
+  }
+  revalidatePath('/admin/claims');
+}
+
+export async function rejectClaim(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminClient();
+  await admin.from('facility_claims').update({ status: 'rejected' }).eq('id', String(formData.get('claim_id')));
+  revalidatePath('/admin/claims');
+}
+
+// ── seekers (PHI vault — service role) ─────────────────────────────────────────
+export async function adminCreateSeeker(formData: FormData) {
+  await requireAdmin();
+  const vault = createVaultClient();
+  await vault.from('vault_seekers').insert({
+    name: String(formData.get('name') || '') || null,
+    email: String(formData.get('email') || '') || null,
+    phone: String(formData.get('phone') || '') || null,
+    dob: String(formData.get('dob') || '') || null,
+    insurance: String(formData.get('insurance') || '') || null,
+    coverage_status: String(formData.get('coverage_status') || '') || null,
+    status: 'active',
+  });
+  revalidatePath('/admin/seekers');
+  redirect('/admin/seekers');
+}
+
+export async function adminUpdateSeeker(formData: FormData) {
+  await requireAdmin();
+  const vault = createVaultClient();
+  const id = String(formData.get('seeker_id'));
+  await vault
+    .from('vault_seekers')
+    .update({
+      name: String(formData.get('name') || '') || null,
+      email: String(formData.get('email') || '') || null,
+      phone: String(formData.get('phone') || '') || null,
+      dob: String(formData.get('dob') || '') || null,
+      insurance: String(formData.get('insurance') || '') || null,
+      status: String(formData.get('status') || 'active'),
+    })
+    .eq('id', id);
+  revalidatePath(`/admin/seekers/${id}`);
+}
+
+export async function adminDeleteSeeker(formData: FormData) {
+  await requireAdmin();
+  const vault = createVaultClient();
+  await vault.from('vault_seekers').delete().eq('id', String(formData.get('seeker_id')));
+  revalidatePath('/admin/seekers');
+  redirect('/admin/seekers');
 }

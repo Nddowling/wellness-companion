@@ -1,11 +1,27 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
-import { requireFacilityMember } from '@/lib/auth';
+import { requireFacilityMember, requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { markSeekerConnectedByMatch } from '@/lib/vault/seekers';
+
+/** A logged-in user requests to manage a facility; an admin approves it. */
+export async function requestClaim(formData: FormData) {
+  const user = await requireUser();
+  const supabase = await createClient();
+  const facilityId = String(formData.get('facility_id'));
+  if (!facilityId) return;
+  await supabase
+    .from('facility_claims')
+    .upsert(
+      { user_id: user.id, facility_id: facilityId, note: String(formData.get('note') || '') || null, status: 'pending' },
+      { onConflict: 'user_id,facility_id' }
+    );
+  redirect('/get-started?claimed=1');
+}
 
 /** A facility member updates their own bed count for one level and bumps the moat. */
 export async function updateCapacity(formData: FormData) {

@@ -11,6 +11,6 @@ export default async function HomePage() {
   if (facilityIds.length === 1) redirect(`/facility/${facilityIds[0]}`); // straight to their profile
   if (facilityIds.length > 1) redirect('/facility');
   if (isBd) redirect('/bd');
-  // No role yet — the referrer portal lets them self-register.
-  redirect('/bd');
+  // No role yet — let them choose: referrer or claim a facility.
+  redirect('/get-started');
 }

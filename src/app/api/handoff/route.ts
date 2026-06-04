@@ -172,6 +172,14 @@ export async function POST(request: Request) {
       const r = await sendEmail({ to: identity.email, ...acct });
       await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: r.id });
     } else {
+      // Account already exists — link this new search to it so it shows on /me.
+      try {
+        const { data: list } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const existing = list?.users.find((u) => u.email?.toLowerCase() === identity.email!.toLowerCase());
+        if (existing && seekerId) await setSeekerAuthUser(seekerId, existing.id);
+      } catch {
+        /* best-effort */
+      }
       const w = welcomeEmail(identity.name);
       const wRes = await sendEmail({ to: identity.email, ...w });
       await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: wRes.id });

@@ -79,9 +79,12 @@ export default async function FacilityManage({ params }: { params: Promise<{ id:
           {facility.verified_at ? ' · verified' : ''}
           {facility.is_published ? '' : ' · not yet published'}
         </p>
-        <Link href={`/programs/${id}`} target="_blank" className="mt-1 inline-block text-xs font-medium text-teal-700">
-          View public profile ↗
-        </Link>
+        <div className="mt-1 flex gap-4 text-xs font-medium text-teal-700">
+          <Link href={`/programs/${id}`} target="_blank">
+            View public profile ↗
+          </Link>
+          <Link href="/programs">Browse other programs</Link>
+        </div>
       </div>
 
       {/* Public profile editor */}

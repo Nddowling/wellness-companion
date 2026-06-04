@@ -276,6 +276,41 @@ export type Database = {
           },
         ]
       }
+      facility_claims: {
+        Row: {
+          created_at: string
+          facility_id: string
+          id: string
+          note: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          facility_id: string
+          id?: string
+          note?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          facility_id?: string
+          id?: string
+          note?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_claims_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facility_members: {
         Row: {
           created_at: string
