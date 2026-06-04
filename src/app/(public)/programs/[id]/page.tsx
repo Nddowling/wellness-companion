@@ -103,10 +103,12 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             ))}
           </div>
         ) : (
-          <div className="flex h-40 items-center justify-center bg-gradient-to-br from-teal-700 to-emerald-400 text-white">
-            <div className="text-center">
-              <div className="text-3xl font-semibold">{f.name.charAt(0)}</div>
-              <div className="mt-1 text-xs opacity-80">Photos coming soon</div>
+          <div className="relative flex h-44 items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/images/facility.jpg')" }} />
+            <div className="absolute inset-0 bg-gradient-to-br from-ink/70 to-brand/50" />
+            <div className="relative text-center text-white">
+              <div className="text-4xl font-semibold">{f.name.charAt(0)}</div>
+              <div className="mt-1 text-xs opacity-90">Photos coming soon</div>
             </div>
           </div>
         )}
