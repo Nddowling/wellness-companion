@@ -1,0 +1,148 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+
+import { requireFacilityMember } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { markSeekerConnectedByMatch } from '@/lib/vault/seekers';
+
+/** A facility member updates their own bed count for one level and bumps the moat. */
+export async function updateCapacity(formData: FormData) {
+  const { userId, facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const level = String(formData.get('level_of_care'));
+  const beds = Number(formData.get('beds_available'));
+  const supabase = await createClient();
+
+  await supabase.from('facility_capacity').upsert(
+    {
+      facility_id: facilityId,
+      level_of_care: level,
+      beds_available: Number.isFinite(beds) && beds >= 0 ? beds : 0,
+      last_updated: new Date().toISOString(),
+      updated_by: userId,
+    },
+    { onConflict: 'facility_id,level_of_care' }
+  );
+
+  revalidatePath(`/facility/${facilityId}`);
+  revalidatePath('/facility');
+}
+
+/** Move an inbound lead through its lifecycle (viewed / accepted / declined). */
+export async function setLeadStatus(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const routeId = String(formData.get('route_id'));
+  const facilityId = String(formData.get('facility_id'));
+  const status = String(formData.get('status'));
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+  if (!['sent', 'viewed', 'accepted', 'declined'].includes(status)) throw new Error('Bad status');
+
+  const supabase = await createClient();
+  await supabase.from('match_routes').update({ status }).eq('id', routeId);
+
+  // When a facility accepts a lead, the seeker has moved forward — stop nudging them.
+  // Best-effort: only when the vault is enabled, and never let it break the action.
+  if (status === 'accepted' && process.env.HANDOFF_BAA_SIGNED === 'true') {
+    try {
+      const { data: route } = await supabase
+        .from('match_routes')
+        .select('match_id')
+        .eq('id', routeId)
+        .maybeSingle();
+      if (route?.match_id) await markSeekerConnectedByMatch(route.match_id);
+    } catch {
+      // swallow — conversion tracking must never block the facility workflow
+    }
+  }
+
+  revalidatePath(`/facility/${facilityId}`);
+}
+
+/** Edit the public profile copy: description, website, and "specializes in" text. */
+export async function updateProfile(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const supabase = await createClient();
+  await supabase
+    .from('facilities')
+    .update({
+      description: String(formData.get('description') || '') || null,
+      website: String(formData.get('website') || '') || null,
+      specialty_programs: String(formData.get('specialty_programs') || '') || null,
+    })
+    .eq('id', facilityId);
+
+  revalidatePath(`/facility/${facilityId}`);
+  revalidatePath(`/programs/${facilityId}`);
+}
+
+/** Upload a photo to storage and append its public URL to the facility's gallery. */
+export async function uploadPhoto(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const file = formData.get('photo');
+  if (!(file instanceof File) || file.size === 0) return;
+  if (file.size > 8_000_000) throw new Error('Photo must be under 8MB');
+
+  // Service role for storage + the images update (membership already verified).
+  const admin = createAdminClient();
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const path = `${facilityId}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+
+  const { error: upErr } = await admin.storage
+    .from('facility-photos')
+    .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
+  if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+  const { data: pub } = admin.storage.from('facility-photos').getPublicUrl(path);
+
+  const { data: row } = await admin.from('facilities').select('images').eq('id', facilityId).single();
+  const images = [...((row?.images as string[] | null) ?? []), pub.publicUrl];
+  await admin.from('facilities').update({ images }).eq('id', facilityId);
+
+  revalidatePath(`/facility/${facilityId}`);
+  revalidatePath(`/programs/${facilityId}`);
+}
+
+/** Remove a photo URL from the facility's gallery. */
+export async function removePhoto(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  const url = String(formData.get('url') || '');
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const admin = createAdminClient();
+  const { data: row } = await admin.from('facilities').select('images').eq('id', facilityId).single();
+  const images = ((row?.images as string[] | null) ?? []).filter((u) => u !== url);
+  await admin.from('facilities').update({ images }).eq('id', facilityId);
+
+  revalidatePath(`/facility/${facilityId}`);
+  revalidatePath(`/programs/${facilityId}`);
+}
+export async function updateContact(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const supabase = await createClient();
+  await supabase
+    .from('facilities')
+    .update({
+      referral_contact: {
+        name: String(formData.get('contact_name') || ''),
+        email: String(formData.get('contact_email') || ''),
+        phone: String(formData.get('contact_phone') || ''),
+      },
+    })
+    .eq('id', facilityId);
+
+  revalidatePath(`/facility/${facilityId}`);
+}

@@ -1,26 +1,83 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Wellness Companion brand palette — calm, clinical, warm.
+ *   Deep teal   #2F6F6A  primary · trust, grounding
+ *   Sage green  #5DCAA5  secondary · growth, healing
+ *   Mist        #E1F0EC  surface · calm backgrounds
+ *   Warm sand   #EBE6DC  neutral · warmth, ease
+ *   Soft terra. #D4956A  accent · CTAs, sparingly
+ *   Ink         #243B3A  text · headings, body
+ *
+ * Implemented by remapping the Tailwind scales the UI already uses (teal →
+ * deep teal, emerald/green → sage, slate → ink/mist neutrals) so the whole
+ * app adopts the palette, plus semantic tokens (brand/sage/mist/sand/
+ * terracotta/ink) for new work. Amber (crisis) and red (errors) keep their
+ * defaults on purpose — those are safety signals.
+ */
+@theme {
+  --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-mono: var(--font-geist-mono, ui-monospace, monospace);
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Semantic brand tokens → bg-brand, text-ink, bg-mist, bg-sand, bg-sage, bg-terracotta */
+  --color-brand: #2f6f6a;
+  --color-sage: #5dcaa5;
+  --color-mist: #e1f0ec;
+  --color-sand: #ebe6dc;
+  --color-terracotta: #d4956a;
+  --color-terracotta-dark: #bd7f55;
+  --color-ink: #243b3a;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Primary — Deep teal */
+  --color-teal-50: #eaf3f1;
+  --color-teal-100: #d4e7e4;
+  --color-teal-200: #b1d4cf;
+  --color-teal-300: #8abdb6;
+  --color-teal-400: #5b9d95;
+  --color-teal-500: #3c817a;
+  --color-teal-600: #347a74;
+  --color-teal-700: #2f6f6a;
+  --color-teal-800: #265a55;
+  --color-teal-900: #1f4a46;
+
+  /* Secondary — Sage green (used for "fresh"/positive states) */
+  --color-emerald-50: #eaf7f1;
+  --color-emerald-100: #d6f0e4;
+  --color-emerald-200: #b1e4cd;
+  --color-emerald-300: #84d3b1;
+  --color-emerald-400: #5dcaa5;
+  --color-emerald-500: #3aa985;
+  --color-emerald-600: #2c8a6b;
+  --color-emerald-700: #246b50;
+  --color-emerald-800: #1f5a44;
+  --color-emerald-900: #194a39;
+  --color-green-50: #eaf7f1;
+  --color-green-100: #d6f0e4;
+  --color-green-700: #246b50;
+  --color-green-800: #1f5a44;
+
+  /* Neutrals — Ink + Mist/Sand */
+  --color-slate-50: #f3f7f5;
+  --color-slate-100: #e1f0ec;
+  --color-slate-200: #d5e1dc;
+  --color-slate-300: #bdccc6;
+  --color-slate-400: #93a6a1;
+  --color-slate-500: #677974;
+  --color-slate-600: #4c5f5a;
+  --color-slate-700: #36504b;
+  --color-slate-800: #243b3a;
+  --color-slate-900: #1a2c2b;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #f3f7f5;
+  /* Calm, on-brand flair — soft sage glow up top, teal & terracotta washes below. */
+  background-image:
+    radial-gradient(1100px 600px at 50% -15%, rgba(93, 202, 165, 0.22), transparent 60%),
+    radial-gradient(900px 520px at 110% 110%, rgba(47, 111, 106, 0.13), transparent 60%),
+    radial-gradient(720px 500px at -10% 105%, rgba(212, 149, 106, 0.1), transparent 60%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  color: var(--color-ink);
+  font-family: var(--font-sans);
 }
