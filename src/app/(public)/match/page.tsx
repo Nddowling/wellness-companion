@@ -63,12 +63,19 @@ export default function MatchPage() {
   const [savedSheet, setSavedSheet] = useState<Record<string, unknown> | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages, matches, finishing]);
 
+  // Keep the cursor in the chat box so you can keep typing without re-clicking.
+  useEffect(() => {
+    if (acknowledged && !busy && !matches) inputRef.current?.focus();
+  }, [acknowledged, busy, matches]);
+
   useEffect(() => {
     try {
+      if (localStorage.getItem('wc_ack')) setAcknowledged(true);
       const raw = localStorage.getItem('wc_face_sheet');
       if (raw) setSavedSheet(JSON.parse(raw));
       const m = localStorage.getItem('wc_matches');
@@ -283,7 +290,15 @@ export default function MatchPage() {
             </label>
 
             <button
-              onClick={() => ackChecked && setAcknowledged(true)}
+              onClick={() => {
+                if (!ackChecked) return;
+                try {
+                  localStorage.setItem('wc_ack', '1');
+                } catch {
+                  /* ignore */
+                }
+                setAcknowledged(true);
+              }}
               disabled={!ackChecked}
               className="mt-4 w-full rounded-md bg-teal-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -459,10 +474,11 @@ export default function MatchPage() {
           }}
         >
           <input
+            ref={inputRef}
+            autoFocus
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your message…"
-            disabled={busy || finishing}
             className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-teal-600 focus:outline-none"
           />
           <button
