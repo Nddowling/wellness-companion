@@ -51,8 +51,8 @@ const STEPS = [
   },
   {
     key: 'identity',
-    label: 'Your matches',
-    opener: "Almost there. So the programs can reach you, what's your full name?",
+    label: 'Connect (optional)',
+    opener: "Great — to have these programs reach out to you, what's your full name?",
     encouragement: "Your details stay private and are only used to connect you with care you choose.",
     chips: [],
     placeholder: 'Type your answer…',
@@ -114,8 +114,13 @@ export default function MatchPage() {
   // Accumulated face sheet, merged from each step's recorded fields.
   const [faceSheet, setFaceSheet] = useState<Record<string, unknown>>({});
 
-  const [phase, setPhase] = useState<'intake' | 'matching' | 'results'>('intake');
+  // intake  → the 3 de-identified questions that produce matches
+  // matching → running the match
+  // results → showing matches (the value moment — before any personal info)
+  // connect → the OPTIONAL follow-on: name/phone/consent so programs can reach out
+  const [phase, setPhase] = useState<'intake' | 'matching' | 'results' | 'connect'>('intake');
   const [matches, setMatches] = useState<MatchedFacility[] | null>(null);
+  const [matchId, setMatchId] = useState<string | null>(null);
   const [seekerName, setSeekerName] = useState<string | undefined>(undefined);
   const [shared, setShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +134,7 @@ export default function MatchPage() {
 
   // Keep the cursor in the box so people can keep typing without re-clicking.
   useEffect(() => {
-    if (acknowledged && !busy && phase === 'intake') inputRef.current?.focus();
+    if (acknowledged && !busy && (phase === 'intake' || phase === 'connect')) inputRef.current?.focus();
   }, [acknowledged, busy, phase]);
 
   useEffect(() => {
@@ -144,6 +149,7 @@ export default function MatchPage() {
         const p = JSON.parse(m);
         if (Array.isArray(p.facilities) && p.facilities.length) {
           setMatches(p.facilities);
+          setMatchId(p.match_id ?? null);
           setSeekerName(p.name);
           setShared(!!p.shared);
           setPhase('results');
@@ -155,7 +161,10 @@ export default function MatchPage() {
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
-  const stepNumber = phase === 'intake' ? stepIdx + 1 : 4;
+  // Phase 1 is just the first 3 steps (need, location, coverage) — they produce
+  // matches. Identity (STEPS[3]) is the optional "connect" phase, after results.
+  const MATCH_STEPS = 3;
+  const stepNumber = stepIdx + 1;
   const step = STEPS[stepIdx];
 
   // A step can ask more than one question (e.g. "need" asks level, then concern), so
@@ -168,7 +177,7 @@ export default function MatchPage() {
   const progressPct =
     phase === 'results'
       ? 100
-      : Math.max(6, Math.min(96, Math.round(((stepIdx + withinStep) / 4) * 100)));
+      : Math.max(6, Math.min(96, Math.round(((stepIdx + withinStep) / MATCH_STEPS) * 100)));
 
   // Chips track the question actually on screen: the model's own suggestions for a
   // follow-up if it offered any, otherwise the step opener's curated chips, else none.
@@ -181,9 +190,10 @@ export default function MatchPage() {
         ? [...step.chips]
         : [];
 
-  // Match on the de-identified subset; with consent, share the face sheet with the
-  // recommended programs so their intake teams have it in hand.
-  async function runMatch(sheet: Record<string, unknown>, opts: { share: boolean }) {
+  // PHASE 1 → results. Match on the de-identified subset only (no identity yet) and
+  // show real programs immediately. The handoff (sharing personal details) is a
+  // separate, opt-in step from the results screen — see runHandoff().
+  async function runMatch(sheet: Record<string, unknown>) {
     setPhase('matching');
     setError(null);
     try {
@@ -196,29 +206,14 @@ export default function MatchPage() {
       if (!res.ok) throw new Error(data.error ?? 'Could not find matches');
 
       const facilities: MatchedFacility[] = data.facilities ?? [];
-      const name = typeof sheet.full_name === 'string' ? sheet.full_name.split(' ')[0] : undefined;
       setMatches(facilities);
-      setSeekerName(name);
-
-      let didShare = false;
-      if (opts.share && facilities.length > 0) {
-        const h = await fetch('/api/handoff', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            match_id: data.match_id,
-            facility_ids: facilities.map((f) => f.id),
-            face_sheet: sheet,
-            consents: { email: sheet.consent_contact === true, share: sheet.consent_share === true },
-          }),
-        });
-        const hd = await h.json().catch(() => ({}));
-        didShare = !!hd.shared;
-        setShared(didShare);
-      }
+      setMatchId(data.match_id ?? null);
 
       try {
-        localStorage.setItem('wc_matches', JSON.stringify({ facilities, name, shared: didShare }));
+        localStorage.setItem(
+          'wc_matches',
+          JSON.stringify({ facilities, match_id: data.match_id, name: seekerName, shared: false })
+        );
       } catch {
         /* ignore */
       }
@@ -229,6 +224,58 @@ export default function MatchPage() {
     }
   }
 
+  // PHASE 2 (opt-in) → share the seeker's details with the matched programs so their
+  // intake teams can reach out. Runs after the "connect" conversation records identity.
+  async function runHandoff(identitySheet: Record<string, unknown>) {
+    const name =
+      typeof identitySheet.full_name === 'string' ? identitySheet.full_name.split(' ')[0] : undefined;
+    setSeekerName(name);
+
+    if (!matchId || !matches || matches.length === 0) {
+      setPhase('results');
+      return;
+    }
+    try {
+      const h = await fetch('/api/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match_id: matchId,
+          facility_ids: matches.map((f) => f.id),
+          face_sheet: identitySheet,
+          consents: {
+            email: identitySheet.consent_contact === true,
+            share: identitySheet.consent_share === true,
+          },
+        }),
+      });
+      const hd = await h.json().catch(() => ({}));
+      const didShare = !!hd.shared;
+      setShared(didShare);
+      try {
+        localStorage.setItem(
+          'wc_matches',
+          JSON.stringify({ facilities: matches, match_id: matchId, name, shared: didShare })
+        );
+      } catch {
+        /* ignore */
+      }
+    } catch {
+      setError(
+        'We saved your matches, but had trouble sharing your details just now. You can still reach the programs directly below.'
+      );
+    }
+    setPhase('results');
+  }
+
+  // Enter the optional connect (identity + consent) conversation from the results.
+  function startConnect() {
+    setStepIdx(3);
+    setError(null);
+    setMessages([{ role: 'assistant', content: STEPS[3].opener }]);
+    setPhase('connect');
+  }
+
   function startOver() {
     try {
       localStorage.removeItem('wc_matches');
@@ -237,6 +284,7 @@ export default function MatchPage() {
     }
     setFaceSheet({});
     setMatches(null);
+    setMatchId(null);
     setShared(false);
     setSeekerName(undefined);
     setStepIdx(0);
@@ -247,7 +295,7 @@ export default function MatchPage() {
 
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || busy || phase !== 'intake') return;
+    if (!trimmed || busy || (phase !== 'intake' && phase !== 'connect')) return;
 
     const prior = messages; // snapshot to roll back to if this turn fails
     const history = [...messages, { role: 'user' as const, content: trimmed }];
@@ -332,13 +380,17 @@ export default function MatchPage() {
     if (stepData) {
       const merged = { ...faceSheet, ...stepData };
       setFaceSheet(merged);
-      if (stepIdx < STEPS.length - 1) {
+      if (phase === 'connect') {
+        // Identity + consent gathered → share with the matched programs.
+        await runHandoff(merged);
+      } else if (stepIdx < MATCH_STEPS - 1) {
+        // Still gathering the 3 de-identified questions (need → location → coverage).
         const next = stepIdx + 1;
         setStepIdx(next);
         setMessages((m) => [...m, { role: 'assistant', content: STEPS[next].opener }]);
       } else {
-        // Final step recorded — run the match (and share, if they consented).
-        await runMatch(merged, { share: merged.consent_share === true });
+        // Coverage recorded — we have enough to match. Show results right away.
+        await runMatch(merged);
       }
     }
   }
@@ -417,8 +469,10 @@ export default function MatchPage() {
 
         <ol className="space-y-1">
           {STEPS.map((s, i) => {
-            const done = phase === 'results' || i < stepIdx;
-            const current = phase !== 'results' && i === stepIdx;
+            const done =
+              i < stepIdx || (phase === 'results' && i < MATCH_STEPS) || (i === 3 && shared);
+            const current =
+              (phase === 'intake' && i === stepIdx) || (phase === 'connect' && i === 3);
             return (
               <li key={s.key} className="flex items-center gap-3 border-t border-white/10 py-3 first:border-t-0">
                 <span
@@ -460,16 +514,16 @@ export default function MatchPage() {
             <span className="italic text-brand">that actually fits.</span>
           </h1>
           <p className="mt-2 text-sm text-slate-600">
-            No account needed. Four quick questions and we&apos;ll show you real programs near you — matched to your
-            coverage and what you&apos;re looking for. We connect you to treatment facilities; we don&apos;t provide
-            treatment ourselves.
+            No account needed. Answer three quick questions and we&apos;ll show you real programs near you right
+            away — matched to your coverage and what you&apos;re looking for. Share your details only if you want them
+            to reach out. We connect you to treatment facilities; we don&apos;t provide treatment ourselves.
           </p>
 
-          {/* Progress */}
-          {phase !== 'results' && (
+          {/* Progress — only the 3 de-identified questions before results */}
+          {phase === 'intake' && (
             <div className="mt-5">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-teal-700">
-                <span>Question {stepNumber} of 4</span>
+                <span>Question {stepNumber} of 3</span>
                 <span className="text-slate-400">{progressPct}%</span>
               </div>
               <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-teal-100">
@@ -478,6 +532,16 @@ export default function MatchPage() {
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
+            </div>
+          )}
+
+          {/* Connect (opt-in) banner */}
+          {phase === 'connect' && (
+            <div className="mt-5 flex items-center justify-between gap-3 rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-teal-800">
+              <span>Just a couple quick things so the programs can reach you — your choice.</span>
+              <button onClick={() => setPhase('results')} className="shrink-0 underline hover:text-teal-900">
+                ← Back to matches
+              </button>
             </div>
           )}
 
@@ -499,7 +563,7 @@ export default function MatchPage() {
             ))}
 
             {/* Quick-reply chips for the question currently on screen */}
-            {phase === 'intake' && !busy && activeChips.length > 0 && (
+            {(phase === 'intake' || phase === 'connect') && !busy && activeChips.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
                 {activeChips.map((c) => (
                   <button
@@ -528,6 +592,25 @@ export default function MatchPage() {
                   <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                     ✓ We&apos;ve shared your details with these programs so their intake team has what they need —
                     they may reach out to you. You&apos;re always welcome to contact them directly too.
+                  </div>
+                )}
+
+                {/* Opt-in connect: only after they've seen value (the matches) */}
+                {matches.length > 0 && !shared && (
+                  <div className="rounded-xl border border-teal-200 bg-teal-50 p-3">
+                    <p className="text-sm text-ink">
+                      Want these programs to reach out to <em>you</em>? Add your contact details and we&apos;ll share
+                      them so their intake team can call — your choice, takes about a minute.
+                    </p>
+                    <button
+                      onClick={startConnect}
+                      className="mt-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-800"
+                    >
+                      Have them reach out to me →
+                    </button>
+                    <p className="mt-1.5 text-xs text-slate-500">
+                      Prefer to reach out yourself? Each program&apos;s intake line is below.
+                    </p>
                   </div>
                 )}
 
@@ -604,7 +687,7 @@ export default function MatchPage() {
           {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
 
           {/* Composer */}
-          {phase === 'intake' && (
+          {(phase === 'intake' || phase === 'connect') && (
             <form
               className="mt-3 flex gap-2"
               onSubmit={(e) => {

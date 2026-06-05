@@ -39,8 +39,24 @@ type Match = {
 };
 type Route = { id: string; status: string; created_at: string; matches: Match | null };
 
-export default async function FacilityManage({ params }: { params: Promise<{ id: string }> }) {
+function splitList(text: string | null): string[] {
+  if (!text) return [];
+  return text
+    .split(/[,;]|·/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export default async function FacilityManage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ edit?: string }>;
+}) {
   const { id } = await params;
+  const { edit } = await searchParams;
+  const editing = edit === '1';
   const { facilityIds } = await requireFacilityMember();
   if (!facilityIds.includes(id)) notFound();
 
@@ -59,6 +75,7 @@ export default async function FacilityManage({ params }: { params: Promise<{ id:
   const levels = (facility.levels_of_care ?? []) as string[];
   const contact = (facility.referral_contact ?? {}) as Contact;
   const images = (facility.images ?? []) as string[];
+  const specialties = splitList(facility.specialty_programs);
 
   const { data: routeData } = await supabase
     .from('match_routes')
@@ -66,96 +83,321 @@ export default async function FacilityManage({ params }: { params: Promise<{ id:
     .eq('facility_id', id)
     .order('created_at', { ascending: false });
   const routes = (routeData ?? []) as unknown as Route[];
+  const openLeads = routes.filter((r) => r.status !== 'declined').length;
 
+  // Outbound hand-offs: seekers ClearBed sent to this facility's own website.
+  const { count: siteVisits } = await supabase
+    .from('outbound_clicks')
+    .select('id', { count: 'exact', head: true })
+    .eq('facility_id', id);
+
+  const location = [facility.city, facility.state].filter(Boolean).join(', ');
+
+  // ── EDIT MODE ────────────────────────────────────────────────────────────
+  if (editing) {
+    return (
+      <div className="space-y-8">
+        <div>
+          <Link href={`/facility/${id}`} className="text-sm text-teal-700">
+            ← Back to profile
+          </Link>
+          <h1 className="mt-1 text-xl font-semibold text-slate-800">Editing {facility.name}</h1>
+          <p className="text-sm text-slate-500">Changes show on your public profile right away.</p>
+        </div>
+
+        {/* Public profile editor */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">Public profile</h2>
+          <form action={updateProfile} className="grid gap-2 rounded-md border border-slate-200 bg-white p-3">
+            <input type="hidden" name="facility_id" value={id} />
+            <label className="text-xs text-slate-500">About your program (shown to seekers)</label>
+            <textarea
+              name="description"
+              defaultValue={facility.description ?? ''}
+              rows={3}
+              placeholder="Tell people what makes your program a good place to heal…"
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+            <label className="text-xs text-slate-500">Specializes in (separate with commas)</label>
+            <input
+              name="specialty_programs"
+              defaultValue={facility.specialty_programs ?? ''}
+              placeholder="Trauma-informed, dual diagnosis, family program…"
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+            <label className="text-xs text-slate-500">Website</label>
+            <input
+              name="website"
+              type="url"
+              defaultValue={facility.website ?? ''}
+              placeholder="https://…"
+              className="rounded border border-slate-300 px-3 py-2 text-sm"
+            />
+            <button type="submit" className="justify-self-start rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
+              Save profile
+            </button>
+          </form>
+        </section>
+
+        {/* Photos */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">Photos</h2>
+          <p className="text-xs text-slate-500">
+            Photos of your space help people feel comfortable reaching out — it&apos;s one of the most reassuring
+            things a seeker sees.
+          </p>
+          {images.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {images.map((src) => (
+                <div key={src} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="Facility" className="h-24 w-32 rounded-md object-cover" />
+                  <form action={removePhoto} className="absolute right-1 top-1">
+                    <input type="hidden" name="facility_id" value={id} />
+                    <input type="hidden" name="url" value={src} />
+                    <button
+                      type="submit"
+                      title="Remove photo"
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white"
+                    >
+                      ×
+                    </button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          )}
+          <form action={uploadPhoto} className="flex items-center gap-2">
+            <input type="hidden" name="facility_id" value={id} />
+            <input type="file" name="photo" accept="image/*" required className="text-sm" />
+            <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
+              Upload photo
+            </button>
+          </form>
+        </section>
+
+        {/* Bed availability — the moat */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">Bed availability</h2>
+          <p className="text-xs text-slate-500">Update whenever beds change. Each save refreshes your freshness.</p>
+          <div className="space-y-2">
+            {levels.map((lvl) => {
+              const cap = capByLevel.get(lvl);
+              const tone = freshnessTone(cap?.last_updated ?? null);
+              return (
+                <form
+                  key={lvl}
+                  action={updateCapacity}
+                  className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3"
+                >
+                  <input type="hidden" name="facility_id" value={id} />
+                  <input type="hidden" name="level_of_care" value={lvl} />
+                  <span className="w-48 text-sm text-slate-700">
+                    {LEVEL_LABELS[lvl as LevelOfCare] ?? lvl}
+                  </span>
+                  <input
+                    type="number"
+                    name="beds_available"
+                    min={0}
+                    defaultValue={cap?.beds_available ?? 0}
+                    className="w-20 rounded border border-slate-300 px-2 py-1 text-sm"
+                  />
+                  <span className="text-xs text-slate-400">beds</span>
+                  <span className={`rounded px-2 py-0.5 text-xs ${TONE_STYLES[tone]}`}>
+                    {tone === 'green' ? 'fresh' : tone === 'amber' ? 'aging' : 'stale'}
+                  </span>
+                  <button
+                    type="submit"
+                    className="ml-auto rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white"
+                  >
+                    Save
+                  </button>
+                </form>
+              );
+            })}
+            {levels.length === 0 && (
+              <p className="text-sm text-slate-500">No levels of care configured. Ask an admin to set them.</p>
+            )}
+          </div>
+        </section>
+
+        {/* Intake contact */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">Intake contact</h2>
+          <p className="text-xs text-slate-500">
+            Your admissions/intake point of contact. Shown publicly on your program profile so people we match to you
+            can reach out — and it&apos;s where we send a referral&apos;s details when a seeker chooses to share them.
+          </p>
+          <form action={updateContact} className="grid max-w-lg gap-2 rounded-md border border-slate-200 bg-white p-3">
+            <input type="hidden" name="facility_id" value={id} />
+            <input
+              name="contact_name"
+              defaultValue={contact.name ?? ''}
+              placeholder="Contact name (e.g. Intake Team)"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
+            />
+            <input
+              name="contact_phone"
+              defaultValue={contact.phone ?? ''}
+              placeholder="Phone"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
+            />
+            <input
+              name="contact_email"
+              type="email"
+              defaultValue={contact.email ?? ''}
+              placeholder="Email"
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
+            />
+            <button type="submit" className="justify-self-start rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
+              Save contact
+            </button>
+          </form>
+        </section>
+
+        <div>
+          <Link
+            href={`/facility/${id}`}
+            className="inline-block rounded-md border border-slate-300 px-4 py-1.5 text-sm font-medium text-slate-700 hover:border-teal-400"
+          >
+            Done editing
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // ── PROFILE VIEW (default landing) ─────────────────────────────────────────
   return (
     <div className="space-y-8">
-      <div>
+      {facilityIds.length > 1 && (
         <Link href="/facility" className="text-sm text-teal-700">
           ← All facilities
         </Link>
-        <h1 className="mt-1 text-xl font-semibold text-slate-800">{facility.name}</h1>
-        <p className="text-sm text-slate-500">
-          {[facility.city, facility.state].filter(Boolean).join(', ') || 'No location set'}
-          {facility.verified_at ? ' · verified' : ''}
-          {facility.is_published ? '' : ' · not yet published'}
-        </p>
-        <div className="mt-1 flex gap-4 text-xs font-medium text-teal-700">
-          <Link href={`/programs/${id}`} target="_blank">
-            View public profile ↗
-          </Link>
-          <Link href="/programs">Browse other programs</Link>
+      )}
+
+      {/* Hero */}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        {images.length > 0 ? (
+          <div className="grid grid-cols-3 gap-1">
+            {images.slice(0, 3).map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={i} src={src} alt={facility.name} className="h-40 w-full object-cover" />
+            ))}
+          </div>
+        ) : (
+          <div className="relative flex h-40 items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-teal-700/80 to-teal-500/60" />
+            <div className="relative text-center text-white">
+              <div className="text-4xl font-semibold">{facility.name.charAt(0)}</div>
+              <div className="mt-1 text-xs opacity-90">Add photos to bring your profile to life</div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-start justify-between gap-3 p-4">
+          <div>
+            <h1 className="text-xl font-semibold text-slate-800">{facility.name}</h1>
+            <p className="text-sm text-slate-500">{location || 'No location set'}</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs font-medium">
+              {facility.verified_at ? (
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">✓ Verified</span>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">Not verified</span>
+              )}
+              {facility.is_published ? (
+                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-teal-800">Published</span>
+              ) : (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800">Not yet published</span>
+              )}
+              {openLeads > 0 && (
+                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-teal-800">
+                  {openLeads} open {openLeads === 1 ? 'lead' : 'leads'}
+                </span>
+              )}
+              {siteVisits ? (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
+                  ClearBed sent {siteVisits} to your site
+                </span>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href={`/facility/${id}?edit=1`}
+              className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800"
+            >
+              Edit profile
+            </Link>
+            <Link
+              href={`/programs/${id}`}
+              target="_blank"
+              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-teal-400"
+            >
+              View public profile ↗
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Public profile editor */}
+      {/* About */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700">Public profile</h2>
-        <form action={updateProfile} className="grid gap-2 rounded-md border border-slate-200 bg-white p-3">
-          <input type="hidden" name="facility_id" value={id} />
-          <label className="text-xs text-slate-500">About your program (shown to seekers)</label>
-          <textarea
-            name="description"
-            defaultValue={facility.description ?? ''}
-            rows={3}
-            placeholder="Tell people what makes your program a good place to heal…"
-            className="rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-          <label className="text-xs text-slate-500">Specializes in (separate with commas)</label>
-          <input
-            name="specialty_programs"
-            defaultValue={facility.specialty_programs ?? ''}
-            placeholder="Trauma-informed, dual diagnosis, family program…"
-            className="rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-          <label className="text-xs text-slate-500">Website</label>
-          <input
-            name="website"
-            type="url"
-            defaultValue={facility.website ?? ''}
-            placeholder="https://…"
-            className="rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-          <button type="submit" className="justify-self-start rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
-            Save profile
-          </button>
-        </form>
-      </section>
-
-      {/* Photos */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700">Photos</h2>
-        <p className="text-xs text-slate-500">
-          Photos of your space help people feel comfortable reaching out — it&apos;s one of the most reassuring
-          things a seeker sees.
-        </p>
-        {images.length > 0 && (
+        <h2 className="text-sm font-semibold text-slate-700">About</h2>
+        {facility.description ? (
+          <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{facility.description}</p>
+        ) : (
+          <p className="text-sm text-slate-400">
+            No description yet.{' '}
+            <Link href={`/facility/${id}?edit=1`} className="text-teal-700">
+              Add one
+            </Link>{' '}
+            so seekers know what makes your program a good place to heal.
+          </p>
+        )}
+        {specialties.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {images.map((src) => (
-              <div key={src} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="Facility" className="h-24 w-32 rounded-md object-cover" />
-                <form action={removePhoto} className="absolute right-1 top-1">
-                  <input type="hidden" name="facility_id" value={id} />
-                  <input type="hidden" name="url" value={src} />
-                  <button
-                    type="submit"
-                    title="Remove photo"
-                    className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white"
-                  >
-                    ×
-                  </button>
-                </form>
-              </div>
+            {specialties.map((s) => (
+              <span key={s} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
+                {s}
+              </span>
             ))}
           </div>
         )}
-        <form action={uploadPhoto} className="flex items-center gap-2">
-          <input type="hidden" name="facility_id" value={id} />
-          <input type="file" name="photo" accept="image/*" required className="text-sm" />
-          <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
-            Upload photo
-          </button>
-        </form>
+        {facility.website && (
+          <a href={facility.website} target="_blank" rel="noreferrer" className="inline-block text-sm text-teal-700 hover:underline">
+            {facility.website.replace(/^https?:\/\//, '')} ↗
+          </a>
+        )}
+      </section>
+
+      {/* Bed availability (read-only summary) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700">Bed availability</h2>
+          <Link href={`/facility/${id}?edit=1`} className="text-xs font-medium text-teal-700">
+            Update beds
+          </Link>
+        </div>
+        {levels.length === 0 ? (
+          <p className="text-sm text-slate-500">No levels of care configured. Ask an admin to set them.</p>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {levels.map((lvl) => {
+              const cap = capByLevel.get(lvl);
+              const tone = freshnessTone(cap?.last_updated ?? null);
+              return (
+                <div key={lvl} className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
+                  <span className="flex-1 text-sm text-slate-700">{LEVEL_LABELS[lvl as LevelOfCare] ?? lvl}</span>
+                  <span className="text-sm font-semibold text-slate-800">{cap?.beds_available ?? 0}</span>
+                  <span className="text-xs text-slate-400">beds</span>
+                  <span className={`rounded px-2 py-0.5 text-xs ${TONE_STYLES[tone]}`}>
+                    {tone === 'green' ? 'fresh' : tone === 'amber' ? 'aging' : 'stale'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* Inbound leads */}
@@ -215,80 +457,28 @@ export default async function FacilityManage({ params }: { params: Promise<{ id:
         ))}
       </section>
 
-      {/* Bed availability — the moat */}
+      {/* Intake contact (read-only summary) */}
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700">Bed availability</h2>
-        <p className="text-xs text-slate-500">Update whenever beds change. Each save refreshes your freshness.</p>
-        <div className="space-y-2">
-          {levels.map((lvl) => {
-            const cap = capByLevel.get(lvl);
-            const tone = freshnessTone(cap?.last_updated ?? null);
-            return (
-              <form
-                key={lvl}
-                action={updateCapacity}
-                className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3"
-              >
-                <input type="hidden" name="facility_id" value={id} />
-                <input type="hidden" name="level_of_care" value={lvl} />
-                <span className="w-48 text-sm text-slate-700">
-                  {LEVEL_LABELS[lvl as LevelOfCare] ?? lvl}
-                </span>
-                <input
-                  type="number"
-                  name="beds_available"
-                  min={0}
-                  defaultValue={cap?.beds_available ?? 0}
-                  className="w-20 rounded border border-slate-300 px-2 py-1 text-sm"
-                />
-                <span className="text-xs text-slate-400">beds</span>
-                <span className={`rounded px-2 py-0.5 text-xs ${TONE_STYLES[tone]}`}>
-                  {tone === 'green' ? 'fresh' : tone === 'amber' ? 'aging' : 'stale'}
-                </span>
-                <button
-                  type="submit"
-                  className="ml-auto rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white"
-                >
-                  Save
-                </button>
-              </form>
-            );
-          })}
-          {levels.length === 0 && (
-            <p className="text-sm text-slate-500">No levels of care configured. Ask an admin to set them.</p>
-          )}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-700">Intake contact</h2>
+            <p className="text-xs text-slate-500">
+              Shown publicly so matched seekers can reach your admissions team.
+            </p>
+          </div>
+          <Link href={`/facility/${id}?edit=1`} className="text-xs font-medium text-teal-700">
+            Edit contact
+          </Link>
         </div>
-      </section>
-
-      {/* Referral contact */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700">Referral contact</h2>
-        <p className="text-xs text-slate-500">Who matched seekers and referrers should reach.</p>
-        <form action={updateContact} className="grid max-w-lg gap-2 rounded-md border border-slate-200 bg-white p-3">
-          <input type="hidden" name="facility_id" value={id} />
-          <input
-            name="contact_name"
-            defaultValue={contact.name ?? ''}
-            placeholder="Contact name (e.g. Intake Team)"
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-          />
-          <input
-            name="contact_phone"
-            defaultValue={contact.phone ?? ''}
-            placeholder="Phone"
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-          />
-          <input
-            name="contact_email"
-            type="email"
-            defaultValue={contact.email ?? ''}
-            placeholder="Email"
-            className="rounded border border-slate-300 px-2 py-1 text-sm"
-          />
-          <button type="submit" className="justify-self-start rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
-            Save contact
-          </button>
-        </form>
+        {contact.name || contact.phone || contact.email ? (
+          <div className="grid max-w-lg gap-1 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-700">
+            {contact.name && <div className="font-medium text-slate-800">{contact.name}</div>}
+            {contact.phone && <div>{contact.phone}</div>}
+            {contact.email && <div>{contact.email}</div>}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">No intake contact set yet.</p>
+        )}
       </section>
     </div>
   );

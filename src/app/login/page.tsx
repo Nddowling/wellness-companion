@@ -43,19 +43,20 @@ export default function LoginPage() {
           className="absolute inset-0 -z-20 bg-cover bg-center"
           style={{ backgroundImage: "url('/images/facility.jpg')" }}
         />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-ink/85 via-brand/75 to-brand/45" />
-        <div className="flex h-full flex-col justify-between p-12 text-white">
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-ink/90 via-brand/85 to-brand/65" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-ink/70 via-transparent to-ink/30" />
+        <div className="flex h-full flex-col justify-between p-12 text-white [text-shadow:0_1px_12px_rgba(0,0,0,0.45)]">
           <Link href="/" aria-label="Clear Bed Recovery — home">
             <Logo tone="light" className="text-xl" />
           </Link>
           <div className="max-w-md">
             <h2 className="h2 text-white">The live directory behind every good referral.</h2>
-            <p className="lead mt-3 text-white/85">
+            <p className="lead mt-3" style={{ color: '#fff' }}>
               Sign in to keep your beds and profile current, browse programs, and track the people
               you&apos;re helping into care.
             </p>
           </div>
-          <p className="text-xs text-white/60">
+          <p className="text-xs text-white/75">
             A resource navigator — not a medical or crisis service.
           </p>
         </div>

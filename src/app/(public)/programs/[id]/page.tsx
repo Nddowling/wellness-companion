@@ -218,7 +218,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             <div className="flex flex-wrap gap-2">
               {f.website && (
                 <a
-                  href={f.website}
+                  href={`/go/${f.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-dark"

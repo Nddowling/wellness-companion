@@ -9,64 +9,59 @@ type Tier = {
   tagline: string;
   monthly: string;
   annual: string;
-  paid: boolean;
   cta: string;
-  freeHref?: string;
   highlight: boolean;
   features: string[];
 };
 
 const TIERS: Tier[] = [
   {
-    key: 'free',
-    name: 'Free',
-    tagline: 'Get on the map.',
-    monthly: '$0',
-    annual: '$0',
-    paid: false,
-    cta: 'Get listed free',
-    freeHref: '/get-started',
+    key: 'starter',
+    name: 'Starter',
+    tagline: 'Outpatient, OTP & smaller programs.',
+    monthly: '$499',
+    annual: '$5,988',
+    cta: 'Start Starter',
     highlight: false,
     features: [
-      'Directory listing — name, location, levels of care',
-      'Appears in seeker matches',
-      'No credit card required',
+      'Claimed, editable profile + photos',
+      'Bed board listing & live availability',
+      'Receive payer-matched applications',
+      'Basic referral tracking',
+      'Reviews from people you’ve served',
     ],
   },
   {
-    key: 'verified',
-    name: 'Verified',
-    tagline: 'Own your profile.',
-    monthly: '$349',
-    annual: '$3,490',
-    paid: true,
-    cta: 'Start Verified',
+    key: 'growth',
+    name: 'Growth',
+    tagline: 'Mid-size residential & PHP.',
+    monthly: '$999',
+    annual: '$11,988',
+    cta: 'Start Growth',
     highlight: true,
     features: [
-      'Everything in Free',
-      'Claimed, editable profile',
-      'Photos & a Verified badge',
-      'Live bed availability',
-      'Reviews from people you’ve served',
-      'Intake contact shown to seekers',
-      'Basic analytics',
+      'Everything in Starter',
+      '2 referrer (BD) seats',
+      'Attribution tracking',
+      'Follow-up workflow',
+      'Priority placement in match results',
     ],
   },
   {
-    key: 'premium',
-    name: 'Premium',
-    tagline: 'Stand out & scale.',
-    monthly: '$999',
-    annual: '$9,990',
-    paid: true,
-    cta: 'Start Premium',
+    key: 'anchor',
+    name: 'Anchor',
+    tagline: 'Multi-bed residential & hospital systems.',
+    monthly: '$1,999',
+    annual: '$23,988',
+    cta: 'Start Anchor',
     highlight: false,
     features: [
-      'Everything in Verified',
-      'Featured “Sponsored” placement (flat fee)',
-      'Multiple locations',
-      'EHR / bed-feed integration',
-      'Priority support',
+      'Everything in Growth',
+      'Unlimited referrer seats',
+      'Dedicated onboarding',
+      'Census analytics dashboard',
+      'API bed-board updates',
+      'White-glove intake-team training',
     ],
   },
 ];
@@ -76,15 +71,19 @@ export function PricingTable() {
 
   return (
     <div>
+      {/* Founding offer */}
+      <div className="mb-6 rounded-xl border border-terracotta/40 bg-terracotta/10 px-4 py-3 text-center text-sm text-slate-700">
+        <strong className="text-slate-800">Founding facilities:</strong> our first 10 programs get{' '}
+        <strong>50% off the first year</strong> — applied automatically at checkout.
+      </div>
+
       {/* Monthly / annual toggle */}
       <div className="flex items-center justify-center gap-3">
         <span className={annual ? 'text-sm text-slate-400' : 'text-sm font-medium text-slate-700'}>Monthly</span>
         <button
           onClick={() => setAnnual((a) => !a)}
           aria-label="Toggle annual billing"
-          className={
-            'relative h-6 w-11 rounded-full transition ' + (annual ? 'bg-teal-700' : 'bg-slate-300')
-          }
+          className={'relative h-6 w-11 rounded-full transition ' + (annual ? 'bg-teal-700' : 'bg-slate-300')}
         >
           <span
             className={
@@ -93,15 +92,15 @@ export function PricingTable() {
           />
         </button>
         <span className={annual ? 'text-sm font-medium text-slate-700' : 'text-sm text-slate-400'}>
-          Annual <span className="text-teal-700">· 2 months free</span>
+          Annual <span className="text-slate-400">· billed yearly</span>
         </span>
       </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         {TIERS.map((t) => {
-          const href = t.paid ? `/api/checkout?plan=${t.key}&cycle=${annual ? 'annual' : 'monthly'}` : t.freeHref!;
+          const href = `/api/checkout?plan=${t.key}&cycle=${annual ? 'annual' : 'monthly'}`;
           const price = annual ? t.annual : t.monthly;
-          const period = t.paid ? (annual ? '/yr' : '/mo') : 'forever';
+          const period = annual ? '/yr' : '/mo';
           return (
             <div
               key={t.key}
@@ -121,7 +120,7 @@ export function PricingTable() {
                 <span className="text-3xl font-semibold text-slate-800">{price}</span>
                 <span className="text-sm text-slate-500">{period}</span>
               </div>
-              {t.paid && annual && <p className="mt-1 text-xs text-teal-700">2 months free vs. monthly</p>}
+              <p className="mt-1 text-xs text-slate-400">per facility{annual ? '' : ', billed monthly'}</p>
 
               <Link
                 href={href}
@@ -147,6 +146,15 @@ export function PricingTable() {
           );
         })}
       </div>
+
+      {/* Free / basic listing */}
+      <p className="mt-6 text-center text-sm text-slate-500">
+        Not ready to subscribe?{' '}
+        <Link href="/get-started" className="font-medium text-teal-700 hover:underline">
+          List your program for free →
+        </Link>{' '}
+        (a basic directory listing, so people can still find you).
+      </p>
     </div>
   );
 }

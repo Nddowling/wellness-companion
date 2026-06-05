@@ -98,7 +98,7 @@ export default function NewFacilityPage() {
         </section>
 
         <section className="grid grid-cols-3 gap-4 rounded-md border border-slate-200 bg-white p-4">
-          <p className={`${labelClass} col-span-3`}>Referral contact</p>
+          <p className={`${labelClass} col-span-3`}>Intake contact — shown publicly so matched seekers can reach the program&apos;s admissions team</p>
           <input name="contact_name" placeholder="Name" className={inputClass} />
           <input name="contact_email" type="email" placeholder="Email" className={inputClass} />
           <input name="contact_phone" placeholder="Phone" className={inputClass} />

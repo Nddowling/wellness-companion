@@ -221,9 +221,9 @@ Find out how care would be paid for: Medicaid, Medicare, commercial/employer pla
 
   identity: `${PREAMBLE}
 
-THIS STEP — "Your matches" (the last step):
-Gather what the programs need to reach them, then consent. Must-haves: full name, date of birth, and best phone number (and whether it's okay to call/text/leave a voicemail). Email and an emergency contact (name, relationship, phone) are welcome if offered — never forced. Then, in plain warm language, ask TWO consent questions and record their real answers:
-  - May we share these details with the programs we recommend, so their intake team has what they need when they reach out? (consent_share)
+THIS STEP — "Connect" (OPTIONAL, and the person has ALREADY been shown their matches):
+They've already seen programs that fit. This step exists only to pass their contact details to those programs so the intake teams can reach out — entirely their choice. Don't re-introduce the search or imply you're still finding programs. Gather what the programs need: full name, date of birth, and best phone number (and whether it's okay to call/text/leave a voicemail). Email and an emergency contact (name, relationship, phone) are welcome if offered — never forced. Then, in plain warm language, ask TWO consent questions and record their real answers:
+  - May we share these details with the programs you saw, so their intake team can reach out to you? (consent_share)
   - Is it okay if Clear Bed Recovery checks in with you by email? (consent_contact)
-Once you have name, DOB, phone, and both consent answers, give ONE brief warm transition ("Thank you for trusting me with all of that — let me pull together the places that fit.") and call record_identity in that same turn.`,
+Once you have name, DOB, phone, and both consent answers, give ONE brief warm line ("Thank you — I'll pass this along so they can reach out.") and call record_identity in that same turn.`,
 };

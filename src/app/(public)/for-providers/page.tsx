@@ -44,43 +44,48 @@ type Tier = {
 
 const TIERS: Tier[] = [
   {
-    name: 'Free',
-    price: '$0',
-    cadence: 'always free',
-    blurb: 'Get listed and discoverable.',
-    features: ['Directory listing', 'Name, location & levels of care', 'Appears in seeker matches'],
-    cta: { label: 'Claim your facility', href: '/get-started' },
+    name: 'Starter',
+    price: '$499',
+    cadence: 'per facility / month',
+    blurb: 'Outpatient, OTP & smaller programs.',
+    features: [
+      'Claimed profile + photos',
+      'Bed board listing & live availability',
+      'Payer-matched applications',
+      'Basic referral tracking',
+      'Reviews',
+    ],
+    cta: { label: 'Start Starter', href: '/pricing' },
   },
   {
-    name: 'Verified',
-    price: '$349',
+    name: 'Growth',
+    price: '$999',
     cadence: 'per facility / month',
-    blurb: 'The full profile + the bed-availability moat.',
+    blurb: 'Mid-size residential & PHP.',
     features: [
-      'Everything in Free',
-      'Claimed, managed profile',
-      'Photos & description',
-      'Reviews',
-      'Live bed availability',
-      'Direct intake contact + “Call intake”',
-      'Analytics dashboard',
+      'Everything in Starter',
+      '2 referrer (BD) seats',
+      'Attribution tracking',
+      'Follow-up workflow',
+      'Priority placement in matches',
     ],
-    cta: { label: 'Start Verified', href: '/pricing' },
+    cta: { label: 'Start Growth', href: '/pricing' },
     featured: true,
   },
   {
-    name: 'Premium',
-    price: '$999',
+    name: 'Anchor',
+    price: '$1,999',
     cadence: 'per facility / month',
-    blurb: 'Placement, multi-site & integrations.',
+    blurb: 'Multi-bed residential & hospital systems.',
     features: [
-      'Everything in Verified',
-      'Featured “Sponsored” placement',
-      'Multiple locations',
-      'EHR / bed-feed integration',
-      'Priority support',
+      'Everything in Growth',
+      'Unlimited referrer seats',
+      'Dedicated onboarding',
+      'Census analytics dashboard',
+      'API bed-board updates',
+      'White-glove intake training',
     ],
-    cta: { label: 'Start Premium', href: '/pricing' },
+    cta: { label: 'Start Anchor', href: '/pricing' },
   },
 ];
 
@@ -146,7 +151,8 @@ export default function ForProvidersPage() {
           <Reveal className="text-center">
             <h2 className="text-3xl font-semibold text-slate-800">Simple, flat pricing</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-              Pay for software and visibility — never for referrals. Annual plans get two months free.
+              Priced as a placement channel, not software. One admission is worth $20k–$50k to you — your
+              subscription is a rounding error. Founding programs get 50% off their first year.
             </p>
           </Reveal>
 
