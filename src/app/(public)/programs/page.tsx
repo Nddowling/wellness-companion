@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, type LevelOfCare, type PayerType } from '@/lib/constants';
 import { absoluteUrl } from '@/lib/seo';
+import { getRoles, isProviderSide } from '@/lib/auth';
 
 const PROGRAMS_TITLE = 'Browse Treatment Programs — Rehab & Recovery Directory';
 const PROGRAMS_DESCRIPTION =
@@ -45,6 +46,7 @@ export default async function ProgramsDirectory({
   searchParams: Promise<{ level?: string; q?: string }>;
 }) {
   const { level, q } = await searchParams;
+  const providerSide = isProviderSide(await getRoles());
   const supabase = createAdminClient();
 
   const { data } = await supabase
@@ -72,9 +74,11 @@ export default async function ProgramsDirectory({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
-      <Link href="/match" className="text-sm text-teal-700">
-        ← Back to your matches
-      </Link>
+      {!providerSide && (
+        <Link href="/match" className="text-sm text-teal-700">
+          ← Back to your matches
+        </Link>
+      )}
 
       <div className="mt-3">
         <h1 className="text-2xl font-semibold text-slate-800">Browse treatment programs</h1>

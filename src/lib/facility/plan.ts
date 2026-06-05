@@ -32,6 +32,7 @@ export const FEATURE_MIN_PLAN = {
   photos: 'starter',
   description: 'starter',
   website: 'starter',
+  callIntake: 'starter',
   respondReviews: 'starter',
   basicAnalytics: 'growth',
   followUpWorkflow: 'growth',

@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import JsonLd from '@/components/JsonLd';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizePlan, planAllows } from '@/lib/facility/plan';
+import { getRoles, isProviderSide } from '@/lib/auth';
 import {
   LEVEL_LABELS,
   PAYER_LABELS,
@@ -107,6 +108,8 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
   // Plan-gated profile richness (photos, about, website are part of a claimed,
   // Starter+ profile). Matching/availability is NOT gated — it stays need-based.
   const plan = normalizePlan(f.plan);
+  const providerSide = isProviderSide(await getRoles());
+  const showCallIntake = planAllows(plan, 'callIntake'); // no "Call intake" on Free profiles
   const images = planAllows(plan, 'photos') ? ((f.images ?? []) as string[]) : [];
   const showDescription = planAllows(plan, 'description') && !!f.description;
   const showWebsite = planAllows(plan, 'website') && !!f.website;
@@ -179,9 +182,11 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
     <main className="mx-auto max-w-3xl px-4 py-6">
       <JsonLd data={jsonLd} />
       <div className="flex gap-4 text-sm text-teal-700">
-        <Link href="/match" className="hover:underline">
-          ← Your matches
-        </Link>
+        {!providerSide && (
+          <Link href="/match" className="hover:underline">
+            ← Your matches
+          </Link>
+        )}
         <Link href="/programs" className="hover:underline">
           Browse all programs
         </Link>
@@ -232,7 +237,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
                   Go to website ↗
                 </a>
               )}
-              {intakePhone && (
+              {intakePhone && showCallIntake && (
                 <a
                   href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`}
                   className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
