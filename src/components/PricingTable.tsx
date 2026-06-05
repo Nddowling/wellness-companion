@@ -74,7 +74,7 @@ export function PricingTable() {
       {/* Founding offer */}
       <div className="mb-6 rounded-xl border border-terracotta/40 bg-terracotta/10 px-4 py-3 text-center text-sm text-slate-700">
         <strong className="text-slate-800">Founding facilities:</strong> our first 10 programs get{' '}
-        <strong>50% off the first year</strong> — applied automatically at checkout.
+        <strong>50% off the first year</strong> — enter code <strong>FOUNDING50</strong> at checkout.
       </div>
 
       {/* Monthly / annual toggle */}

@@ -178,6 +178,69 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
     ['Accreditations', (f.accreditations ?? []).join(', ') || null],
   ];
 
+  // FREE tier → a bare directory listing. Only the four basics: name, address,
+  // treatment type, contact. No photos, insurance, description, reviews, etc.
+  // (Claiming the program and upgrading unlocks the full profile below.)
+  if (plan === 'free') {
+    const cityStateZip = [[f.city, f.state].filter(Boolean).join(', '), f.zip].filter(Boolean).join(' ');
+    const addressLine = [f.street, cityStateZip].filter(Boolean).join(', ');
+    const treatmentTypes =
+      levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(' · ') || 'Addiction & mental-health treatment';
+    const minimalLd = {
+      '@context': 'https://schema.org',
+      '@type': 'MedicalBusiness',
+      name: f.name,
+      medicalSpecialty: 'Addiction',
+      address: {
+        '@type': 'PostalAddress',
+        ...(f.street ? { streetAddress: f.street } : {}),
+        ...(f.city ? { addressLocality: f.city } : {}),
+        ...(f.state ? { addressRegion: f.state } : {}),
+        ...(f.zip ? { postalCode: f.zip } : {}),
+        addressCountry: 'US',
+      },
+      ...(intakePhone ? { telephone: intakePhone } : {}),
+    };
+    return (
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <JsonLd data={minimalLd} />
+        <div className="flex gap-4 text-sm text-teal-700">
+          {!providerSide && (
+            <Link href="/match" className="hover:underline">
+              ← Your matches
+            </Link>
+          )}
+          <Link href="/programs" className="hover:underline">
+            Browse all programs
+          </Link>
+        </div>
+
+        <div className="mt-4 border border-slate-300 bg-white p-5 text-slate-900">
+          <h1 className="text-lg font-semibold">{f.name}</h1>
+          {addressLine && <p className="mt-1 text-sm">{addressLine}</p>}
+          <p className="mt-1 text-sm">{treatmentTypes}</p>
+          {intakePhone && (
+            <p className="mt-1 text-sm">
+              <a href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`} className="underline">
+                {intakePhone}
+              </a>
+            </p>
+          )}
+        </div>
+
+        {!providerSide && (
+          <p className="mt-3 text-xs text-slate-400">
+            Is this your program?{' '}
+            <Link href="/for-providers" className="underline hover:text-slate-600">
+              Claim this listing
+            </Link>{' '}
+            to add photos, insurance, and a full profile.
+          </p>
+        )}
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
       <JsonLd data={jsonLd} />
