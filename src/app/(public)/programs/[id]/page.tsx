@@ -216,6 +216,37 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
           </Link>
         </div>
 
+        {!providerSide && (
+          <div className="mt-4 overflow-hidden rounded-2xl bg-gradient-to-br from-ink via-brand to-brand/80 p-6 text-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="max-w-xl">
+                <span className="inline-block rounded-full bg-white/15 px-2.5 py-0.5 text-xs font-medium uppercase tracking-wide backdrop-blur">
+                  Unclaimed listing
+                </span>
+                <h2 className="mt-2 text-xl font-semibold">Is this your program?</h2>
+                <p className="mt-1 text-sm text-white/90">
+                  Claim {f.name} to add photos, show your live bed availability, collect reviews, earn a Verified
+                  badge — and start receiving referrals matched to your beds, coverage, and region. Free to claim.
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-col gap-2">
+                <Link
+                  href="/get-started"
+                  className="rounded-md bg-terracotta px-5 py-2.5 text-center text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+                >
+                  Claim your facility →
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="rounded-md border border-white/40 px-5 py-2 text-center text-sm font-medium text-white hover:bg-white/10"
+                >
+                  See plans
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
           <h1 className="text-2xl font-semibold text-slate-800">{f.name}</h1>
           <p className="text-sm text-slate-500">
@@ -274,13 +305,44 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
         </div>
 
         {!providerSide && (
-          <p className="mt-3 text-xs text-slate-400">
-            Is this your program?{' '}
-            <Link href="/for-providers" className="underline hover:text-slate-600">
-              Claim this listing
-            </Link>{' '}
-            to add photos, insurance, and a full profile.
-          </p>
+          <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-white p-5">
+            <p className="text-sm font-semibold text-slate-700">Claiming unlocks your full profile</p>
+            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-slate-600 sm:grid-cols-3">
+              {[
+                'Photos of your space',
+                'Live bed availability',
+                'Reviews from clients',
+                'Website + “Call intake” button',
+                'Verified badge',
+                'Accepted insurance & carriers',
+                'Matched referrals from seekers',
+                'Lead & profile analytics',
+                'A full “about” description',
+              ].map((label) => (
+                <div key={label} className="flex items-center gap-2">
+                  <span className="text-teal-600">✓</span>
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href="/get-started"
+                className="rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
+              >
+                Claim {f.name} →
+              </Link>
+              <Link
+                href="/for-providers"
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:border-teal-400"
+              >
+                How it works
+              </Link>
+            </div>
+            <p className="mt-3 text-xs text-slate-400">
+              People seeking care still find you here — claiming just lets you show them more.
+            </p>
+          </div>
         )}
       </main>
     );
