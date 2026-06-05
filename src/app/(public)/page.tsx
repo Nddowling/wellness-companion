@@ -3,13 +3,16 @@ import Link from 'next/link';
 
 import Reveal from '@/components/Reveal';
 import { Logo } from '@/components/Logo';
+import { getRoles, isProviderSide } from '@/lib/auth';
 
 export const metadata: Metadata = {
   // Home inherits the layout's default (brand) title + OG; just pin the canonical.
   alternates: { canonical: '/' },
 };
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // Provider-side users (facility/BD, not Global Admin) see no seeker AI/match CTA.
+  const providerSide = isProviderSide(await getRoles());
   return (
     <main className="text-slate-800">
       {/* ── HERO ─────────────────────────────────────────────── */}
@@ -49,12 +52,21 @@ export default function LandingPage() {
               actually fits — your situation, your coverage, your needs. No account required to start.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
-              <Link
-                href="/match"
-                className="rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
-              >
-                Find care — start here →
-              </Link>
+              {providerSide ? (
+                <Link
+                  href="/home"
+                  className="rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+                >
+                  Go to your dashboard →
+                </Link>
+              ) : (
+                <Link
+                  href="/match"
+                  className="rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+                >
+                  Find care — start here →
+                </Link>
+              )}
               <Link
                 href="/programs"
                 className="rounded-md border border-white/40 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur transition hover:bg-white/20"
@@ -62,7 +74,9 @@ export default function LandingPage() {
                 Browse all programs
               </Link>
             </div>
-            <p className="mt-5 text-xs text-white/70">Free · Private · Takes about 2 minutes</p>
+            {!providerSide && (
+              <p className="mt-5 text-xs text-white/70">Free · Private · Takes about 2 minutes</p>
+            )}
             <p className="mt-4 text-xs text-white/70">
               In an emergency call <strong>911</strong>. In crisis, call or text <strong>988</strong> — anytime.
             </p>
@@ -154,7 +168,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── CTA BAND ─────────────────────────────────────────── */}
+      {/* ── CTA BAND (seeker-only) ───────────────────────────── */}
+      {!providerSide && (
       <section className="relative isolate overflow-hidden py-20">
         <div className="absolute inset-0 -z-20 bg-cover bg-center" style={{ backgroundImage: "url('/images/sunrise.jpg')" }} />
         <div className="absolute inset-0 -z-10 bg-brand/80" />
@@ -171,6 +186,7 @@ export default function LandingPage() {
           </Link>
         </Reveal>
       </section>
+      )}
 
       {/* ── FOOTER ───────────────────────────────────────────── */}
       <footer className="bg-ink py-10 text-sm text-white/80">
@@ -186,7 +202,9 @@ export default function LandingPage() {
             <div className="flex flex-wrap gap-10 text-xs">
               <div className="space-y-1">
                 <div className="font-medium text-white/90">Find care</div>
-                <Link href="/match" className="block text-white/70 hover:text-white">Find care that fits</Link>
+                {!providerSide && (
+                  <Link href="/match" className="block text-white/70 hover:text-white">Find care that fits</Link>
+                )}
                 <Link href="/programs" className="block text-white/70 hover:text-white">Browse programs</Link>
               </div>
               <div className="space-y-1">

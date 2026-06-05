@@ -195,6 +195,65 @@ export async function getSearchesByAuthUser(
   return out;
 }
 
+export type FacilityContact = {
+  interestId: string;
+  seekerId: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  coverageStatus: string | null;
+  status: string; // vault_seekers.status: active | connected | unsubscribed
+  faceSheet: Record<string, unknown>;
+  sharedAt: string; // when the face sheet was sent to this facility (falls back to interest creation)
+};
+
+/**
+ * Facility "Contacts": the seekers who explicitly consented to share their details
+ * with THIS facility (consent_share=true). Same PHI the facility already receives by
+ * email on hand-off — surfaced in-app, scoped to one facility. Callers MUST verify
+ * facility membership before calling (this bypasses RLS via the service-role client).
+ */
+export async function listSeekerContactsForFacility(facilityId: string): Promise<FacilityContact[]> {
+  const vault = createVaultClient();
+
+  const { data: interests } = await vault
+    .from('vault_seeker_interest')
+    .select('id, seeker_id, created_at, info_sent_at')
+    .eq('facility_id', facilityId)
+    .order('created_at', { ascending: false });
+  if (!interests?.length) return [];
+
+  const seekerIds = [...new Set(interests.map((i) => i.seeker_id).filter((x): x is string => !!x))];
+  if (!seekerIds.length) return [];
+
+  // Only the consented seekers — defensive, even though interest rows are only
+  // created on a consented hand-off.
+  const { data: seekers } = await vault
+    .from('vault_seekers')
+    .select('id, name, email, phone, coverage_status, status, face_sheet')
+    .in('id', seekerIds)
+    .eq('consent_share', true);
+  const byId = new Map((seekers ?? []).map((s) => [s.id, s]));
+
+  const out: FacilityContact[] = [];
+  for (const i of interests) {
+    const s = i.seeker_id ? byId.get(i.seeker_id) : null;
+    if (!s) continue; // not consented / not found — never surface
+    out.push({
+      interestId: i.id,
+      seekerId: s.id,
+      name: s.name,
+      email: s.email,
+      phone: s.phone,
+      coverageStatus: s.coverage_status,
+      status: s.status,
+      faceSheet: (s.face_sheet as Record<string, unknown>) ?? {},
+      sharedAt: i.info_sent_at ?? i.created_at,
+    });
+  }
+  return out;
+}
+
 /** Seeker self-edit: update their own identity fields (scoped to their account). */
 export async function updateMyInfo(
   authUserId: string,

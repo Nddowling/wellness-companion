@@ -45,6 +45,16 @@ export type Roles = {
   isSeeker: boolean;
 };
 
+/**
+ * Provider-side = a signed-in facility member or BD/referrer who is NOT a Global
+ * Admin. These users manage programs/referrals and never use the seeker AI intake,
+ * so the seeker "Find care" / match entry points are hidden from them. Global
+ * Admins (platform_admins) are intentionally excluded — they can access everything.
+ */
+export function isProviderSide(r: Roles): boolean {
+  return !!r.user && !r.isAdmin && (r.facilityIds.length > 0 || r.isBd);
+}
+
 /** Resolve every role the current user holds in one pass (for nav + routing). */
 export async function getRoles(): Promise<Roles> {
   const supabase = await createClient();

@@ -18,6 +18,11 @@ import type { Database } from '@/types/database';
  * exists it falls back to the Core project, where the vault_* tables are locked
  * down by deny-all RLS and reachable only via this service-role client.
  */
+/** Non-throwing check — for UIs that degrade gracefully when PHI is gated off. */
+export function isVaultEnabled(): boolean {
+  return process.env.HANDOFF_BAA_SIGNED === 'true';
+}
+
 export function assertVaultEnabled(): void {
   if (process.env.HANDOFF_BAA_SIGNED !== 'true') {
     throw new Error(

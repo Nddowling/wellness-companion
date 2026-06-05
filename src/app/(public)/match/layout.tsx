@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 
 import { absoluteUrl } from '@/lib/seo';
+import { getRoles, isProviderSide } from '@/lib/auth';
 
 // The /match page itself is a client component (the live intake conversation),
 // so its metadata is declared here in a server-component layout wrapper.
@@ -19,6 +21,10 @@ export const metadata: Metadata = {
   },
 };
 
-export default function MatchLayout({ children }: { children: React.ReactNode }) {
+export default async function MatchLayout({ children }: { children: React.ReactNode }) {
+  // Provider-side users (facility/BD, not a Global Admin) don't use the seeker AI —
+  // send them to their dashboard instead of the intake conversation.
+  const roles = await getRoles();
+  if (isProviderSide(roles)) redirect('/home');
   return children;
 }

@@ -3,17 +3,30 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
-const LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/match', label: 'Find care' },
-  { href: '/programs', label: 'Browse programs' },
-  { href: '/me', label: 'My saved matches' },
-  { href: '/for-providers', label: 'For providers' },
-  { href: '/pricing', label: 'Pricing' },
-];
+type NavLink = { href: string; label: string };
 
-export default function SiteMenu() {
+// Provider-side users (facility/BD, not a Global Admin) never see the seeker AI
+// "Find care" / "My saved matches" entries — they get a dashboard shortcut instead.
+function buildLinks(providerSide: boolean, dashboardHref: string | null): NavLink[] {
+  const links: NavLink[] = [{ href: '/', label: 'Home' }];
+  if (!providerSide) links.push({ href: '/match', label: 'Find care' });
+  links.push({ href: '/programs', label: 'Browse programs' });
+  if (!providerSide) links.push({ href: '/me', label: 'My saved matches' });
+  if (dashboardHref) links.push({ href: dashboardHref, label: 'My dashboard' });
+  links.push({ href: '/for-providers', label: 'For providers' });
+  links.push({ href: '/pricing', label: 'Pricing' });
+  return links;
+}
+
+export default function SiteMenu({
+  providerSide = false,
+  dashboardHref = null,
+}: {
+  providerSide?: boolean;
+  dashboardHref?: string | null;
+}) {
   const [open, setOpen] = useState(false);
+  const LINKS = buildLinks(providerSide, dashboardHref);
 
   return (
     <>
