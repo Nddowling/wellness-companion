@@ -19,6 +19,7 @@
   --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
   --font-mono: var(--font-geist-mono, ui-monospace, monospace);
   --font-logo: var(--font-logo, "Nunito", ui-rounded, system-ui, sans-serif);
+  --font-serif: var(--font-serif, "Fraunces", ui-serif, Georgia, serif);
 
   /* Semantic brand tokens → bg-brand, text-ink, bg-mist, bg-sand, bg-sage, bg-terracotta */
   --color-brand: #2f6f6a;

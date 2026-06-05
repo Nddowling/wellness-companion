@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Nunito } from "next/font/google";
+import { Geist, Geist_Mono, Nunito, Fraunces } from "next/font/google";
 import "./globals.css";
 import JsonLd from "@/components/JsonLd";
 import {
@@ -27,6 +27,14 @@ const geistMono = Geist_Mono({
 const nunito = Nunito({
   variable: "--font-logo",
   weight: ["700", "800"],
+  subsets: ["latin"],
+});
+
+// Warm high-contrast serif for display headlines (e.g. the /match hero).
+const fraunces = Fraunces({
+  variable: "--font-serif",
+  weight: ["500", "600"],
+  style: ["normal", "italic"],
   subsets: ["latin"],
 });
 
@@ -80,7 +88,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <JsonLd data={[organizationJsonLd, websiteJsonLd]} />

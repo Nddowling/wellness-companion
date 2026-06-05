@@ -2,11 +2,13 @@ import 'server-only';
 
 import Anthropic from '@anthropic-ai/sdk';
 
-import { INTAKE_MODEL, INTAKE_SYSTEM, INTAKE_TOOL } from '@/lib/intake/prompt';
+import { INTAKE_MODEL, STEP_SYSTEM, STEP_TOOLS, STEP_ORDER, type StepKey } from '@/lib/intake/prompt';
 
-// Streams a warm, Claude-guided intake conversation. No PHI is stored anywhere —
-// the only output beyond the chat text is the de-identified `record_intake`
-// extraction, which the client forwards to /api/match.
+// Streams one warm, Claude-guided intake STEP. The /match page walks through four
+// steps (need → location → coverage → identity); each call focuses on one. Claude
+// either streams a gentle follow-up or calls that step's tool to emit the gathered
+// fields. No PHI is stored here — the client assembles the face sheet and forwards
+// the de-identified subset to /api/match.
 
 type ClientMessage = { role: 'user' | 'assistant'; content: string };
 
@@ -27,11 +29,16 @@ function anthropic(): Anthropic {
 }
 
 export async function POST(request: Request) {
-  let body: { messages?: ClientMessage[] };
+  let body: { messages?: ClientMessage[]; step?: string };
   try {
     body = await request.json();
   } catch {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+
+  const step = body.step as StepKey | undefined;
+  if (!step || !STEP_ORDER.includes(step)) {
+    return Response.json({ error: 'Expected a valid step' }, { status: 400 });
   }
 
   const history = Array.isArray(body.messages) ? body.messages : [];
@@ -56,9 +63,9 @@ export async function POST(request: Request) {
           // Warmth + low latency matter more than deep reasoning here.
           thinking: { type: 'disabled' },
           system: [
-            { type: 'text', text: INTAKE_SYSTEM, cache_control: { type: 'ephemeral' } },
+            { type: 'text', text: STEP_SYSTEM[step], cache_control: { type: 'ephemeral' } },
           ],
-          tools: [INTAKE_TOOL],
+          tools: [STEP_TOOLS[step]],
           messages,
         });
 
@@ -67,10 +74,11 @@ export async function POST(request: Request) {
 
         const final = await stream.finalMessage();
 
-        // If Claude recorded the intake, hand the de-identified fields to the client.
+        // If Claude recorded this step, hand the gathered fields to the client and
+        // signal that the step is complete so the UI can advance.
         const tool = final.content.find((b) => b.type === 'tool_use');
         if (tool && tool.type === 'tool_use') {
-          send({ type: 'intake', data: tool.input });
+          send({ type: 'step', step, data: tool.input });
         }
         send({ type: 'done' });
       } catch (err) {
