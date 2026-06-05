@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 
 import JsonLd from '@/components/JsonLd';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { normalizePlan, planAllows } from '@/lib/facility/plan';
 import {
   LEVEL_LABELS,
   PAYER_LABELS,
@@ -139,9 +140,9 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
     medicalSpecialty: 'Addiction',
     image: images.length ? images.slice(0, 3) : [absoluteUrl(DEFAULT_OG_IMAGE.url)],
   };
-  if (f.description) jsonLd.description = f.description;
+  if (showDescription) jsonLd.description = f.description;
   if (intakePhone) jsonLd.telephone = intakePhone;
-  if (f.website) jsonLd.sameAs = [f.website];
+  if (showWebsite) jsonLd.sameAs = [f.website];
   if (avg !== null && ratings.length) {
     jsonLd.aggregateRating = {
       '@type': 'AggregateRating',
@@ -258,7 +259,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      {f.description && <p className="mt-5 text-sm leading-relaxed text-slate-700">{f.description}</p>}
+      {showDescription && <p className="mt-5 text-sm leading-relaxed text-slate-700">{f.description}</p>}
 
       {/* Treatment & details */}
       <div className="mt-5 grid gap-5 sm:grid-cols-2">

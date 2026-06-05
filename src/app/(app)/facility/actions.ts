@@ -10,6 +10,7 @@ import { markSeekerConnectedByMatch } from '@/lib/vault/seekers';
 import { sendEmail } from '@/lib/email/send';
 import { staffInviteEmail } from '@/lib/email/templates';
 import { SITE_URL } from '@/lib/seo';
+import { normalizePlan, planAllows, photoLimit, seatLimit, EXTRA_SEAT_PRICE_MONTHLY } from '@/lib/facility/plan';
 
 /** A logged-in user requests to manage a facility; an admin approves it. */
 export async function requestClaim(formData: FormData) {
@@ -54,6 +55,25 @@ export async function inviteStaff(formData: FormData) {
     });
     if (error || !created?.user) throw new Error(`Could not invite: ${error?.message ?? 'unknown error'}`);
     userId = created.user.id;
+  }
+
+  // Seat cap: every plan includes 2 seats (Admin + 1 BD); more are $69.99/mo each.
+  // Re-inviting an existing member is always allowed (doesn't consume a new seat).
+  const { data: alreadyMember } = await admin
+    .from('facility_members')
+    .select('user_id')
+    .eq('facility_id', facilityId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!alreadyMember) {
+    const [{ count: memberCount }, { data: fac }] = await Promise.all([
+      admin.from('facility_members').select('id', { count: 'exact', head: true }).eq('facility_id', facilityId),
+      admin.from('facilities').select('extra_seats').eq('id', facilityId).maybeSingle(),
+    ]);
+    const limit = seatLimit(fac?.extra_seats);
+    if ((memberCount ?? 0) >= limit) {
+      redirect(`/facility/${facilityId}/invite?seatfull=1&limit=${limit}&price=${EXTRA_SEAT_PRICE_MONTHLY}`);
+    }
   }
 
   await admin
@@ -165,6 +185,15 @@ export async function uploadPhoto(formData: FormData) {
 
   // Service role for storage + the images update (membership already verified).
   const admin = createAdminClient();
+
+  // Plan gate: photos are a Starter+ feature, capped per tier.
+  const { data: planRow } = await admin.from('facilities').select('plan, images').eq('id', facilityId).single();
+  const plan = normalizePlan(planRow?.plan);
+  if (!planAllows(plan, 'photos')) throw new Error('Photos are a paid feature — upgrade to Starter to add them.');
+  if ((((planRow?.images as string[] | null) ?? []).length) >= photoLimit(plan)) {
+    throw new Error(`Your plan includes up to ${photoLimit(plan)} photos. Upgrade for more.`);
+  }
+
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
   const path = `${facilityId}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
 
