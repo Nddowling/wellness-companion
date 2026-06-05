@@ -42,7 +42,7 @@ export default function PricingPage() {
       <section className="mx-auto max-w-3xl px-6 pb-20 text-center">
         <h2 className="text-xl font-semibold text-slate-800">Not sure where to start?</h2>
         <p className="mt-2 text-sm text-slate-500">
-          List your program for free today — you can upgrade to Verified anytime.
+          List your program for free today — you can upgrade to a paid plan anytime.
         </p>
         <Link
           href="/get-started"
