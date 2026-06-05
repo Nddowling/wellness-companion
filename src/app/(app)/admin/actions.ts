@@ -223,9 +223,9 @@ export async function addFacilityMember(formData: FormData) {
     const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`;
     await sendEmail({
       to: email,
-      subject: 'Your Wellness Companion facility login',
-      html: `<p>You've been added to a facility on Wellness Companion.</p><p>Sign in: <a href="${loginUrl}">${loginUrl}</a><br>Email: <strong>${email}</strong><br>Temporary password: <strong>${password}</strong></p>`,
-      text: `You've been added to a facility on Wellness Companion.\nSign in: ${loginUrl}\nEmail: ${email}\nTemporary password: ${password}`,
+      subject: 'Your Clear Bed Recovery facility login',
+      html: `<p>You've been added to a facility on Clear Bed Recovery.</p><p>Sign in: <a href="${loginUrl}">${loginUrl}</a><br>Email: <strong>${email}</strong><br>Temporary password: <strong>${password}</strong></p>`,
+      text: `You've been added to a facility on Clear Bed Recovery.\nSign in: ${loginUrl}\nEmail: ${email}\nTemporary password: ${password}`,
     });
   } else {
     userId = await findUserIdByEmail(admin, email);

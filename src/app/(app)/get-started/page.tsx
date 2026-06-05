@@ -25,7 +25,7 @@ export default async function GetStarted({ searchParams }: { searchParams: Promi
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-slate-800">Welcome — let&apos;s get you set up</h1>
-        <p className="text-sm text-slate-500">Tell us how you&apos;ll be using Wellness Companion.</p>
+        <p className="text-sm text-slate-500">Tell us how you&apos;ll be using Clear Bed Recovery.</p>
       </div>
 
       {claimed && (

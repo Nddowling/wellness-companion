@@ -16,7 +16,7 @@ export type EmailMessage = {
 };
 
 export async function sendEmail(msg: EmailMessage): Promise<{ id: string | null; ok: boolean }> {
-  const from = process.env.EMAIL_FROM || 'Wellness Companion <onboarding@resend.dev>';
+  const from = process.env.EMAIL_FROM || 'Clear Bed Recovery <onboarding@resend.dev>';
   const key = process.env.RESEND_API_KEY;
 
   if (!key) {

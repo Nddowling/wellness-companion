@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import Reveal from '@/components/Reveal';
+import { Logo } from '@/components/Logo';
 
 export const metadata: Metadata = {
   // Home inherits the layout's default (brand) title + OG; just pin the canonical.
@@ -22,7 +23,7 @@ export default function LandingPage() {
         <div className="mx-auto w-full max-w-5xl px-6 py-24">
           <div className="max-w-2xl animate-fade-up text-white">
             <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wide backdrop-blur">
-              Addiction &amp; mental-health treatment
+              Connecting you to treatment that fits
             </span>
             <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
               You don&apos;t have to figure this out alone.
@@ -39,10 +40,10 @@ export default function LandingPage() {
                 Find care — start here →
               </Link>
               <Link
-                href="/programs"
+                href="/login"
                 className="rounded-md border border-white/40 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur transition hover:bg-white/20"
               >
-                Browse all programs
+                Provider / hospital / business-developer login
               </Link>
             </div>
             <p className="mt-6 text-xs text-white/70">
@@ -115,7 +116,7 @@ export default function LandingPage() {
             <img src="/images/calm.jpg" alt="A calm path through the trees" className="h-72 w-full rounded-2xl object-cover shadow-sm" />
           </Reveal>
           <Reveal delay={120}>
-            <h2 className="text-2xl font-semibold text-slate-800">Care that meets you where you are</h2>
+            <h2 className="text-2xl font-semibold text-slate-800">Help that meets you where you are</h2>
             <ul className="mt-4 space-y-3 text-sm text-slate-600">
               {[
                 ['Real-time bed availability', 'We surface programs with current openings, not stale listings.'],
@@ -187,7 +188,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl px-6">
           <div className="flex flex-wrap justify-between gap-6">
             <div>
-              <div className="font-semibold text-white">Clear Bed Recovery</div>
+              <Logo tone="light" className="text-lg" />
               <p className="mt-1 max-w-xs text-xs text-white/60">
                 A resource navigator — not a medical or crisis service. We connect you with treatment programs and
                 the counselors who work there.

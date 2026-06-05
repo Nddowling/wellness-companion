@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { getRoles } from '@/lib/auth';
+import { Logo } from '@/components/Logo';
 import { signOut } from './actions';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -22,8 +23,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
           <div className="flex items-center gap-5">
-            <Link href={isSeeker ? '/me' : '/home'} className="font-semibold text-teal-800">
-              Wellness Companion
+            <Link href={isSeeker ? '/me' : '/home'} aria-label="Clear Bed Recovery — home">
+              <Logo className="text-lg" />
             </Link>
             <nav className="flex gap-4 text-sm">
               {links.map((l) => (

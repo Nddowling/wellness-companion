@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Wellness Companion brand palette — calm, clinical, warm.
+ * Clear Bed Recovery brand palette — calm, clinical, warm.
  *   Deep teal   #2F6F6A  primary · trust, grounding
  *   Sage green  #5DCAA5  secondary · growth, healing
  *   Mist        #E1F0EC  surface · calm backgrounds
@@ -18,6 +18,7 @@
 @theme {
   --font-sans: var(--font-geist-sans, ui-sans-serif, system-ui, sans-serif);
   --font-mono: var(--font-geist-mono, ui-monospace, monospace);
+  --font-logo: var(--font-logo, "Nunito", ui-rounded, system-ui, sans-serif);
 
   /* Semantic brand tokens → bg-brand, text-ink, bg-mist, bg-sand, bg-sage, bg-terracotta */
   --color-brand: #2f6f6a;
@@ -107,4 +108,47 @@ body {
   background-repeat: no-repeat;
   color: var(--color-ink);
   font-family: var(--font-sans);
+}
+
+/*
+ * Typographic scale — apply with className. Headings share tight tracking and
+ * leading for a calm, composed feel; sizes step responsively. Use these instead
+ * of ad-hoc text-2xl/3xl so type stays rhythmic across pages.
+ *   .h-display  hero headline      .h1  page title
+ *   .h2  section title             .h3  card / sub-section title
+ *   .lead  intro paragraph         .eyebrow  small uppercase label
+ */
+.h-display {
+  font-size: clamp(2.25rem, 1.4rem + 3vw, 3.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+.h1 {
+  font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+.h2 {
+  font-size: clamp(1.375rem, 1.15rem + 0.9vw, 1.75rem);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+.h3 {
+  font-size: 1.0625rem;
+  line-height: 1.35;
+  font-weight: 600;
+}
+.lead {
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: var(--color-slate-600);
+}
+.eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }

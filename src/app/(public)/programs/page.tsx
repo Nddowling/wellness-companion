@@ -7,7 +7,7 @@ import { absoluteUrl } from '@/lib/seo';
 
 const PROGRAMS_TITLE = 'Browse Treatment Programs — Rehab & Recovery Directory';
 const PROGRAMS_DESCRIPTION =
-  'Browse our full directory of addiction and mental-health treatment programs — detox, residential, PHP, IOP, and outpatient — with accepted insurance and real-time bed availability.';
+  'Browse our directory of addiction treatment programs — including care for co-occurring mental-health needs — across detox, residential, PHP, IOP, and outpatient, with accepted insurance and real-time bed availability.';
 
 export const metadata: Metadata = {
   title: PROGRAMS_TITLE,

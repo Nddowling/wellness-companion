@@ -6,7 +6,7 @@ import { absoluteUrl } from '@/lib/seo';
 // so its metadata is declared here in a server-component layout wrapper.
 const MATCH_TITLE = 'Find Treatment That Fits — Talk to Our Care Companion';
 const MATCH_DESCRIPTION =
-  'Answer a few gentle questions and get matched to addiction and mental-health treatment programs that fit your situation, insurance, and region. Free and private — no account required.';
+  'Answer a few gentle questions and get matched to addiction treatment programs — including those for co-occurring mental-health needs — that fit your situation, insurance, and region. We connect you to treatment facilities; we don’t provide treatment ourselves. Free and private — no account required.';
 
 export const metadata: Metadata = {
   title: MATCH_TITLE,

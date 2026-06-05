@@ -1,6 +1,6 @@
 // PHI-free, client-safe helper. Builds the referral message the SEEKER sends to a
 // facility from their OWN email client. The fields below live only in the browser;
-// they are never sent to or stored by Wellness Companion (see /api/handoff).
+// they are never sent to or stored by Clear Bed Recovery (see /api/handoff).
 
 export type SeekerContact = {
   name?: string;
@@ -13,11 +13,11 @@ export function buildReferralMessage(
   facilityName: string,
   s: SeekerContact
 ): { subject: string; body: string } {
-  const subject = 'Referral inquiry via Wellness Companion';
+  const subject = 'Referral inquiry via Clear Bed Recovery';
   const body = [
     `Hello ${facilityName} team,`,
     '',
-    'I found you through Wellness Companion and would like to ask about availability and next steps.',
+    'I found you through Clear Bed Recovery and would like to ask about availability and next steps.',
     '',
     s.name ? `Name: ${s.name}` : '',
     s.dob ? `Date of birth: ${s.dob}` : '',

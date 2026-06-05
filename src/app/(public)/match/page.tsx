@@ -74,6 +74,10 @@ export default function MatchPage() {
   }, [acknowledged, busy, matches]);
 
   useEffect(() => {
+    // Rehydrate persisted state on mount. This must run in an effect, not a
+    // useState initializer: localStorage is unavailable during SSR, so reading
+    // it at init would desync server/client markup and throw a hydration error.
+    /* eslint-disable react-hooks/set-state-in-effect */
     try {
       if (localStorage.getItem('wc_ack')) setAcknowledged(true);
       const raw = localStorage.getItem('wc_face_sheet');
@@ -90,6 +94,7 @@ export default function MatchPage() {
     } catch {
       /* ignore */
     }
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   // Completion: the Companion has gathered the full face sheet. Match on the
@@ -249,7 +254,7 @@ export default function MatchPage() {
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-2xl">
               🤝
             </div>
-            <h2 className="text-lg font-semibold text-slate-800">Hi, I&apos;m your Wellness Companion</h2>
+            <h2 className="text-lg font-semibold text-slate-800">Hi, I&apos;m your Clear Bed Recovery companion</h2>
             <p className="mt-2 text-sm text-slate-600">
               Think of me as a caring guide — not a doctor or counselor. I&apos;m here to listen for a few key
               things and help connect you with treatment programs that actually fit you.
@@ -315,7 +320,7 @@ export default function MatchPage() {
           programs you choose.
         </p>
         <p className="mt-1 text-xs text-slate-400">
-          Wellness Companion is a resource navigator — not a medical or crisis service. We connect you with
+          Clear Bed Recovery is a resource navigator — not a medical or crisis service. We connect you with
           treatment programs and the counselors who work there.
         </p>
       </header>

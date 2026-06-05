@@ -102,7 +102,7 @@ function facilityBlockText(f: FacilitySummary): string {
 // 1) Welcome — sent when a seeker shares contact info + consents to email.
 export function welcomeEmail(name?: string): { subject: string; html: string; text: string } {
   const hi = name ? `Hi ${name},` : 'Hi,';
-  const subject = 'Welcome to Wellness Companion';
+  const subject = 'Welcome to Clear Bed Recovery';
   const html = wrap('You took a brave first step', `
     <p>${esc(hi)}</p>
     <p>Thank you for reaching out. Finding the right treatment can feel overwhelming, and you don't have to do it alone. We'll send you the facilities that fit your needs, and you can reach out to any of them whenever you're ready — there's no pressure and no wrong pace.</p>
@@ -140,7 +140,7 @@ export function seekerAccountEmail(params: {
 }): { subject: string; html: string; text: string } {
   const s = params.faceSheet;
   const hi = s.name ? `Hi ${s.name.split(' ')[0]},` : 'Hi,';
-  const subject = 'Your Wellness Companion account & matched programs';
+  const subject = 'Your Clear Bed Recovery account & matched programs';
 
   const info = (
     [
@@ -164,7 +164,7 @@ export function seekerAccountEmail(params: {
     ${params.facilities.map(facilityBlockHtml).join('')}
     <p style="font-size:13px">Reach out to any of them whenever you're ready — there's no pressure and no wrong pace.</p>`);
 
-  const text = `${hi}\n\nYour Wellness Companion account is ready.\n\nSign in: ${params.loginUrl}\nEmail: ${params.email}\nTemporary password: ${params.password}\n\nPrograms matched to you:\n${params.facilities.map(facilityBlockText).join('\n')}\n\n${CRISIS}`;
+  const text = `${hi}\n\nYour Clear Bed Recovery account is ready.\n\nSign in: ${params.loginUrl}\nEmail: ${params.email}\nTemporary password: ${params.password}\n\nPrograms matched to you:\n${params.facilities.map(facilityBlockText).join('\n')}\n\n${CRISIS}`;
   return { subject, html, text };
 }
 
@@ -173,7 +173,7 @@ export function faceSheetEmail(
   facilityName: string,
   s: SeekerFaceSheet
 ): { subject: string; html: string; text: string } {
-  const subject = 'New referral via Wellness Companion';
+  const subject = 'New referral via Clear Bed Recovery';
 
   const nameLine = [s.name, s.preferred_name ? `(prefers "${s.preferred_name}")` : '']
     .filter(Boolean)
@@ -237,7 +237,7 @@ export function faceSheetEmail(
     .join('');
 
   const html = wrap(`New referral for ${facilityName}`, `
-    <p>A person matched to your facility through Wellness Companion consented to share these details so your intake team has them in hand when you reach out:</p>
+    <p>A person matched to your facility through Clear Bed Recovery consented to share these details so your intake team has them in hand when you reach out:</p>
     ${htmlSections}
     <p style="font-size:12px;color:#94a3b8;margin-top:16px">This information is confidential and protected (incl. 42 CFR Part 2). Use it only to coordinate this person's care.</p>`);
 
@@ -249,7 +249,7 @@ export function faceSheetEmail(
     })
     .filter(Boolean)
     .join('\n\n');
-  const text = `New referral for ${facilityName} via Wellness Companion.\n\n${textSections}\n\nThis information is confidential and protected. Use it only to coordinate this person's care.`;
+  const text = `New referral for ${facilityName} via Clear Bed Recovery.\n\n${textSections}\n\nThis information is confidential and protected. Use it only to coordinate this person's care.`;
 
   return { subject, html, text };
 }

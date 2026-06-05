@@ -1,9 +1,12 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
+import { Button, Input, Label } from '@/components/ui';
+import { Logo } from '@/components/Logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -33,44 +36,92 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center gap-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-800">Wellness Companion</h1>
-        <p className="text-sm text-slate-500">Team sign in</p>
-      </div>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <input
-          type="email"
-          required
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+    <main className="grid min-h-screen lg:grid-cols-2">
+      {/* Brand panel — gives the sign-in a sense of place instead of a bare form. */}
+      <section className="relative isolate hidden overflow-hidden lg:block">
+        <div
+          className="absolute inset-0 -z-20 bg-cover bg-center"
+          style={{ backgroundImage: "url('/images/facility.jpg')" }}
         />
-        <input
-          type="password"
-          required
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {busy ? '…' : mode === 'signin' ? 'Sign in' : 'Create account'}
-        </button>
-      </form>
-      <button
-        type="button"
-        onClick={() => setMode((m) => (m === 'signin' ? 'signup' : 'signin'))}
-        className="text-xs text-slate-500 underline"
-      >
-        {mode === 'signin' ? 'Need an account? Sign up' : 'Have an account? Sign in'}
-      </button>
+        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-ink/85 via-brand/75 to-brand/45" />
+        <div className="flex h-full flex-col justify-between p-12 text-white">
+          <Link href="/" aria-label="Clear Bed Recovery — home">
+            <Logo tone="light" className="text-xl" />
+          </Link>
+          <div className="max-w-md">
+            <h2 className="h2 text-white">The live directory behind every good referral.</h2>
+            <p className="lead mt-3 text-white/85">
+              Sign in to keep your beds and profile current, browse programs, and track the people
+              you&apos;re helping into care.
+            </p>
+          </div>
+          <p className="text-xs text-white/60">
+            A resource navigator — not a medical or crisis service.
+          </p>
+        </div>
+      </section>
+
+      {/* Form panel */}
+      <section className="flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-sm">
+          <Link href="/" aria-label="Clear Bed Recovery — home" className="mb-8 inline-block lg:hidden">
+            <Logo className="text-xl" />
+          </Link>
+          <h1 className="h1 text-ink">{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {mode === 'signin'
+              ? 'Sign in to your provider or team account.'
+              : 'Set up a provider or team account to get started.'}
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="you@organization.org"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                required
+                autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            {error && (
+              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            )}
+            <Button type="submit" size="lg" disabled={busy} className="w-full">
+              {busy ? 'One moment…' : mode === 'signin' ? 'Sign in' : 'Create account'}
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-slate-500">
+            {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setMode((m) => (m === 'signin' ? 'signup' : 'signin'));
+              }}
+              className="font-medium text-teal-700 underline-offset-2 hover:underline"
+            >
+              {mode === 'signin' ? 'Sign up' : 'Sign in'}
+            </button>
+          </p>
+        </div>
+      </section>
     </main>
   );
 }

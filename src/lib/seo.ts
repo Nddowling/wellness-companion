@@ -10,10 +10,10 @@ export const SITE_NAME = 'Clear Bed Recovery';
 export const SITE_URL = 'https://clearbedrecovery.com';
 
 export const DEFAULT_TITLE =
-  'Clear Bed Recovery — Find Addiction & Mental Health Treatment That Fits';
+  'Clear Bed Recovery — Find Addiction Treatment That Fits';
 
 export const DEFAULT_DESCRIPTION =
-  'Clear Bed Recovery helps you find addiction and mental-health treatment that fits your needs, insurance, and region — with real-time bed availability. Free, private, and no account required to start.';
+  'Clear Bed Recovery helps you find addiction treatment — including programs for co-occurring mental-health needs — that fits your situation, insurance, and region, with real-time bed availability. We connect you to treatment facilities; we don’t provide treatment ourselves. Free, private, and no account required to start.';
 
 export const SEO_KEYWORDS = [
   'addiction treatment',
@@ -44,17 +44,21 @@ export function absoluteUrl(path = '/'): string {
   return new URL(path, SITE_URL).toString();
 }
 
-/** schema.org MedicalOrganization for the brand (site-wide). */
+/**
+ * schema.org Organization for the brand (site-wide). Intentionally a plain
+ * Organization, NOT MedicalOrganization — Clear Bed Recovery is a referral
+ * directory that connects people to treatment facilities; it does not provide
+ * medical care, so it must not declare medical specialties.
+ */
 export const organizationJsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'MedicalOrganization',
+  '@type': 'Organization',
   '@id': `${SITE_URL}/#organization`,
   name: SITE_NAME,
   url: SITE_URL,
   logo: absoluteUrl('/images/hero.jpg'),
   image: absoluteUrl(DEFAULT_OG_IMAGE.url),
   description: DEFAULT_DESCRIPTION,
-  medicalSpecialty: ['Addiction', 'Psychiatric'],
   areaServed: { '@type': 'Country', name: 'United States' },
 } as const;
 
