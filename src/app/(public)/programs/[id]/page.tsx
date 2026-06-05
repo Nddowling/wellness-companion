@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import JsonLd from '@/components/JsonLd';
+import { GoToWebsiteButton } from '@/components/GoToWebsiteButton';
+import { Gallery } from '@/components/Gallery';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizePlan, planAllows } from '@/lib/facility/plan';
 import { getRoles, isProviderSide } from '@/lib/auth';
@@ -365,12 +367,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
       {/* Hero */}
       <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
         {images.length > 0 ? (
-          <div className="grid grid-cols-3 gap-1">
-            {images.slice(0, 3).map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={src} alt={f.name} className="h-44 w-full object-cover" />
-            ))}
-          </div>
+          <Gallery images={images} alt={f.name} />
         ) : (
           <div className="relative flex h-44 items-center justify-center overflow-hidden">
             <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/images/facility.jpg')" }} />
@@ -398,14 +395,12 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             </div>
             <div className="flex flex-wrap gap-2">
               {showWebsite && (
-                <a
-                  href={`/go/${f.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <GoToWebsiteButton
+                  facilityId={f.id}
                   className="rounded-md bg-terracotta px-4 py-2 text-sm font-medium text-white hover:bg-terracotta-dark"
                 >
                   Go to website ↗
-                </a>
+                </GoToWebsiteButton>
               )}
               {intakePhone && showCallIntake && (
                 <a
