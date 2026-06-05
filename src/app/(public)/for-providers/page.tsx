@@ -82,7 +82,6 @@ const TIERS: Tier[] = [
       'Unlimited referrer seats',
       'Dedicated onboarding',
       'Census analytics dashboard',
-      'API bed-board updates',
       'White-glove intake training',
     ],
     cta: { label: 'Start Anchor', href: '/pricing' },
