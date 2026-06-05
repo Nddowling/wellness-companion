@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 
 import { getRoles } from '@/lib/auth';
 import { Logo } from '@/components/Logo';
-import { signOut } from './actions';
+import { AccountMenu } from '@/components/AccountMenu';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, facilityIds, isSeeker } = await getRoles();
@@ -34,14 +34,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               ))}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="hidden text-xs text-slate-500 sm:inline">{user.email}</span>
-            <form action={signOut}>
-              <button className="rounded-md border border-slate-300 px-2.5 py-1 text-xs text-slate-600 hover:border-teal-400">
-                Sign out
-              </button>
-            </form>
-          </div>
+          <AccountMenu
+            email={user.email ?? ''}
+            inviteHref={!isSeeker && facilityIds.length > 0 ? `/facility/${facilityIds[0]}/invite` : null}
+          />
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>

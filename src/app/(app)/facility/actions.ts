@@ -23,6 +23,46 @@ export async function requestClaim(formData: FormData) {
   redirect('/get-started?claimed=1');
 }
 
+/** A facility member invites a colleague to help manage the same facility. */
+export async function inviteStaff(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const email = String(formData.get('email') || '').trim().toLowerCase();
+  const role = String(formData.get('role') || 'staff') === 'owner' ? 'owner' : 'staff';
+  if (!email) return;
+
+  const admin = createAdminClient();
+  // Find an existing account for that email, or create one.
+  const { data: list } = await admin.auth.admin.listUsers();
+  const existing = list?.users?.find((u) => (u.email ?? '').toLowerCase() === email);
+
+  let userId: string;
+  let tempPw: string | null = null;
+  if (existing) {
+    userId = existing.id;
+  } else {
+    tempPw = `CB-${crypto.randomUUID().slice(0, 4)}-${crypto.randomUUID().slice(0, 4)}`;
+    const { data: created, error } = await admin.auth.admin.createUser({
+      email,
+      password: tempPw,
+      email_confirm: true,
+    });
+    if (error || !created?.user) throw new Error(`Could not invite: ${error?.message ?? 'unknown error'}`);
+    userId = created.user.id;
+  }
+
+  await admin
+    .from('facility_members')
+    .upsert({ facility_id: facilityId, user_id: userId, role }, { onConflict: 'facility_id,user_id' });
+
+  revalidatePath(`/facility/${facilityId}`);
+  redirect(
+    `/facility/${facilityId}/invite?invited=${encodeURIComponent(email)}${tempPw ? `&tmp=${encodeURIComponent(tempPw)}` : ''}`
+  );
+}
+
 /** A facility member updates their own bed count for one level and bumps the moat. */
 export async function updateCapacity(formData: FormData) {
   const { userId, facilityIds } = await requireFacilityMember();
