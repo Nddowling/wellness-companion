@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
 import { Logo } from '@/components/Logo';
-import { Mascot } from '@/components/Mascot';
 
 type Role = 'user' | 'assistant';
 type Message = { role: Role; content: string };
@@ -350,11 +349,9 @@ export default function MatchPage() {
         </Link>
 
         <div className="flex flex-col items-center text-center">
-          <div className="relative max-w-[16rem] rounded-2xl bg-white/95 px-5 py-4 text-sm text-ink shadow-lg">
+          <div className="max-w-[16rem] rounded-2xl bg-white/95 px-5 py-4 text-sm text-ink shadow-lg">
             {step.encouragement}
-            <span className="absolute -bottom-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-white/95" />
           </div>
-          <Mascot className="mt-6 h-44 w-44 drop-shadow" />
         </div>
 
         <ol className="space-y-1">
