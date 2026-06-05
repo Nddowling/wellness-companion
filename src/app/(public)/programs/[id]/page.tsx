@@ -178,14 +178,14 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
     ['Accreditations', (f.accreditations ?? []).join(', ') || null],
   ];
 
-  // FREE tier → a bare directory listing. Only the four basics: name, address,
-  // treatment type, contact. No photos, insurance, description, reviews, etc.
-  // (Claiming the program and upgrading unlocks the full profile below.)
+  // FREE tier → a basic directory listing only: name, location, accreditations,
+  // treatment type, address, and email. No photos, insurance, description,
+  // reviews, etc. (Claiming the program + upgrading unlocks the full profile.)
   if (plan === 'free') {
-    const cityStateZip = [[f.city, f.state].filter(Boolean).join(', '), f.zip].filter(Boolean).join(' ');
-    const addressLine = [f.street, cityStateZip].filter(Boolean).join(', ');
+    const streetAddress = [f.street, f.zip].filter(Boolean).join(', '); // the specific part; city/state is in the header
     const treatmentTypes =
       levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(' · ') || 'Addiction & mental-health treatment';
+    const email = contact.email || null;
     const minimalLd = {
       '@context': 'https://schema.org',
       '@type': 'MedicalBusiness',
@@ -199,6 +199,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
         ...(f.zip ? { postalCode: f.zip } : {}),
         addressCountry: 'US',
       },
+      ...(email ? { email } : {}),
       ...(intakePhone ? { telephone: intakePhone } : {}),
     };
     return (
@@ -215,17 +216,61 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
           </Link>
         </div>
 
-        <div className="mt-4 border border-slate-300 bg-white p-5 text-slate-900">
-          <h1 className="text-lg font-semibold">{f.name}</h1>
-          {addressLine && <p className="mt-1 text-sm">{addressLine}</p>}
-          <p className="mt-1 text-sm">{treatmentTypes}</p>
-          {intakePhone && (
-            <p className="mt-1 text-sm">
-              <a href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`} className="underline">
-                {intakePhone}
-              </a>
-            </p>
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
+          <h1 className="text-2xl font-semibold text-slate-800">{f.name}</h1>
+          <p className="text-sm text-slate-500">
+            {[f.city, f.state].filter(Boolean).join(', ') || 'Location on file'}
+            {f.operator_type ? ` · ${f.operator_type}` : ''}
+          </p>
+
+          {((f.accreditations ?? []).length > 0 || f.is_faith_based || f.verified_at) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {(f.accreditations ?? []).map((a: string) => (
+                <span key={a} className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800">
+                  {a.toUpperCase()}
+                </span>
+              ))}
+              {f.is_faith_based && (
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">Faith-based</span>
+              )}
+              {f.verified_at && (
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs text-emerald-700">Verified</span>
+              )}
+            </div>
           )}
+
+          <dl className="mt-4 space-y-2 border-t border-slate-100 pt-4 text-sm">
+            {streetAddress && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Address</dt>
+                <dd className="text-right text-slate-700">{streetAddress}</dd>
+              </div>
+            )}
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-500">Treatment</dt>
+              <dd className="text-right text-slate-700">{treatmentTypes}</dd>
+            </div>
+            {email && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Email</dt>
+                <dd className="text-right">
+                  <a href={`mailto:${email}`} className="text-teal-700 hover:underline">
+                    {email}
+                  </a>
+                </dd>
+              </div>
+            )}
+            {intakePhone && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-slate-500">Phone</dt>
+                <dd className="text-right">
+                  <a href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`} className="text-teal-700 hover:underline">
+                    {intakePhone}
+                  </a>
+                </dd>
+              </div>
+            )}
+          </dl>
         </div>
 
         {!providerSide && (
