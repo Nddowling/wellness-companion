@@ -103,7 +103,12 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
 
   const caps = (f.facility_capacity ?? []) as Cap[];
   const payers = (f.facility_payers ?? []) as Payer[];
-  const images = (f.images ?? []) as string[];
+  // Plan-gated profile richness (photos, about, website are part of a claimed,
+  // Starter+ profile). Matching/availability is NOT gated — it stays need-based.
+  const plan = normalizePlan(f.plan);
+  const images = planAllows(plan, 'photos') ? ((f.images ?? []) as string[]) : [];
+  const showDescription = planAllows(plan, 'description') && !!f.description;
+  const showWebsite = planAllows(plan, 'website') && !!f.website;
   const contact = (f.referral_contact ?? {}) as { name?: string; email?: string; phone?: string };
   const intakePhone = f.intake_line || contact.phone || f.main_phone || null;
 
@@ -216,7 +221,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
               )}
             </div>
             <div className="flex flex-wrap gap-2">
-              {f.website && (
+              {showWebsite && (
                 <a
                   href={`/go/${f.id}`}
                   target="_blank"

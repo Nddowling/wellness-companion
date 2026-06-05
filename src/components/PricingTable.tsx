@@ -147,6 +147,23 @@ export function PricingTable() {
         })}
       </div>
 
+      {/* Enterprise / custom */}
+      <div className="mt-6 flex flex-col items-center justify-between gap-3 rounded-2xl border border-slate-300 bg-white p-5 sm:flex-row">
+        <div>
+          <h2 className="font-semibold text-slate-800">Enterprise</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Multi-state operators &amp; hospital systems — unlimited locations, SSO, a dedicated success
+            manager, custom integrations, and an SLA. Custom flat-fee pricing.
+          </p>
+        </div>
+        <a
+          href="mailto:sales@clearbedrecovery.com?subject=Enterprise%20inquiry%20%E2%80%94%20Clear%20Bed%20Recovery"
+          className="shrink-0 rounded-md border border-teal-700 px-5 py-2.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-700 hover:text-white"
+        >
+          Talk to us →
+        </a>
+      </div>
+
       {/* Free / basic listing */}
       <p className="mt-6 text-center text-sm text-slate-500">
         Not ready to subscribe?{' '}

@@ -13,14 +13,30 @@ export default function LandingPage() {
   return (
     <main className="text-slate-800">
       {/* ── HERO ─────────────────────────────────────────────── */}
-      <section className="relative isolate flex min-h-[88vh] items-center overflow-hidden">
+      <section className="relative isolate flex min-h-[88vh] flex-col overflow-hidden">
+        {/* Brand gradient — the palette, without the literal photo */}
+        <div className="absolute inset-0 -z-20 bg-gradient-to-br from-ink via-brand to-teal-900" />
         <div
-          className="absolute inset-0 -z-20 bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/hero.jpg')" }}
+          className="absolute inset-0 -z-10"
+          style={{
+            background:
+              'radial-gradient(60% 55% at 78% 12%, rgba(93,202,165,0.22), transparent 70%), radial-gradient(55% 55% at 8% 92%, rgba(212,149,106,0.26), transparent 72%)',
+          }}
         />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-ink/85 via-brand/75 to-brand/40" />
 
-        <div className="mx-auto w-full max-w-5xl px-6 py-24">
+        {/* Top bar — logo + an above-the-fold entry for providers, kept clear of the patient flow */}
+        <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-5">
+          <Logo tone="light" className="text-lg" />
+          <Link
+            href="/for-providers"
+            className="shrink-0 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
+          >
+            Clear Bed for providers →
+          </Link>
+        </div>
+
+        {/* Patient hero — the dominant message */}
+        <div className="mx-auto flex w-full max-w-5xl flex-1 items-center px-6 pb-20">
           <div className="max-w-2xl animate-fade-up text-white">
             <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wide backdrop-blur">
               Connecting you to treatment that fits
@@ -35,7 +51,7 @@ export default function LandingPage() {
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
                 href="/match"
-                className="rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+                className="rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
               >
                 Find care — start here →
               </Link>
@@ -154,24 +170,6 @@ export default function LandingPage() {
             Find care that fits →
           </Link>
         </Reveal>
-      </section>
-
-      {/* ── FOR PROVIDERS (single, understated entry — kept off the patient flow) ── */}
-      <section className="bg-sand py-12">
-        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 text-center sm:flex-row sm:justify-between sm:text-left">
-          <div>
-            <h2 className="font-semibold text-slate-800">Run a treatment program or refer clients?</h2>
-            <p className="mt-1 max-w-xl text-sm text-slate-500">
-              Keep your beds and profile in front of the right people — and reach patients who actually fit.
-            </p>
-          </div>
-          <Link
-            href="/for-providers"
-            className="shrink-0 rounded-md border border-teal-700 px-5 py-2.5 text-sm font-medium text-teal-700 transition hover:bg-teal-700 hover:text-white"
-          >
-            Clear Bed for providers →
-          </Link>
-        </div>
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────── */}

@@ -140,6 +140,7 @@ export type Database = {
           license_number: string | null
           name: string
           npi: string | null
+          extra_seats: number
           plan: string
           plan_status: string
           populations_served: string[]
@@ -187,6 +188,7 @@ export type Database = {
           license_number?: string | null
           name: string
           npi?: string | null
+          extra_seats?: number
           plan?: string
           plan_status?: string
           populations_served?: string[]
@@ -234,6 +236,7 @@ export type Database = {
           license_number?: string | null
           name?: string
           npi?: string | null
+          extra_seats?: number
           plan?: string
           plan_status?: string
           populations_served?: string[]
