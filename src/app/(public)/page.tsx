@@ -40,13 +40,14 @@ export default function LandingPage() {
                 Find care — start here →
               </Link>
               <Link
-                href="/login"
+                href="/programs"
                 className="rounded-md border border-white/40 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur transition hover:bg-white/20"
               >
-                Provider / hospital / business-developer login
+                Browse all programs
               </Link>
             </div>
-            <p className="mt-6 text-xs text-white/70">
+            <p className="mt-5 text-xs text-white/70">Free · Private · Takes about 2 minutes</p>
+            <p className="mt-4 text-xs text-white/70">
               In an emergency call <strong>911</strong>. In crisis, call or text <strong>988</strong> — anytime.
             </p>
           </div>
@@ -155,31 +156,21 @@ export default function LandingPage() {
         </Reveal>
       </section>
 
-      {/* ── PROVIDERS ────────────────────────────────────────── */}
-      <section className="bg-sand py-14">
-        <div className="mx-auto grid max-w-5xl gap-4 px-6 sm:grid-cols-2">
-          <Reveal>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="font-semibold text-slate-800">Run a treatment program?</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Keep your beds and profile current so the right people find you.
-              </p>
-              <Link href="/get-started" className="mt-3 inline-block text-sm font-medium text-teal-700">
-                Claim your facility →
-              </Link>
-            </div>
-          </Reveal>
-          <Reveal delay={120}>
-            <div className="rounded-2xl border border-slate-200 bg-white p-6">
-              <h3 className="font-semibold text-slate-800">Refer clients to care?</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                Browse the live directory, save shortlists, and keep notes.
-              </p>
-              <Link href="/login" className="mt-3 inline-block text-sm font-medium text-teal-700">
-                Team sign in →
-              </Link>
-            </div>
-          </Reveal>
+      {/* ── FOR PROVIDERS (single, understated entry — kept off the patient flow) ── */}
+      <section className="bg-sand py-12">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 px-6 text-center sm:flex-row sm:justify-between sm:text-left">
+          <div>
+            <h2 className="font-semibold text-slate-800">Run a treatment program or refer clients?</h2>
+            <p className="mt-1 max-w-xl text-sm text-slate-500">
+              Keep your beds and profile in front of the right people — and reach patients who actually fit.
+            </p>
+          </div>
+          <Link
+            href="/for-providers"
+            className="shrink-0 rounded-md border border-teal-700 px-5 py-2.5 text-sm font-medium text-teal-700 transition hover:bg-teal-700 hover:text-white"
+          >
+            Clear Bed for providers →
+          </Link>
         </div>
       </section>
 
@@ -194,11 +185,16 @@ export default function LandingPage() {
                 the counselors who work there.
               </p>
             </div>
-            <div className="flex gap-10 text-xs">
+            <div className="flex flex-wrap gap-10 text-xs">
               <div className="space-y-1">
                 <div className="font-medium text-white/90">Find care</div>
-                <Link href="/match" className="block text-white/70 hover:text-white">Talk to the companion</Link>
+                <Link href="/match" className="block text-white/70 hover:text-white">Find care that fits</Link>
                 <Link href="/programs" className="block text-white/70 hover:text-white">Browse programs</Link>
+              </div>
+              <div className="space-y-1">
+                <div className="font-medium text-white/90">Providers</div>
+                <Link href="/for-providers" className="block text-white/70 hover:text-white">For providers</Link>
+                <Link href="/login" className="block text-white/70 hover:text-white">Team sign in</Link>
               </div>
               <div className="space-y-1">
                 <div className="font-medium text-white/90">Crisis</div>

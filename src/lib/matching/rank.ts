@@ -9,7 +9,8 @@ import type { IntakeExtraction } from '@/lib/intake/prompt';
  * care, and accepts the person's payer type. A facility that offers the level but
  * has no confirmed beds is still recommended ("call to confirm") — we never leave a
  * seeker with nothing — it just ranks below facilities with fresh, confirmed beds.
- * Soft ranking: confirmed beds + capacity freshness (the moat) + same-region + in-network.
+ * Soft ranking: bed availability (binary — beds or none) + capacity freshness (the
+ * moat) + same-region + in-network. Raw bed count is only a tiebreaker.
  */
 
 export type ReferralContact = { name?: string; email?: string; phone?: string };
@@ -45,6 +46,11 @@ export type RankedFacility = {
 
 const FRESHNESS_POINTS = { green: 3, amber: 1, red: 0 } as const;
 
+// Availability is binary — beds or no beds — not a per-bed count, so a facility
+// with one open bed isn't out-ranked by a bigger one purely on headcount. The raw
+// bed count only breaks ties in rankFacilities().
+const AVAILABILITY_POINTS = 3;
+
 /** Score a single facility for an intake, or null if it fails a hard filter. */
 export function scoreFacility(
   intake: IntakeExtraction,
@@ -68,13 +74,17 @@ export function scoreFacility(
       : 'red';
   const region_match = !!facility.zip3 && facility.zip3 === intake.region_zip3;
 
+  // Outpatient is always "accepting"; for bed levels, any open bed counts. Flat —
+  // one bed and ten beds score the same here (bed count is only a tiebreaker).
+  const has_availability = !bed_based || cap.beds_available > 0;
+
   // Proximity dominates: a same-region facility should outrank a distant one even
-  // if the distant one has fresher beds. Freshness + beds then break ties WITHIN a
-  // region (that's where the moat lives).
+  // if the distant one has fresher beds. Freshness + availability then break ties
+  // WITHIN a region (that's where the moat lives).
   const score =
     (region_match ? 12 : 0) +
     FRESHNESS_POINTS[freshness] +
-    Math.min(cap.beds_available, 5) +
+    (has_availability ? AVAILABILITY_POINTS : 0) +
     (payer.in_network ? 2 : 0.5);
 
   return {

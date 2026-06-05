@@ -80,6 +80,27 @@ function availability(f: MatchedFacility): { chip: string; tone: 'green' | 'ambe
   return { chip: 'Call to confirm', tone: 'red', detail: 'Beds not available right now — call to confirm' };
 }
 
+// The model ends a follow-up question with a hidden quick-reply line:
+//   [[chips]] Alcohol | Opioids | A mix | Not sure
+// Split an assistant message into the visible text + its suggested chips, hiding
+// any in-progress marker so the raw "[[chips]]" never flashes mid-stream.
+const CHIP_MARK = '[[chips]]';
+function parseChips(content: string): { text: string; chips: string[] } {
+  const i = content.indexOf(CHIP_MARK);
+  if (i === -1) {
+    // Hide a partially-streamed marker at the very end (e.g. "\n[[chi").
+    const partial = content.match(/\n*\[\[?c?h?i?p?s?\]?\]?$/);
+    return { text: (partial ? content.slice(0, partial.index) : content).trimEnd(), chips: [] };
+  }
+  const chips = content
+    .slice(i + CHIP_MARK.length)
+    .split('|')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+  return { text: content.slice(0, i).trimEnd(), chips };
+}
+
 export default function MatchPage() {
   // Warm acknowledgment gate before the conversation begins.
   const [acknowledged, setAcknowledged] = useState(false);
@@ -135,8 +156,30 @@ export default function MatchPage() {
   }, []);
 
   const stepNumber = phase === 'intake' ? stepIdx + 1 : 4;
-  const progressPct = phase === 'results' ? 100 : Math.round((stepNumber / 4) * 100);
   const step = STEPS[stepIdx];
+
+  // A step can ask more than one question (e.g. "need" asks level, then concern), so
+  // the bar must move on every answer — not just when a step completes — or it looks
+  // frozen. Fill = completed steps + partial credit for answers within the current step.
+  const openerPos = messages.map((m) => m.content).lastIndexOf(step.opener);
+  const answersInStep =
+    openerPos === -1 ? 0 : messages.slice(openerPos + 1).filter((m) => m.role === 'user').length;
+  const withinStep = Math.min(answersInStep, 2) / 2; // 0 → 0.5 → 1 toward the next step
+  const progressPct =
+    phase === 'results'
+      ? 100
+      : Math.max(6, Math.min(96, Math.round(((stepIdx + withinStep) / 4) * 100)));
+
+  // Chips track the question actually on screen: the model's own suggestions for a
+  // follow-up if it offered any, otherwise the step opener's curated chips, else none.
+  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
+  const modelChips = lastAssistant ? parseChips(lastAssistant.content).chips : [];
+  const activeChips =
+    modelChips.length > 0
+      ? modelChips
+      : lastAssistant?.content === step.opener
+        ? [...step.chips]
+        : [];
 
   // Match on the de-identified subset; with consent, share the face sheet with the
   // recommended programs so their intake teams have it in hand.
@@ -206,6 +249,7 @@ export default function MatchPage() {
     const trimmed = text.trim();
     if (!trimmed || busy || phase !== 'intake') return;
 
+    const prior = messages; // snapshot to roll back to if this turn fails
     const history = [...messages, { role: 'user' as const, content: trimmed }];
     setMessages(history);
     setInput('');
@@ -215,6 +259,7 @@ export default function MatchPage() {
     setMessages((m) => [...m, { role: 'assistant', content: '' }]);
 
     let stepData: Record<string, unknown> | null = null;
+    let errored = false;
 
     try {
       const res = await fetch('/api/intake', {
@@ -250,14 +295,24 @@ export default function MatchPage() {
           } else if (evt.type === 'step') {
             stepData = evt.data as Record<string, unknown>;
           } else if (evt.type === 'error') {
-            setError(evt.message ?? 'Something went wrong');
+            errored = true;
+            setError(evt.message ?? 'Something interrupted us — please try that again.');
           }
         }
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong');
+    } catch {
+      errored = true;
+      setError('Something interrupted us — please try that again.');
     } finally {
       setBusy(false);
+    }
+
+    // On failure, roll the turn back so the person can simply re-tap their answer
+    // (and we never leave a half-streamed or empty bubble behind).
+    if (errored) {
+      setMessages(prior);
+      setInput(trimmed);
+      return;
     }
 
     // Drop the streaming bubble if it ended up empty (model only called the tool).
@@ -431,15 +486,16 @@ export default function MatchPage() {
                       : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink'
                   }
                 >
-                  {m.content || (busy && i === messages.length - 1 ? '…' : '')}
+                  {(m.role === 'assistant' ? parseChips(m.content).text : m.content) ||
+                    (busy && i === messages.length - 1 ? '…' : '')}
                 </div>
               </div>
             ))}
 
-            {/* Quick-reply chips for the current step */}
-            {phase === 'intake' && !busy && step.chips.length > 0 && (
+            {/* Quick-reply chips for the question currently on screen */}
+            {phase === 'intake' && !busy && activeChips.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {step.chips.map((c) => (
+                {activeChips.map((c) => (
                   <button
                     key={c}
                     onClick={() => send(c)}

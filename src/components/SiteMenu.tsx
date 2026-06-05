@@ -8,7 +8,8 @@ const LINKS = [
   { href: '/match', label: 'Find care' },
   { href: '/programs', label: 'Browse programs' },
   { href: '/me', label: 'My saved matches' },
-  { href: '/login', label: 'Provider / team sign in' },
+  { href: '/for-providers', label: 'For providers' },
+  { href: '/pricing', label: 'Pricing' },
 ];
 
 export default function SiteMenu() {

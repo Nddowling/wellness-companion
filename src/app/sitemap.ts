@@ -12,6 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
     { url: `${SITE_URL}/match`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
     { url: `${SITE_URL}/programs`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    { url: `${SITE_URL}/for-providers`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
   ];
 
   // One entry per published program. Failures must not break the sitemap.

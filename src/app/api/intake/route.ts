@@ -23,10 +23,29 @@ function sanitize(text: string): string {
 
 let client: Anthropic | null = null;
 function anthropic(): Anthropic {
-  // Lazy init so a missing key doesn't break the build.
-  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  // Lazy init so a missing key doesn't break the build. maxRetries covers
+  // transient 429/529s on the request setup; mid-stream overloads are retried below.
+  client ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY!, maxRetries: 3 });
   return client;
 }
+
+// Warm, user-safe error copy — never leak raw API JSON to the seeker.
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  const status = (err as { status?: number } | null)?.status;
+  if (status === 529 || status === 429 || /overloaded|rate.?limit/i.test(msg)) {
+    return "Our guide is catching its breath for a second — please tap your answer again in a moment.";
+  }
+  return 'Something interrupted us just now. Please try that again.';
+}
+
+function isRetryable(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? '');
+  const status = (err as { status?: number } | null)?.status;
+  return status === 529 || status === 429 || /overloaded|rate.?limit/i.test(msg);
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export async function POST(request: Request) {
   let body: { messages?: ClientMessage[]; step?: string };
@@ -56,33 +75,53 @@ export async function POST(request: Request) {
       const send = (obj: unknown) =>
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
 
+      // Retry the whole turn on transient overloads — but only while NOTHING has
+      // streamed yet, so a retry can't duplicate half a reply.
+      let sentText = false;
+      let lastErr: unknown = null;
       try {
-        const stream = anthropic().messages.stream({
-          model: INTAKE_MODEL,
-          max_tokens: 2048,
-          // Warmth + low latency matter more than deep reasoning here.
-          thinking: { type: 'disabled' },
-          system: [
-            { type: 'text', text: STEP_SYSTEM[step], cache_control: { type: 'ephemeral' } },
-          ],
-          tools: [STEP_TOOLS[step]],
-          messages,
-        });
+        for (let attempt = 0; attempt <= 3; attempt++) {
+          try {
+            const stream = anthropic().messages.stream({
+              model: INTAKE_MODEL,
+              max_tokens: 2048,
+              // Warmth + low latency matter more than deep reasoning here.
+              thinking: { type: 'disabled' },
+              system: [
+                { type: 'text', text: STEP_SYSTEM[step], cache_control: { type: 'ephemeral' } },
+              ],
+              tools: [STEP_TOOLS[step]],
+              messages,
+            });
 
-        // Stream the assistant's reply token-by-token.
-        stream.on('text', (delta) => send({ type: 'text', text: delta }));
+            // Stream the assistant's reply token-by-token.
+            stream.on('text', (delta) => {
+              sentText = true;
+              send({ type: 'text', text: delta });
+            });
 
-        const final = await stream.finalMessage();
+            const final = await stream.finalMessage();
 
-        // If Claude recorded this step, hand the gathered fields to the client and
-        // signal that the step is complete so the UI can advance.
-        const tool = final.content.find((b) => b.type === 'tool_use');
-        if (tool && tool.type === 'tool_use') {
-          send({ type: 'step', step, data: tool.input });
+            // If Claude recorded this step, hand the gathered fields to the client
+            // and signal the step is complete so the UI can advance.
+            const tool = final.content.find((b) => b.type === 'tool_use');
+            if (tool && tool.type === 'tool_use') {
+              send({ type: 'step', step, data: tool.input });
+            }
+            send({ type: 'done' });
+            lastErr = null;
+            break;
+          } catch (err) {
+            lastErr = err;
+            if (!sentText && isRetryable(err) && attempt < 3) {
+              await sleep(500 * (attempt + 1));
+              continue;
+            }
+            throw err;
+          }
         }
-        send({ type: 'done' });
       } catch (err) {
-        send({ type: 'error', message: err instanceof Error ? err.message : 'Intake failed' });
+        send({ type: 'error', message: friendlyError(lastErr ?? err) });
       } finally {
         controller.close();
       }

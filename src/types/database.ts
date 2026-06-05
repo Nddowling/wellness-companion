@@ -140,7 +140,11 @@ export type Database = {
           license_number: string | null
           name: string
           npi: string | null
+          plan: string
+          plan_status: string
           populations_served: string[]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
           referral_contact: Json
           specialties: string[]
           state: string | null
@@ -183,7 +187,11 @@ export type Database = {
           license_number?: string | null
           name: string
           npi?: string | null
+          plan?: string
+          plan_status?: string
           populations_served?: string[]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           referral_contact?: Json
           specialties?: string[]
           state?: string | null
@@ -226,7 +234,11 @@ export type Database = {
           license_number?: string | null
           name?: string
           npi?: string | null
+          plan?: string
+          plan_status?: string
           populations_served?: string[]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
           referral_contact?: Json
           specialties?: string[]
           state?: string | null
