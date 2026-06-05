@@ -9,13 +9,15 @@ import { getRoles } from '@/lib/auth';
 // Env-gated — until STRIPE_SECRET_KEY + the plan price IDs are set, it sends the
 // facility to /pricing?soon=1 instead of erroring.
 
-const PRICE_ENV: Record<string, string> = {
-  verified: 'STRIPE_PRICE_VERIFIED',
-  premium: 'STRIPE_PRICE_PREMIUM',
+const PRICE_ENV: Record<string, Record<string, string>> = {
+  verified: { monthly: 'STRIPE_PRICE_VERIFIED', annual: 'STRIPE_PRICE_VERIFIED_ANNUAL' },
+  premium: { monthly: 'STRIPE_PRICE_PREMIUM', annual: 'STRIPE_PRICE_PREMIUM_ANNUAL' },
 };
 
 export async function GET(request: Request) {
-  const plan = new URL(request.url).searchParams.get('plan') ?? '';
+  const params = new URL(request.url).searchParams;
+  const plan = params.get('plan') ?? '';
+  const cycle = params.get('cycle') === 'annual' ? 'annual' : 'monthly';
   if (!(plan in PRICE_ENV)) redirect('/pricing');
 
   const { user, facilityIds } = await getRoles();
@@ -24,7 +26,7 @@ export async function GET(request: Request) {
   const facilityId = facilityIds[0];
 
   const key = process.env.STRIPE_SECRET_KEY;
-  const price = process.env[PRICE_ENV[plan]];
+  const price = process.env[PRICE_ENV[plan][cycle]];
   const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://clearbedrecovery.com';
   if (!key || !price) redirect('/pricing?soon=1');
 

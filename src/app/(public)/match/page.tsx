@@ -261,11 +261,16 @@ export default function MatchPage() {
     let stepData: Record<string, unknown> | null = null;
     let errored = false;
 
+    // Hard stop so a stalled stream can never leave the UI frozen on "…".
+    const ctrl = new AbortController();
+    const timeout = setTimeout(() => ctrl.abort(), 30_000);
+
     try {
       const res = await fetch('/api/intake', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step: step.key, messages: history }),
+        signal: ctrl.signal,
       });
       if (!res.ok || !res.body) throw new Error('Intake is unavailable right now');
 
@@ -304,6 +309,7 @@ export default function MatchPage() {
       errored = true;
       setError('Something interrupted us — please try that again.');
     } finally {
+      clearTimeout(timeout);
       setBusy(false);
     }
 

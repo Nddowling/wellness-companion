@@ -26,7 +26,10 @@ export type IntakeExtraction = {
   concern_category: ConcernCategory;
 };
 
-export const INTAKE_MODEL = 'claude-opus-4-8';
+// Sonnet, not Opus: this is a warm, structured, tool-driven intake where low
+// latency and availability matter far more than deep reasoning. Opus was slow and
+// prone to "Overloaded" errors here; Sonnet is fast and reliable for it.
+export const INTAKE_MODEL = 'claude-sonnet-4-6';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Stepped intake. The /match page guides the person through four warm steps:
