@@ -11,6 +11,8 @@ import {
   type PayerType,
 } from '@/lib/constants';
 import { updateCapacity, setLeadStatus, updateContact, updateProfile, uploadPhoto, removePhoto } from '../actions';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { normalizePlan, PLAN_LABEL } from '@/lib/facility/plan';
 
 const CONCERN_LABELS: Record<string, string> = {
   alcohol: 'Alcohol',
@@ -64,11 +66,14 @@ export default async function FacilityManage({
   const { data: facility } = await supabase
     .from('facilities')
     .select(
-      'id, name, city, state, verified_at, is_published, levels_of_care, referral_contact, description, website, specialty_programs, images, facility_capacity(level_of_care, beds_available, last_updated)'
+      'id, name, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, facility_capacity(level_of_care, beds_available, last_updated)'
     )
     .eq('id', id)
     .maybeSingle();
   if (!facility) notFound();
+
+  const plan = normalizePlan(facility.plan);
+  const isFree = plan === 'free';
 
   const caps = (facility.facility_capacity ?? []) as Cap[];
   const capByLevel = new Map(caps.map((c) => [c.level_of_care, c]));
@@ -105,9 +110,26 @@ export default async function FacilityManage({
           <p className="text-sm text-slate-500">Changes show on your public profile right away.</p>
         </div>
 
+        {isFree && (
+          <UpgradePrompt
+            variant="banner"
+            title="You're on the Free plan"
+            body="Free listings show only your name, location, and phone. Upgrade to add photos, your website, a full description, and the live bed board."
+            cta="See plans →"
+          />
+        )}
+
         {/* Public profile editor */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">Public profile</h2>
+          {isFree ? (
+            <UpgradePrompt
+              variant="card"
+              title="A full profile is a Starter feature"
+              body="Add an About section, your specialties, and a clickable website link so seekers see the real you."
+              cta="Upgrade to claim your profile →"
+            />
+          ) : (
           <form action={updateProfile} className="grid gap-2 rounded-md border border-slate-200 bg-white p-3">
             <input type="hidden" name="facility_id" value={id} />
             <label className="text-xs text-slate-500">About your program (shown to seekers)</label>
@@ -137,6 +159,7 @@ export default async function FacilityManage({
               Save profile
             </button>
           </form>
+          )}
         </section>
 
         {/* Photos */}
@@ -167,13 +190,22 @@ export default async function FacilityManage({
               ))}
             </div>
           )}
-          <form action={uploadPhoto} className="flex items-center gap-2">
-            <input type="hidden" name="facility_id" value={id} />
-            <input type="file" name="photo" accept="image/*" required className="text-sm" />
-            <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
-              Upload photo
-            </button>
-          </form>
+          {isFree ? (
+            <UpgradePrompt
+              variant="card"
+              title="Photos are a Starter feature"
+              body="Programs with real photos get far more reach-outs. Upgrade to add up to 8."
+              cta="Upgrade to add photos →"
+            />
+          ) : (
+            <form action={uploadPhoto} className="flex items-center gap-2">
+              <input type="hidden" name="facility_id" value={id} />
+              <input type="file" name="photo" accept="image/*" required className="text-sm" />
+              <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
+                Upload photo
+              </button>
+            </form>
+          )}
         </section>
 
         {/* Bed availability — the moat */}
@@ -276,6 +308,15 @@ export default async function FacilityManage({
         </Link>
       )}
 
+      {isFree && (
+        <UpgradePrompt
+          variant="banner"
+          title={`You're on the Free plan — your listing is bare`}
+          body="Seekers see only your name, location, and phone. Upgrade to add photos, a full profile, your website, reviews, and the live bed board that ranks you higher."
+          cta="Upgrade your listing →"
+        />
+      )}
+
       {/* Hero */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         {images.length > 0 ? (
@@ -322,7 +363,16 @@ export default async function FacilityManage({
               ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={
+                'rounded-full px-2.5 py-0.5 text-xs font-medium ' +
+                (isFree ? 'bg-slate-100 text-slate-600' : 'bg-teal-100 text-teal-800')
+              }
+            >
+              {PLAN_LABEL[plan]} plan
+            </span>
+            {isFree && <UpgradePrompt variant="inline" cta="⬆ Upgrade" />}
             <Link
               href={`/facility/${id}?edit=1`}
               className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800"
@@ -349,7 +399,14 @@ export default async function FacilityManage({
       {/* About */}
       <section className="space-y-3">
         <h2 className="text-sm font-semibold text-slate-700">About</h2>
-        {facility.description ? (
+        {isFree ? (
+          <UpgradePrompt
+            variant="card"
+            title="Your About section is hidden on Free"
+            body="Describe what makes your program a good place to heal — shown to every seeker on Starter and up."
+            cta="Upgrade to add an About →"
+          />
+        ) : facility.description ? (
           <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{facility.description}</p>
         ) : (
           <p className="text-sm text-slate-400">

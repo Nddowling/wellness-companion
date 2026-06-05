@@ -84,21 +84,24 @@ function availability(f: MatchedFacility): { chip: string; tone: 'green' | 'ambe
 //   [[chips]] Alcohol | Opioids | A mix | Not sure
 // Split an assistant message into the visible text + its suggested chips, hiding
 // any in-progress marker so the raw "[[chips]]" never flashes mid-stream.
-const CHIP_MARK = '[[chips]]';
+// Robust to model variance: [[chips]], [[ chips ]], single brackets, any case.
+const CHIP_RE = /\[\[?\s*chips\s*\]?\]/i;
 function parseChips(content: string): { text: string; chips: string[] } {
-  const i = content.indexOf(CHIP_MARK);
-  if (i === -1) {
+  const m = content.match(CHIP_RE);
+  if (!m || m.index === undefined) {
     // Hide a partially-streamed marker at the very end (e.g. "\n[[chi").
-    const partial = content.match(/\n*\[\[?c?h?i?p?s?\]?\]?$/);
+    const partial = content.match(/\n*\[\[?\s*c?h?i?p?s?\s*\]?\]?$/i);
     return { text: (partial ? content.slice(0, partial.index) : content).trimEnd(), chips: [] };
   }
   const chips = content
-    .slice(i + CHIP_MARK.length)
-    .split('|')
+    .slice(m.index + m[0].length)
+    // options up to the end of that line, split on | (or commas as a fallback)
+    .split('\n')[0]
+    .split(/[|]/)
     .map((s) => s.trim())
     .filter(Boolean)
     .slice(0, 5);
-  return { text: content.slice(0, i).trimEnd(), chips };
+  return { text: content.slice(0, m.index).trimEnd(), chips };
 }
 
 export default function MatchPage() {

@@ -350,6 +350,11 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
     );
   }
 
+  const mapQuery = [f.street, f.city, f.state, f.zip].filter(Boolean).join(', ');
+  const anyAccepting = levels.some(
+    (l) => !isBedBased(l) || (caps.find((c) => c.level_of_care === l)?.beds_available ?? 0) > 0
+  );
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
       <JsonLd data={jsonLd} />
@@ -429,7 +434,28 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
         </div>
       </div>
 
+      {anyAccepting && (
+        <div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+          <span>
+            <strong>Accepting clients now</strong> — contact their intake team to confirm a spot.
+          </span>
+        </div>
+      )}
+
       {showDescription && <p className="mt-5 text-sm leading-relaxed text-slate-700">{f.description}</p>}
+
+      {f.street && (
+        <section className="mt-5 overflow-hidden rounded-xl border border-slate-200">
+          <iframe
+            title={`Map of ${f.name}`}
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(mapQuery)}&z=14&output=embed`}
+            className="h-64 w-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </section>
+      )}
 
       {/* Treatment & details */}
       <div className="mt-5 grid gap-5 sm:grid-cols-2">

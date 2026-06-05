@@ -2,12 +2,22 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { getRoles } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
+import { normalizePlan } from '@/lib/facility/plan';
 import { Logo } from '@/components/Logo';
 import { AccountMenu } from '@/components/AccountMenu';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, facilityIds, isSeeker } = await getRoles();
   if (!user) redirect('/login'); // the authed shell always requires a session
+
+  // Persistent "Upgrade" pill when the user's facility is on the Free plan.
+  let facilityOnFree = false;
+  if (!isSeeker && facilityIds.length > 0) {
+    const supabase = await createClient();
+    const { data } = await supabase.from('facilities').select('plan').eq('id', facilityIds[0]).maybeSingle();
+    facilityOnFree = normalizePlan(data?.plan) === 'free';
+  }
 
   const links: { href: string; label: string }[] = [];
   if (isSeeker) {
@@ -34,10 +44,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               ))}
             </nav>
           </div>
-          <AccountMenu
-            email={user.email ?? ''}
-            inviteHref={!isSeeker && facilityIds.length > 0 ? `/facility/${facilityIds[0]}/invite` : null}
-          />
+          <div className="flex items-center gap-3">
+            {facilityOnFree && (
+              <Link
+                href="/pricing"
+                className="rounded-full bg-terracotta px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-terracotta-dark"
+              >
+                ⬆ Upgrade
+              </Link>
+            )}
+            <AccountMenu
+              email={user.email ?? ''}
+              inviteHref={!isSeeker && facilityIds.length > 0 ? `/facility/${facilityIds[0]}/invite` : null}
+            />
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
