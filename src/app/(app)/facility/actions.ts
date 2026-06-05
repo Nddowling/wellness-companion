@@ -7,6 +7,9 @@ import { requireFacilityMember, requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { markSeekerConnectedByMatch } from '@/lib/vault/seekers';
+import { sendEmail } from '@/lib/email/send';
+import { staffInviteEmail } from '@/lib/email/templates';
+import { SITE_URL } from '@/lib/seo';
 
 /** A logged-in user requests to manage a facility; an admin approves it. */
 export async function requestClaim(formData: FormData) {
@@ -57,9 +60,21 @@ export async function inviteStaff(formData: FormData) {
     .from('facility_members')
     .upsert({ facility_id: facilityId, user_id: userId, role }, { onConflict: 'facility_id,user_id' });
 
+  // Email the invite (best-effort — the temp password is still shown in the UI as
+  // a fallback so the flow never hard-fails on a mail hiccup).
+  const { data: facility } = await admin.from('facilities').select('name').eq('id', facilityId).maybeSingle();
+  const invite = staffInviteEmail({
+    facilityName: facility?.name ?? 'your facility',
+    loginUrl: `${SITE_URL}/login`,
+    email,
+    role,
+    password: tempPw ?? undefined,
+  });
+  const sent = await sendEmail({ to: email, subject: invite.subject, html: invite.html, text: invite.text });
+
   revalidatePath(`/facility/${facilityId}`);
   redirect(
-    `/facility/${facilityId}/invite?invited=${encodeURIComponent(email)}${tempPw ? `&tmp=${encodeURIComponent(tempPw)}` : ''}`
+    `/facility/${facilityId}/invite?invited=${encodeURIComponent(email)}&emailed=${sent.ok ? 1 : 0}${tempPw ? `&tmp=${encodeURIComponent(tempPw)}` : ''}`
   );
 }
 

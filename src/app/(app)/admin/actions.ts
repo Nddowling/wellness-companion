@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createVaultClient } from '@/lib/supabase/vault';
 import { sendEmail } from '@/lib/email/send';
+import { staffInviteEmail } from '@/lib/email/templates';
+import { SITE_URL } from '@/lib/seo';
 import { LEVELS_OF_CARE, PAYER_TYPES } from '@/lib/constants';
 
 function splitCsv(value: FormDataEntryValue | null): string[] {
@@ -220,13 +222,15 @@ export async function addFacilityMember(formData: FormData) {
 
   let userId = created?.user?.id ?? null;
   if (created?.user) {
-    const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`;
-    await sendEmail({
-      to: email,
-      subject: 'Your Clear Bed Recovery facility login',
-      html: `<p>You've been added to a facility on Clear Bed Recovery.</p><p>Sign in: <a href="${loginUrl}">${loginUrl}</a><br>Email: <strong>${email}</strong><br>Temporary password: <strong>${password}</strong></p>`,
-      text: `You've been added to a facility on Clear Bed Recovery.\nSign in: ${loginUrl}\nEmail: ${email}\nTemporary password: ${password}`,
+    const { data: facility } = await admin.from('facilities').select('name').eq('id', facilityId).maybeSingle();
+    const invite = staffInviteEmail({
+      facilityName: facility?.name ?? 'your facility',
+      loginUrl: `${SITE_URL}/login`,
+      email,
+      role: 'staff',
+      password,
     });
+    await sendEmail({ to: email, subject: invite.subject, html: invite.html, text: invite.text });
   } else {
     userId = await findUserIdByEmail(admin, email);
   }

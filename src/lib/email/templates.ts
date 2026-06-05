@@ -69,11 +69,13 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 }
 
-function wrap(title: string, inner: string): string {
+// Seeker-facing emails carry the 988 crisis footer; business emails (e.g. staff
+// invites) pass their own footer instead — the crisis line is out of place there.
+function wrap(title: string, inner: string, footer: string = CRISIS): string {
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b">
   <h1 style="font-size:20px;color:#0f766e">${esc(title)}</h1>
   ${inner}
-  <p style="font-size:12px;color:#94a3b8;margin-top:24px;border-top:1px solid #e2e8f0;padding-top:12px">${esc(CRISIS)}</p>
+  <p style="font-size:12px;color:#94a3b8;margin-top:24px;border-top:1px solid #e2e8f0;padding-top:12px">${esc(footer)}</p>
 </div>`;
 }
 
@@ -250,6 +252,55 @@ export function faceSheetEmail(
     .filter(Boolean)
     .join('\n\n');
   const text = `New referral for ${facilityName} via Clear Bed Recovery.\n\n${textSections}\n\nThis information is confidential and protected. Use it only to coordinate this person's care.`;
+
+  return { subject, html, text };
+}
+
+// 5) Staff invite — to a colleague added to a facility team. Business email, NOT
+// PHI: no crisis footer, just a sign-in link and (for brand-new accounts) a temp
+// password. Used by both facility self-serve invites and admin "add member".
+export function staffInviteEmail(params: {
+  facilityName: string;
+  loginUrl: string;
+  email: string;
+  role: 'owner' | 'staff';
+  password?: string; // present only when a new login was just created
+}): { subject: string; html: string; text: string } {
+  const subject = `You've been added to ${params.facilityName} on Clear Bed Recovery`;
+  const roleLine =
+    params.role === 'owner'
+      ? 'As an <strong>owner</strong>, you can update beds and profile, manage leads, and invite others.'
+      : 'As <strong>staff</strong>, you can update beds and profile and manage incoming referrals.';
+  const cred = params.password
+    ? `<div style="background:#e1f0ec;border-radius:8px;padding:12px;margin:12px 0">
+        <div style="font-weight:600;margin-bottom:6px">Your login</div>
+        <div style="font-size:14px">Email: <strong>${esc(params.email)}</strong></div>
+        <div style="font-size:14px">Temporary password: <strong>${esc(params.password)}</strong></div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px">Change it after you sign in.</div>
+      </div>`
+    : `<p style="font-size:14px">Sign in with your existing Clear Bed Recovery account (<strong>${esc(
+        params.email
+      )}</strong>) to get started.</p>`;
+  const footer =
+    'You received this because someone added you to a facility team on Clear Bed Recovery, the addiction-treatment referral directory.';
+
+  const html = wrap(
+    `Welcome to the ${params.facilityName} team`,
+    `<p>You've been added to <strong>${esc(params.facilityName)}</strong> on Clear Bed Recovery.</p>
+     <p>${roleLine}</p>
+     ${cred}
+     <div style="margin:12px 0"><a href="${esc(params.loginUrl)}" style="background:#2f6f6a;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:14px">Sign in to manage ${esc(
+       params.facilityName
+     )}</a></div>
+     <p style="font-size:13px;color:#475569">Keeping your bed availability current is what gets your program matched to the right referrals first.</p>`,
+    footer
+  );
+
+  const text = `You've been added to ${params.facilityName} on Clear Bed Recovery (${params.role}).\n\nSign in: ${
+    params.loginUrl
+  }\nEmail: ${params.email}${
+    params.password ? `\nTemporary password: ${params.password} (change it after signing in)` : ''
+  }\n\nKeeping your bed availability current is what gets your program matched to the right referrals first.\n\n${footer}`;
 
   return { subject, html, text };
 }

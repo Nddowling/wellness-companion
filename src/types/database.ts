@@ -323,6 +323,45 @@ export type Database = {
           },
         ]
       }
+      outbound_clicks: {
+        Row: {
+          created_at: string
+          facility_id: string
+          id: string
+          match_id: string | null
+          referrer: string | null
+        }
+        Insert: {
+          created_at?: string
+          facility_id: string
+          id?: string
+          match_id?: string | null
+          referrer?: string | null
+        }
+        Update: {
+          created_at?: string
+          facility_id?: string
+          id?: string
+          match_id?: string | null
+          referrer?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outbound_clicks_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outbound_clicks_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facility_members: {
         Row: {
           created_at: string

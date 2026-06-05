@@ -10,10 +10,10 @@ export default async function InviteStaff({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ invited?: string; tmp?: string }>;
+  searchParams: Promise<{ invited?: string; tmp?: string; emailed?: string }>;
 }) {
   const { id } = await params;
-  const { invited, tmp } = await searchParams;
+  const { invited, tmp, emailed } = await searchParams;
   const { facilityIds } = await requireFacilityMember();
   if (!facilityIds.includes(id)) notFound();
 
@@ -38,10 +38,19 @@ export default async function InviteStaff({
       {invited && (
         <div className="rounded-md bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
           ✓ <strong>{invited}</strong> can now help manage {facility.name}.
+          {emailed === '1' ? (
+            <div className="mt-1 text-xs text-emerald-800">
+              We&apos;ve emailed them an invite with sign-in details.
+            </div>
+          ) : (
+            <div className="mt-1 text-xs text-amber-800">
+              We couldn&apos;t send the invite email{tmp ? '' : ' just now'} — share their sign-in details directly.
+            </div>
+          )}
           {tmp && (
             <div className="mt-1 text-xs text-emerald-800">
-              Temporary password: <strong>{tmp}</strong> — share it securely; they can change it after signing
-              in. (Once email is connected, we&apos;ll send this for you.)
+              Temporary password: <strong>{tmp}</strong> — they can change it after signing in. (Also included in
+              the invite email.)
             </div>
           )}
         </div>
