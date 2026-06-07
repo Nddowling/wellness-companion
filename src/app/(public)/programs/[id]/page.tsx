@@ -113,6 +113,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
   const providerSide = isProviderSide(await getRoles());
   const showCallIntake = planAllows(plan, 'callIntake'); // no "Call intake" on Free profiles
   const images = planAllows(plan, 'photos') ? ((f.images ?? []) as string[]) : [];
+  const videos = planAllows(plan, 'video') ? ((f.videos ?? []) as string[]) : [];
   const showDescription = planAllows(plan, 'description') && !!f.description;
   const showWebsite = planAllows(plan, 'website') && !!f.website;
   const contact = (f.referral_contact ?? {}) as { name?: string; email?: string; phone?: string };
@@ -454,6 +455,23 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
+        </section>
+      )}
+
+      {videos.length > 0 && (
+        <section className="mt-5">
+          <h2 className="mb-2 text-sm font-semibold text-slate-700">Video tour</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {videos.map((src) => (
+              <video
+                key={src}
+                src={src}
+                controls
+                preload="metadata"
+                className="w-full rounded-xl border border-slate-200 bg-black"
+              />
+            ))}
+          </div>
         </section>
       )}
 

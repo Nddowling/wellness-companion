@@ -41,6 +41,7 @@ const TIERS: Tier[] = [
     highlight: true,
     features: [
       'Everything in Starter',
+      'Walkthrough / welcome videos',
       '2 referrer (BD) seats',
       'Attribution tracking',
       'Follow-up workflow',

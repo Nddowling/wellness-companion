@@ -10,9 +10,9 @@ import {
   type LevelOfCare,
   type PayerType,
 } from '@/lib/constants';
-import { updateCapacity, setLeadStatus, updateContact, updateProfile, uploadPhoto, removePhoto } from '../actions';
+import { updateCapacity, setLeadStatus, updateContact, updateProfile, uploadPhoto, removePhoto, uploadVideo, removeVideo } from '../actions';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
-import { normalizePlan, PLAN_LABEL } from '@/lib/facility/plan';
+import { normalizePlan, PLAN_LABEL, planAllows } from '@/lib/facility/plan';
 
 const CONCERN_LABELS: Record<string, string> = {
   alcohol: 'Alcohol',
@@ -66,7 +66,7 @@ export default async function FacilityManage({
   const { data: facility } = await supabase
     .from('facilities')
     .select(
-      'id, name, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, facility_capacity(level_of_care, beds_available, last_updated)'
+      'id, name, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, facility_capacity(level_of_care, beds_available, last_updated)'
     )
     .eq('id', id)
     .maybeSingle();
@@ -80,6 +80,8 @@ export default async function FacilityManage({
   const levels = (facility.levels_of_care ?? []) as string[];
   const contact = (facility.referral_contact ?? {}) as Contact;
   const images = (facility.images ?? []) as string[];
+  const videos = (facility.videos ?? []) as string[];
+  const canVideo = planAllows(plan, 'video');
   const specialties = splitList(facility.specialty_programs);
 
   const { data: routeData } = await supabase
@@ -205,6 +207,50 @@ export default async function FacilityManage({
                 Upload photo
               </button>
             </form>
+          )}
+        </section>
+
+        {/* Videos (Growth+) */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">Videos</h2>
+          <p className="text-xs text-slate-500">
+            A short walkthrough or welcome video builds trust faster than almost anything else.
+          </p>
+          {videos.length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              {videos.map((src) => (
+                <div key={src} className="relative">
+                  <video src={src} controls preload="metadata" className="h-32 w-56 rounded-md bg-black object-cover" />
+                  <form action={removeVideo} className="absolute right-1 top-1">
+                    <input type="hidden" name="facility_id" value={id} />
+                    <input type="hidden" name="url" value={src} />
+                    <button
+                      type="submit"
+                      title="Remove video"
+                      className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white"
+                    >
+                      ×
+                    </button>
+                  </form>
+                </div>
+              ))}
+            </div>
+          )}
+          {canVideo ? (
+            <form action={uploadVideo} className="flex items-center gap-2">
+              <input type="hidden" name="facility_id" value={id} />
+              <input type="file" name="video" accept="video/*" required className="text-sm" />
+              <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
+                Upload video
+              </button>
+            </form>
+          ) : (
+            <UpgradePrompt
+              variant="card"
+              title="Video is a Growth feature"
+              body="Add a walkthrough or welcome video — available on Growth and Anchor."
+              cta="Upgrade to add video →"
+            />
           )}
         </section>
 

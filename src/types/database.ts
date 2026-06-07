@@ -154,6 +154,7 @@ export type Database = {
           verified_at: string | null
           website: string | null
           images: string[]
+          videos: string[]
           description: string | null
           zip: string | null
           zip3: string | null
@@ -202,6 +203,7 @@ export type Database = {
           verified_at?: string | null
           website?: string | null
           images?: string[]
+          videos?: string[]
           description?: string | null
           zip?: string | null
           zip3?: string | null
@@ -250,6 +252,7 @@ export type Database = {
           verified_at?: string | null
           website?: string | null
           images?: string[]
+          videos?: string[]
           description?: string | null
           zip?: string | null
           zip3?: string | null

@@ -227,6 +227,56 @@ export async function removePhoto(formData: FormData) {
   revalidatePath(`/facility/${facilityId}`);
   revalidatePath(`/programs/${facilityId}`);
 }
+
+/** Upload a video (Growth+ feature) and append its public URL to the facility. */
+export async function uploadVideo(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const file = formData.get('video');
+  if (!(file instanceof File) || file.size === 0) return;
+  if (file.size > 200_000_000) throw new Error('Video must be under 200MB');
+
+  const admin = createAdminClient();
+  const { data: planRow } = await admin.from('facilities').select('plan, videos').eq('id', facilityId).single();
+  const plan = normalizePlan(planRow?.plan);
+  if (!planAllows(plan, 'video')) throw new Error('Video is a Growth feature — upgrade to add videos.');
+  if ((((planRow?.videos as string[] | null) ?? []).length) >= 5) {
+    throw new Error('You can publish up to 5 videos.');
+  }
+
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const path = `${facilityId}/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+  const { error: upErr } = await admin.storage
+    .from('facility-videos')
+    .upload(path, file, { contentType: file.type || 'video/mp4', upsert: false });
+  if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+
+  const { data: pub } = admin.storage.from('facility-videos').getPublicUrl(path);
+  const videos = [...((planRow?.videos as string[] | null) ?? []), pub.publicUrl];
+  await admin.from('facilities').update({ videos }).eq('id', facilityId);
+
+  revalidatePath(`/facility/${facilityId}`);
+  revalidatePath(`/programs/${facilityId}`);
+}
+
+/** Remove a video URL from the facility. */
+export async function removeVideo(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  const url = String(formData.get('url') || '');
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const admin = createAdminClient();
+  const { data: row } = await admin.from('facilities').select('videos').eq('id', facilityId).single();
+  const videos = ((row?.videos as string[] | null) ?? []).filter((u) => u !== url);
+  await admin.from('facilities').update({ videos }).eq('id', facilityId);
+
+  revalidatePath(`/facility/${facilityId}`);
+  revalidatePath(`/programs/${facilityId}`);
+}
+
 export async function updateContact(formData: FormData) {
   const { facilityIds } = await requireFacilityMember();
   const facilityId = String(formData.get('facility_id'));
