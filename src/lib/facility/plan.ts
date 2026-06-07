@@ -36,6 +36,7 @@ export const FEATURE_MIN_PLAN = {
   respondReviews: 'starter',
   basicAnalytics: 'growth',
   followUpWorkflow: 'growth',
+  seekerContacts: 'growth', // see matched seekers' consented contact details in-app
   video: 'growth',
   featuredPlacement: 'growth',
   fullAnalytics: 'anchor',

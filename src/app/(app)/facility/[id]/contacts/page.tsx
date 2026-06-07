@@ -5,6 +5,8 @@ import { requireFacilityMember } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { isVaultEnabled } from '@/lib/supabase/vault';
 import { listSeekerContactsForFacility, type FacilityContact } from '@/lib/vault/seekers';
+import { normalizePlan, planAllows, PLAN_LABEL, requiredPlan } from '@/lib/facility/plan';
+import { UpgradePrompt } from '@/components/UpgradePrompt';
 
 // Face-sheet keys that are already shown in the contact header — don't repeat them
 // in the detail grid below.
@@ -105,11 +107,16 @@ export default async function FacilityContacts({ params }: { params: Promise<{ i
   if (!facilityIds.includes(id)) notFound();
 
   const supabase = await createClient();
-  const { data: facility } = await supabase.from('facilities').select('name').eq('id', id).maybeSingle();
+  const { data: facility } = await supabase.from('facilities').select('name, plan').eq('id', id).maybeSingle();
   if (!facility) notFound();
 
+  // Premium feature: only Growth+ facilities can see matched seekers' contact
+  // details in-app. Free/Starter still get de-identified leads on the dashboard.
+  const plan = normalizePlan(facility.plan);
+  const canSeeContacts = planAllows(plan, 'seekerContacts');
+
   const vaultOn = isVaultEnabled();
-  const contacts = vaultOn ? await listSeekerContactsForFacility(id) : [];
+  const contacts = canSeeContacts && vaultOn ? await listSeekerContactsForFacility(id) : [];
 
   return (
     <div className="space-y-6">
@@ -124,7 +131,15 @@ export default async function FacilityContacts({ params }: { params: Promise<{ i
         </p>
       </div>
 
-      {!vaultOn ? (
+      {!canSeeContacts ? (
+        <UpgradePrompt
+          variant="card"
+          title="Seeker contacts is a premium feature"
+          body={`When a seeker matches with you and shares their details, their contact info from the intake conversation lands here automatically — on ${PLAN_LABEL[requiredPlan('seekerContacts')]} and up. On your current plan you'll see de-identified leads on your dashboard.`}
+          cta="Upgrade to unlock →"
+          href={`/pricing?facility=${id}`}
+        />
+      ) : !vaultOn ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
           <strong>Contacts are not available yet.</strong>
           <p className="mt-1 text-amber-800">
