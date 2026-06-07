@@ -12,6 +12,7 @@ import {
 } from '@/lib/email/templates';
 import {
   createSeekerWithInterest,
+  logConsentEvents,
   logEmail,
   markInterestInfoSent,
   setSeekerAuthUser,
@@ -107,6 +108,9 @@ export async function POST(request: Request) {
     facilityIds,
     faceSheet: fs,
   });
+
+  // Immutable record of exactly what they answered (yes AND no), and when.
+  await logConsentEvents({ seekerId, matchId, consents, source: 'intake_handoff' });
 
   const summaries = facilities
     .map((f) => toFacilitySummary(f as unknown as FacilityRowForSummary))

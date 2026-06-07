@@ -569,6 +569,94 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_conversations: {
+        Row: {
+          auth_user_id: string | null
+          created_at: string
+          face_sheet: Json
+          id: string
+          match_id: string | null
+          matched_facilities: Json
+          messages: Json
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id?: string | null
+          created_at?: string
+          face_sheet?: Json
+          id?: string
+          match_id?: string | null
+          matched_facilities?: Json
+          messages?: Json
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string | null
+          created_at?: string
+          face_sheet?: Json
+          id?: string
+          match_id?: string | null
+          matched_facilities?: Json
+          messages?: Json
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_conversations_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vault_consent_events: {
+        Row: {
+          channel: string
+          created_at: string
+          granted: boolean
+          id: string
+          match_id: string | null
+          occurred_at: string
+          seeker_id: string | null
+          source: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          granted: boolean
+          id?: string
+          match_id?: string | null
+          occurred_at?: string
+          seeker_id?: string | null
+          source?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          granted?: boolean
+          id?: string
+          match_id?: string | null
+          occurred_at?: string
+          seeker_id?: string | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_consent_events_seeker_id_fkey"
+            columns: ["seeker_id"]
+            isOneToOne: false
+            referencedRelation: "vault_seekers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vault_email_log: {
         Row: {
           facility_id: string | null

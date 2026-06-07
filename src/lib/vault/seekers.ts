@@ -62,6 +62,58 @@ export async function createSeekerWithInterest(params: {
   return seeker.id;
 }
 
+export type ConsentChannel = 'share' | 'email';
+
+/**
+ * Append-only consent ledger. One immutable row per decision (share + email) with
+ * its yes/no value and the moment it was answered — the durable "you said yes on
+ * this date" record, separate from the mutable consent_* columns on vault_seekers.
+ */
+export async function logConsentEvents(params: {
+  seekerId: string | null;
+  matchId: string | null;
+  consents: { email: boolean; share: boolean };
+  source?: string;
+}): Promise<void> {
+  if (!params.seekerId) return;
+  const vault = createVaultClient();
+  const now = new Date().toISOString();
+  const source = params.source ?? 'intake';
+  const rows: { channel: ConsentChannel; granted: boolean }[] = [
+    { channel: 'share', granted: params.consents.share },
+    { channel: 'email', granted: params.consents.email },
+  ];
+  await vault.from('vault_consent_events').insert(
+    rows.map((r) => ({
+      seeker_id: params.seekerId,
+      match_id: params.matchId,
+      channel: r.channel,
+      granted: r.granted,
+      source,
+      occurred_at: now,
+    }))
+  );
+}
+
+export type ConsentEvent = {
+  id: string;
+  channel: string;
+  granted: boolean;
+  source: string;
+  occurred_at: string;
+};
+
+/** Full consent history for a seeker, newest first (admin/compliance view). */
+export async function getConsentEvents(seekerId: string): Promise<ConsentEvent[]> {
+  const vault = createVaultClient();
+  const { data } = await vault
+    .from('vault_consent_events')
+    .select('id, channel, granted, source, occurred_at')
+    .eq('seeker_id', seekerId)
+    .order('occurred_at', { ascending: false });
+  return (data ?? []) as ConsentEvent[];
+}
+
 export async function logEmail(entry: {
   seeker_id?: string | null;
   facility_id?: string | null;

@@ -2,10 +2,15 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { requireAdmin } from '@/lib/auth';
-import { getSeekerById } from '@/lib/vault/seekers';
+import { getSeekerById, getConsentEvents } from '@/lib/vault/seekers';
 import { adminUpdateSeeker, adminDeleteSeeker } from '../../actions';
 
 const field = 'rounded border border-slate-300 px-3 py-2 text-sm';
+
+const CONSENT_LABELS: Record<string, string> = {
+  share: 'Share details with matched programs',
+  email: 'Be contacted by email',
+};
 
 export default async function AdminSeekerDetail({ params }: { params: Promise<{ id: string }> }) {
   await requireAdmin();
@@ -14,6 +19,7 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
   if (!data) notFound();
   const { seeker, facilities } = data;
   const fs = seeker.face_sheet ?? {};
+  const consentEvents = await getConsentEvents(id);
 
   return (
     <div className="space-y-6">
@@ -38,6 +44,37 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
         </div>
         <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Save</button>
       </form>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">Consent record</h2>
+        <p className="mb-3 text-xs text-slate-400">
+          Immutable audit trail — exactly what this seeker answered, and when.
+        </p>
+        {consentEvents.length === 0 ? (
+          <p className="text-sm text-slate-400">No consent events recorded.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {consentEvents.map((e) => (
+              <li key={e.id} className="flex items-center justify-between gap-3 border-b border-slate-100 py-1">
+                <span className="text-slate-700">{CONSENT_LABELS[e.channel] ?? e.channel}</span>
+                <span className="flex items-center gap-3">
+                  <span
+                    className={
+                      'rounded-full px-2 py-0.5 text-xs font-medium ' +
+                      (e.granted ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500')
+                    }
+                  >
+                    {e.granted ? 'Yes' : 'No'}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {new Date(e.occurred_at).toLocaleString()}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h2 className="mb-2 text-sm font-semibold text-slate-700">Face sheet</h2>
