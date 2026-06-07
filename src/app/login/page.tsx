@@ -1,19 +1,34 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
 import { Button, Input, Label } from '@/components/ui';
 import { Logo } from '@/components/Logo';
 
+// useSearchParams() requires a Suspense boundary in this Next version.
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const params = useSearchParams();
   const supabase = createClient();
+  // A seeker arrives via /login?role=seeker&next=/match (the care funnel); everyone
+  // else is a provider/team member. `next` is where we send them after auth.
+  const isSeeker = params.get('role') === 'seeker';
+  const next = params.get('next');
+  const dest = next && next.startsWith('/') ? next : '/home';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup'>(isSeeker ? 'signup' : 'signin');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -24,14 +39,19 @@ export default function LoginPage() {
     const fn =
       mode === 'signin'
         ? supabase.auth.signInWithPassword({ email, password })
-        : supabase.auth.signUp({ email, password });
+        : // Tag seeker sign-ups so getRoles() routes them to their care dashboard.
+          supabase.auth.signUp({
+            email,
+            password,
+            options: isSeeker ? { data: { role: 'seeker' } } : undefined,
+          });
     const { error } = await fn;
     setBusy(false);
     if (error) {
       setError(error.message);
       return;
     }
-    router.push('/home');
+    router.push(dest);
     router.refresh();
   }
 
@@ -70,9 +90,13 @@ export default function LoginPage() {
           </Link>
           <h1 className="h1 text-ink">{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {mode === 'signin'
-              ? 'Sign in to your provider or team account.'
-              : 'Set up a provider or team account to get started.'}
+            {isSeeker
+              ? mode === 'signin'
+                ? 'Sign in to pick up your search and saved conversations.'
+                : 'Create a free account to find care — your conversations are saved privately so you can return anytime.'
+              : mode === 'signin'
+                ? 'Sign in to your provider or team account.'
+                : 'Set up a provider or team account to get started.'}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">

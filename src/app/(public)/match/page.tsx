@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 
+import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/Logo';
 
 type Role = 'user' | 'assistant';
@@ -128,8 +129,18 @@ export default function MatchPage() {
   const [shared, setShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const supabase = createClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Server-side conversation row id (created on first save). Kept in a ref so the
+  // debounced autosave always targets the same row without re-render churn.
+  const conversationIdRef = useRef<string | null>(null);
+  const savingRef = useRef(false);
+  const dirtyRef = useRef(false);
+  // Latest snapshot for autosave — refs avoid stale closures inside async saves.
+  const dataRef = useRef({ messages, matches, matchId, faceSheet });
+  dataRef.current = { messages, matches, matchId, faceSheet };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -140,29 +151,71 @@ export default function MatchPage() {
     if (acknowledged && !busy && (phase === 'intake' || phase === 'connect')) inputRef.current?.focus();
   }, [acknowledged, busy, phase]);
 
+  // Terms are accepted once per ACCOUNT (not per browser): skip the gate if this
+  // user already accepted. The chat itself always starts fresh on load/login — we
+  // never resume a prior conversation here; past ones live on /conversations.
   useEffect(() => {
-    // Rehydrate a finished result on mount so navigating to a profile and back
-    // restores the matches. Must be an effect, not a useState initializer:
-    // localStorage is unavailable during SSR (would desync hydration).
-    /* eslint-disable react-hooks/set-state-in-effect */
-    try {
-      if (localStorage.getItem('wc_ack')) setAcknowledged(true);
-      const m = localStorage.getItem('wc_matches');
-      if (m) {
-        const p = JSON.parse(m);
-        if (Array.isArray(p.facilities) && p.facilities.length) {
-          setMatches(p.facilities);
-          setMatchId(p.match_id ?? null);
-          setSeekerName(p.name);
-          setShared(!!p.shared);
-          setPhase('results');
-        }
-      }
-    } catch {
-      /* ignore */
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      const accepted = (data.user?.user_metadata as { terms_accepted_at?: string } | undefined)
+        ?.terms_accepted_at;
+      if (active && accepted) setAcknowledged(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [supabase]);
+
+  // Persist the transcript to the seeker's private history (best-effort, debounced).
+  // Only once there's real user content, so we never create empty rows.
+  async function saveConversation() {
+    const d = dataRef.current;
+    const firstUser = d.messages.find((m) => m.role === 'user');
+    if (!firstUser) return;
+    if (savingRef.current) {
+      dirtyRef.current = true; // a newer save is needed once this one lands
+      return;
     }
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, []);
+    savingRef.current = true;
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: conversationIdRef.current,
+          title: firstUser.content.slice(0, 80),
+          messages: d.messages,
+          match_id: d.matchId,
+          matched_facilities: (d.matches ?? []).map((f) => ({
+            id: f.id,
+            name: f.name,
+            city: f.city,
+            state: f.state,
+          })),
+          face_sheet: d.faceSheet,
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { id?: string };
+      if (j.id) conversationIdRef.current = j.id;
+    } catch {
+      /* best-effort — a failed history save never breaks the live chat */
+    } finally {
+      savingRef.current = false;
+      if (dirtyRef.current) {
+        dirtyRef.current = false;
+        void saveConversation();
+      }
+    }
+  }
+
+  // Debounced autosave on any meaningful change once the conversation has begun.
+  useEffect(() => {
+    if (!acknowledged) return;
+    if (!messages.some((m) => m.role === 'user')) return;
+    const t = setTimeout(() => void saveConversation(), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, matches, matchId, shared, acknowledged]);
 
   // Phase 1 is just the first 3 steps (need, location, coverage) — they produce
   // matches. Identity (STEPS[3]) is the optional "connect" phase, after results.
@@ -213,10 +266,9 @@ export default function MatchPage() {
       setMatchId(data.match_id ?? null);
 
       try {
-        localStorage.setItem(
-          'wc_matches',
-          JSON.stringify({ facilities, match_id: data.match_id, name: seekerName, shared: false })
-        );
+        // Keep only the de-identified match_id for outbound-click attribution
+        // (GoToWebsiteButton reads it). The transcript is saved server-side.
+        if (data.match_id) localStorage.setItem('wc_matches', JSON.stringify({ match_id: data.match_id }));
       } catch {
         /* ignore */
       }
@@ -255,14 +307,6 @@ export default function MatchPage() {
       const hd = await h.json().catch(() => ({}));
       const didShare = !!hd.shared;
       setShared(didShare);
-      try {
-        localStorage.setItem(
-          'wc_matches',
-          JSON.stringify({ facilities: matches, match_id: matchId, name, shared: didShare })
-        );
-      } catch {
-        /* ignore */
-      }
     } catch {
       setError(
         'We saved your matches, but had trouble sharing your details just now. You can still reach the programs directly below.'
@@ -279,7 +323,10 @@ export default function MatchPage() {
     setPhase('connect');
   }
 
+  // Begin a fresh conversation. The current transcript is already saved to history;
+  // clearing the row id means the next autosave creates a new history entry.
   function startOver() {
+    conversationIdRef.current = null;
     try {
       localStorage.removeItem('wc_matches');
     } catch {
@@ -440,12 +487,15 @@ export default function MatchPage() {
               <span>I understand this is a supportive guide to help me find care — not medical or crisis treatment.</span>
             </label>
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (!ackChecked) return;
+                // Remember acceptance on the account so it's never asked again.
                 try {
-                  localStorage.setItem('wc_ack', '1');
+                  await supabase.auth.updateUser({
+                    data: { terms_accepted_at: new Date().toISOString() },
+                  });
                 } catch {
-                  /* ignore */
+                  /* non-fatal — they can still proceed this session */
                 }
                 setAcknowledged(true);
               }}
@@ -512,14 +562,27 @@ export default function MatchPage() {
             <strong>988</strong> (Suicide &amp; Crisis Lifeline) right now.
           </div>
 
-          <h1 className="font-serif text-3xl leading-tight text-ink sm:text-4xl">
-            Let&apos;s find care{' '}
-            <span className="italic text-brand">that actually fits.</span>
-          </h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="font-serif text-3xl leading-tight text-ink sm:text-4xl">
+              Let&apos;s find care{' '}
+              <span className="italic text-brand">that actually fits.</span>
+            </h1>
+            <div className="flex shrink-0 flex-col items-end gap-1.5 pt-1">
+              <button
+                onClick={startOver}
+                className="rounded-full border border-teal-200 bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 shadow-sm transition hover:border-teal-300 hover:bg-teal-50"
+              >
+                ＋ New conversation
+              </button>
+              <Link href="/conversations" className="text-xs text-slate-500 underline hover:text-teal-700">
+                Past conversations →
+              </Link>
+            </div>
+          </div>
           <p className="mt-2 text-sm text-slate-600">
-            No account needed. Answer three quick questions and we&apos;ll show you real programs near you right
-            away — matched to your coverage and what you&apos;re looking for. Share your details only if you want them
-            to reach out. We connect you to treatment facilities; we don&apos;t provide treatment ourselves.
+            Answer three quick questions and we&apos;ll show you real programs near you right away — matched to your
+            coverage and what you&apos;re looking for. Your conversations are saved privately so you can pick up where
+            you left off. We connect you to treatment facilities; we don&apos;t provide treatment ourselves.
           </p>
 
           {/* Progress — only the 3 de-identified questions before results */}
@@ -629,7 +692,12 @@ export default function MatchPage() {
                   return (
                     <div key={f.id} className="rounded-lg border border-slate-200 p-3">
                       <div className="flex items-center justify-between gap-2">
-                        <Link href={`/programs/${f.id}`} className="font-medium text-teal-700 hover:underline">
+                        <Link
+                          href={`/programs/${f.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-teal-700 hover:underline"
+                        >
                           {f.name}
                         </Link>
                         <span
@@ -664,6 +732,8 @@ export default function MatchPage() {
                       )}
                       <Link
                         href={`/programs/${f.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="mt-2 inline-block text-xs font-medium text-teal-700 hover:underline"
                       >
                         View profile, photos &amp; reviews →
@@ -675,6 +745,8 @@ export default function MatchPage() {
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                   <Link
                     href="/programs"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-sm font-medium text-teal-700 hover:underline"
                   >
                     Browse all programs →

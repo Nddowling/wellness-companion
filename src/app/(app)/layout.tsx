@@ -23,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const links: { href: string; label: string }[] = [];
   if (isSeeker) {
     links.push({ href: '/me', label: 'My care' });
+    links.push({ href: '/conversations', label: 'Conversations' });
   } else {
     if (isAdmin) links.push({ href: '/admin', label: 'Admin' });
     if (facilityIds.length > 0) links.push({ href: '/facility', label: 'My facility' });
@@ -31,7 +32,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // App-like bottom tab bar (mobile). Same destinations as the desktop nav.
   const tabs: Tab[] = isSeeker
-    ? [{ href: '/me', label: 'My care', icon: 'care' }]
+    ? [
+        { href: '/me', label: 'My care', icon: 'care' },
+        { href: '/conversations', label: 'Conversations', icon: 'chat' },
+      ]
     : [
         { href: '/home', label: 'Home', icon: 'home' },
         ...((facilityIds.length > 0

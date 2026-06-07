@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { toFacilitySummary, type FacilityRowForSummary } from '@/lib/facility/summary';
 import { sendEmail } from '@/lib/email/send';
 import {
@@ -151,45 +152,64 @@ export async function POST(request: Request) {
     transportation_needs: str(fs.transportation_needs),
   };
 
-  // Seeker account + emails. With consent + an address, create a login so they can
-  // come back to their matches, and email their credentials + info + recommendations.
-  // If the email already has an account, fall back to the standard welcome + info.
-  if (consents.email && identity.email) {
-    const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`;
-    const tempPassword = `WC-${crypto.randomUUID().slice(0, 4)}-${crypto.randomUUID().slice(0, 4)}`;
-    const { data: created } = await supabase.auth.admin.createUser({
-      email: identity.email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: { role: 'seeker', name: identity.name ?? null },
-    });
+  // The chat now requires a login, so the seeker is normally already signed in:
+  // link this search to their account (it then shows on /me + their history) and
+  // skip creating a duplicate login. The no-session branch below is kept for the
+  // legacy/anonymous path.
+  const {
+    data: { user: sessionUser },
+  } = await (await createClient()).auth.getUser();
+  if (sessionUser && seekerId) await setSeekerAuthUser(seekerId, sessionUser.id);
 
-    if (created?.user) {
-      if (seekerId) await setSeekerAuthUser(seekerId, created.user.id);
-      const acct = seekerAccountEmail({
-        email: identity.email,
-        password: tempPassword,
-        loginUrl,
-        faceSheet: sheet,
-        facilities: summaries,
-      });
-      const r = await sendEmail({ to: identity.email, ...acct });
-      await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: r.id });
-    } else {
-      // Account already exists — link this new search to it so it shows on /me.
-      try {
-        const { data: list } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
-        const existing = list?.users.find((u) => u.email?.toLowerCase() === identity.email!.toLowerCase());
-        if (existing && seekerId) await setSeekerAuthUser(seekerId, existing.id);
-      } catch {
-        /* best-effort */
-      }
+  // Seeker account + emails. With consent + an address, email their info + matches.
+  // Signed-in seekers already have a login (just send welcome + recommendations);
+  // otherwise create one (or link an existing account) and send credentials.
+  if (consents.email && identity.email) {
+    if (sessionUser) {
+      // Already signed in — just send the welcome + recommendations to their inbox.
       const w = welcomeEmail(identity.name);
       const wRes = await sendEmail({ to: identity.email, ...w });
       await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: wRes.id });
       const t = treatmentInfoEmail(identity.name, summaries);
       const tRes = await sendEmail({ to: identity.email, ...t });
       await logEmail({ seeker_id: seekerId, kind: 'treatment_info', to_email: identity.email, provider_id: tRes.id });
+    } else {
+      const loginUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`;
+      const tempPassword = `WC-${crypto.randomUUID().slice(0, 4)}-${crypto.randomUUID().slice(0, 4)}`;
+      const { data: created } = await supabase.auth.admin.createUser({
+        email: identity.email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { role: 'seeker', name: identity.name ?? null },
+      });
+
+      if (created?.user) {
+        if (seekerId) await setSeekerAuthUser(seekerId, created.user.id);
+        const acct = seekerAccountEmail({
+          email: identity.email,
+          password: tempPassword,
+          loginUrl,
+          faceSheet: sheet,
+          facilities: summaries,
+        });
+        const r = await sendEmail({ to: identity.email, ...acct });
+        await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: r.id });
+      } else {
+        // Account already exists — link this new search to it so it shows on /me.
+        try {
+          const { data: list } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const existing = list?.users.find((u) => u.email?.toLowerCase() === identity.email!.toLowerCase());
+          if (existing && seekerId) await setSeekerAuthUser(seekerId, existing.id);
+        } catch {
+          /* best-effort */
+        }
+        const w = welcomeEmail(identity.name);
+        const wRes = await sendEmail({ to: identity.email, ...w });
+        await logEmail({ seeker_id: seekerId, kind: 'welcome', to_email: identity.email, provider_id: wRes.id });
+        const t = treatmentInfoEmail(identity.name, summaries);
+        const tRes = await sendEmail({ to: identity.email, ...t });
+        await logEmail({ seeker_id: seekerId, kind: 'treatment_info', to_email: identity.email, provider_id: tRes.id });
+      }
     }
   }
 

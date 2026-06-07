@@ -15,7 +15,7 @@ export default function NewFacilityPage() {
       <h1 className="text-xl font-semibold text-slate-800">Onboard facility</h1>
 
       <form action={createFacility} className="space-y-6">
-        <section className="grid grid-cols-2 gap-4 rounded-md border border-slate-200 bg-white p-4">
+        <section className="grid grid-cols-1 gap-4 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-2">
           <label className="col-span-2 flex flex-col gap-1">
             <span className={labelClass}>Facility name *</span>
             <input name="name" required className={inputClass} />
@@ -72,7 +72,7 @@ export default function NewFacilityPage() {
           </div>
         </section>
 
-        <section className="grid grid-cols-2 gap-4 rounded-md border border-slate-200 bg-white p-4">
+        <section className="grid grid-cols-1 gap-4 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1">
             <span className={labelClass}>Specialties (comma-separated)</span>
             <input name="specialties" placeholder="dual_diagnosis, trauma" className={inputClass} />
@@ -97,7 +97,7 @@ export default function NewFacilityPage() {
           </label>
         </section>
 
-        <section className="grid grid-cols-3 gap-4 rounded-md border border-slate-200 bg-white p-4">
+        <section className="grid grid-cols-1 gap-4 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-3">
           <p className={`${labelClass} col-span-3`}>Intake contact — shown publicly so matched seekers can reach the program&apos;s admissions team</p>
           <input name="contact_name" placeholder="Name" className={inputClass} />
           <input name="contact_email" type="email" placeholder="Email" className={inputClass} />

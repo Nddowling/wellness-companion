@@ -82,6 +82,9 @@ export default async function SeekerDashboard() {
       )}
 
       <div className="flex flex-wrap gap-3 text-sm">
+        <Link href="/conversations" className="rounded-md border border-slate-300 px-4 py-2 text-slate-600 hover:border-teal-300">
+          Your conversations
+        </Link>
         <Link href="/programs" className="rounded-md border border-slate-300 px-4 py-2 text-slate-600 hover:border-teal-300">
           Browse all programs
         </Link>
