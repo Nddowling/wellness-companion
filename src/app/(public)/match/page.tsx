@@ -484,7 +484,20 @@ export default function MatchPage() {
                 onChange={(e) => setAckChecked(e.target.checked)}
                 className="mt-0.5 h-4 w-4 accent-teal-700"
               />
-              <span>I understand this is a supportive guide to help me find care — not medical or crisis treatment.</span>
+              <span>
+                I understand this is a supportive guide to help me find care — not medical or crisis treatment — and
+                I&apos;ve reviewed and agree to the{' '}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-teal-700 underline underline-offset-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Terms of Service
+                </a>
+                .
+              </span>
             </label>
             <button
               onClick={async () => {

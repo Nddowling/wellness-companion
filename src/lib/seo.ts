@@ -13,7 +13,7 @@ export const DEFAULT_TITLE =
   'Clear Bed Recovery — Find Addiction Treatment That Fits';
 
 export const DEFAULT_DESCRIPTION =
-  'Clear Bed Recovery helps you find addiction treatment — including programs for co-occurring mental-health needs — that fits your situation, insurance, and region, with real-time bed availability. We connect you to treatment facilities; we don’t provide treatment ourselves. Free, private, and no account required to start.';
+  'Clear Bed Recovery helps you find addiction treatment — including programs for co-occurring mental-health needs — that fits your situation, insurance, and region, with real-time bed availability. We connect you to treatment facilities; we don’t provide treatment ourselves. Free and private — sign in to save your conversations.';
 
 export const SEO_KEYWORDS = [
   'addiction treatment',

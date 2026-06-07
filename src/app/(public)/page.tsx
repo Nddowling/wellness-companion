@@ -49,7 +49,7 @@ export default async function LandingPage() {
             </h1>
             <p className="mt-4 max-w-xl text-lg text-white/90">
               A warm, judgment-free guide that listens for a few key things and connects you with treatment that
-              actually fits — your situation, your coverage, your needs. No account required to start.
+              actually fits — your situation, your coverage, your needs. Free and private — your conversations are saved so you can pick up where you left off.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               {providerSide ? (
