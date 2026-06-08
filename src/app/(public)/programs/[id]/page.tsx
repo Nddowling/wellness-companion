@@ -11,6 +11,7 @@ import { getRoles, isProviderSide } from '@/lib/auth';
 import {
   LEVEL_LABELS,
   PAYER_LABELS,
+  bedSummary,
   freshnessTone,
   isBedBased,
   type LevelOfCare,
@@ -283,6 +284,10 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             <div className="flex justify-between gap-4">
               <dt className="text-slate-500">Treatment</dt>
               <dd className="text-right text-slate-700">{treatmentTypes}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-slate-500">Beds</dt>
+              <dd className="text-right text-slate-700">{bedSummary(caps, levels).label}</dd>
             </div>
             {email && (
               <div className="flex justify-between gap-4">

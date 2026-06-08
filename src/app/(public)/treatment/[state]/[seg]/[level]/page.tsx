@@ -25,7 +25,7 @@ async function load(stateParam: string, seg: string, level: string) {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from('facilities')
-    .select('id, name, city, state, levels_of_care')
+    .select('id, name, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
     .eq('is_published', true)
     .ilike('state', code)
     .contains('levels_of_care', [level])

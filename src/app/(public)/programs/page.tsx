@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, type LevelOfCare, type PayerType } from '@/lib/constants';
+import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
+import { BedChip } from '@/components/FacilityCard';
 import { absoluteUrl } from '@/lib/seo';
 import { getRoles, isProviderSide } from '@/lib/auth';
 
@@ -29,6 +30,7 @@ type Row = {
   levels_of_care: string[];
   carriers_named: string[];
   facility_payers: { payer_type: string }[];
+  facility_capacity: CapacityRow[];
 };
 
 function acceptedSummary(r: Row): string {
@@ -51,7 +53,7 @@ export default async function ProgramsDirectory({
 
   const { data } = await supabase
     .from('facilities')
-    .select('id, name, city, state, levels_of_care, carriers_named, facility_payers(payer_type)')
+    .select('id, name, city, state, levels_of_care, carriers_named, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
     .eq('is_published', true)
     .order('name');
 
@@ -160,7 +162,10 @@ export default async function ProgramsDirectory({
             href={`/programs/${r.id}`}
             className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-teal-300"
           >
-            <div className="font-medium text-slate-800">{r.name}</div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="font-medium text-slate-800">{r.name}</div>
+              <BedChip caps={r.facility_capacity} levels={r.levels_of_care} />
+            </div>
             <div className="text-xs text-slate-500">
               {[r.city, r.state].filter(Boolean).join(', ') || 'Location on file'} ·{' '}
               {(r.levels_of_care ?? []).map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(', ') || 'Programs vary'}

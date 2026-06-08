@@ -60,3 +60,26 @@ export function freshnessTone(lastUpdated: string | null): 'green' | 'amber' | '
   if (ageDays <= FRESHNESS.amberMaxDays) return 'amber';
   return 'red';
 }
+
+export type CapacityRow = { level_of_care: string; beds_available: number; last_updated: string };
+
+// One-line bed indicator for a facility card. Sums beds across overnight (bed-based)
+// levels and reads freshness from the freshest open level. Outpatient-only programs
+// show "Accepting clients"; bed programs with no current openings/data say "call".
+export function bedSummary(
+  caps: CapacityRow[] | null | undefined,
+  levels: string[] | null | undefined
+): { label: string; tone: 'green' | 'amber' | 'red' } {
+  const openBeds = (caps ?? []).filter((c) => isBedBased(c.level_of_care) && c.beds_available > 0);
+  if (openBeds.length) {
+    const total = openBeds.reduce((s, c) => s + c.beds_available, 0);
+    const rank = { green: 0, amber: 1, red: 2 } as const;
+    const tone = openBeds.reduce<'green' | 'amber' | 'red'>(
+      (best, c) => (rank[freshnessTone(c.last_updated)] < rank[best] ? freshnessTone(c.last_updated) : best),
+      'red'
+    );
+    return { label: `${total} ${total === 1 ? 'bed' : 'beds'} open`, tone };
+  }
+  if ((levels ?? []).some(isBedBased)) return { label: 'Call to confirm beds', tone: 'red' };
+  return { label: 'Accepting clients', tone: 'green' };
+}

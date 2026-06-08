@@ -122,6 +122,11 @@ export async function updateCapacity(formData: FormData) {
 
   revalidatePath(`/facility/${facilityId}`);
   revalidatePath('/facility');
+  // Bed counts show on every public card — refresh the directory + SEO listings too.
+  revalidatePath(`/programs/${facilityId}`);
+  revalidatePath('/programs');
+  revalidatePath('/treatment', 'layout');
+  revalidatePath('/insurance', 'layout');
 }
 
 /** Move an inbound lead through its lifecycle (viewed / accepted / declined). */
