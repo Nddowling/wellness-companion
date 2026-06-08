@@ -4,6 +4,7 @@ import { SITE_URL } from "@/lib/seo";
 import { LEVELS_OF_CARE } from "@/lib/constants";
 import { stateSlug, slugify } from "@/lib/geo";
 import { GUIDES } from "@/lib/guides";
+import { PAYERS } from "@/lib/payers";
 
 // Regenerate hourly so newly published programs + SEO landing pages appear without a redeploy.
 export const revalidate = 3600;
@@ -51,8 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const stateCities = new Set<string>(); // "georgia|atlanta"
     const cityLevels = new Set<string>(); // "georgia|atlanta|detox"
     const states = new Set<string>();
-    const payers = new Set<string>(); // "medicaid"
-    const payerStates = new Set<string>(); // "medicaid|georgia"
+    const typeStates = new Map<string, Set<string>>(); // payer_type -> set of state slugs
     for (const f of rows) {
       const code = (f.state ?? "").toUpperCase();
       if (!code) continue;
@@ -66,10 +66,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         if (cslug) cityLevels.add(`${sslug}|${cslug}|${l}`);
       }
       for (const p of (f.facility_payers ?? []) as { payer_type: string }[]) {
-        const pslug = p.payer_type.replace(/_/g, "-");
-        payers.add(pslug);
-        payerStates.add(`${pslug}|${sslug}`);
+        if (!typeStates.has(p.payer_type)) typeStates.set(p.payer_type, new Set());
+        typeStates.get(p.payer_type)!.add(sslug);
       }
+    }
+    // Map each payer (incl. named carriers) onto the states that have its type.
+    const payerPages: string[] = [];
+    const payerStatePages: string[] = [];
+    for (const p of PAYERS) {
+      const sset = typeStates.get(p.payerType);
+      if (!sset || sset.size === 0) continue;
+      payerPages.push(`/insurance/${p.slug}`);
+      for (const s of sset) payerStatePages.push(`/insurance/${p.slug}/${s}`);
     }
     const mk = (path: string, priority: number): MetadataRoute.Sitemap[number] => ({
       url: `${SITE_URL}${path}`,
@@ -85,12 +93,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         const [s, c, l] = k.split("|");
         return mk(`/treatment/${s}/${c}/${l}`, 0.6);
       }),
-      ...(payers.size ? [mk(`/insurance`, 0.7)] : []),
-      ...[...payers].map((p) => mk(`/insurance/${p}`, 0.7)),
-      ...[...payerStates].map((k) => {
-        const [p, s] = k.split("|");
-        return mk(`/insurance/${p}/${s}`, 0.6);
-      }),
+      ...(payerPages.length ? [mk(`/insurance`, 0.7)] : []),
+      ...payerPages.map((path) => mk(path, 0.7)),
+      ...payerStatePages.map((path) => mk(path, 0.6)),
     ];
   } catch {
     // DB unavailable at build/runtime — ship the static routes anyway.

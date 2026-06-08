@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/Logo';
+import { COMMON_PAYER_CHIPS } from '@/lib/payers';
 
 type Role = 'user' | 'assistant';
 type Message = { role: Role; content: string };
@@ -47,8 +48,8 @@ const STEPS = [
     label: 'Coverage',
     opener: 'Thank you. How would care be paid for?',
     encouragement: "Coverage can be confusing — “not sure” is a perfectly fine answer.",
-    chips: ['Medicaid', 'Medicare', 'Commercial', 'TRICARE', 'Self-pay'],
-    placeholder: 'Medicaid, Blue Cross, self-pay…',
+    chips: COMMON_PAYER_CHIPS,
+    placeholder: 'Medicaid, Blue Cross, Aetna, self-pay…',
   },
   {
     key: 'identity',
