@@ -139,6 +139,59 @@ export default async function StateSegPage({
         </Link>
       </div>
 
+      {/* Cross-link mesh: level page → narrow by city; city page → narrow by level. */}
+      {r.kind === 'level' &&
+        (() => {
+          const cityCounts = new Map<string, number>();
+          for (const f of r.rows) if (f.city) cityCounts.set(f.city, (cityCounts.get(f.city) ?? 0) + 1);
+          const cities = [...cityCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18);
+          if (cities.length === 0) return null;
+          return (
+            <section className="mt-6">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">
+                {LEVEL_LABELS[r.level!]} by city
+              </h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {cities.map(([city, n]) => (
+                  <Link
+                    key={city}
+                    href={`/treatment/${state}/${slugify(city)}/${r.level}`}
+                    className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm text-slate-700 transition hover:border-teal-300"
+                  >
+                    {city} ({n})
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
+
+      {r.kind === 'city' &&
+        (() => {
+          const levelCounts = new Map<string, number>();
+          for (const f of r.rows) for (const l of f.levels_of_care ?? []) levelCounts.set(l, (levelCounts.get(l) ?? 0) + 1);
+          const levels = LEVELS_OF_CARE.filter((l) => levelCounts.has(l));
+          if (levels.length === 0) return null;
+          return (
+            <section className="mt-6">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">
+                By level of care in {r.cityName}
+              </h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {levels.map((l) => (
+                  <Link
+                    key={l}
+                    href={`/treatment/${state}/${seg}/${l}`}
+                    className="rounded-full border border-teal-200 bg-teal-50 px-3.5 py-1.5 text-sm font-medium text-teal-800 transition hover:bg-teal-100"
+                  >
+                    {LEVEL_LABELS[l as LevelOfCare]} ({levelCounts.get(l)})
+                  </Link>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
+
       <div className="mt-7 space-y-2">
         {r.rows.map((f) => (
           <FacilityCard key={f.id} f={f} />

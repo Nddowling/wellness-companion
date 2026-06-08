@@ -49,16 +49,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // (state, level/city) combos that actually have published programs.
     const stateLevels = new Set<string>(); // "georgia|detox"
     const stateCities = new Set<string>(); // "georgia|atlanta"
+    const cityLevels = new Set<string>(); // "georgia|atlanta|detox"
     const states = new Set<string>();
     for (const f of rows) {
       const code = (f.state ?? "").toUpperCase();
       if (!code) continue;
       const sslug = stateSlug(code);
       states.add(sslug);
+      const cslug = f.city ? slugify(f.city) : null;
+      if (cslug) stateCities.add(`${sslug}|${cslug}`);
       for (const l of (f.levels_of_care ?? []) as string[]) {
-        if ((LEVELS_OF_CARE as readonly string[]).includes(l)) stateLevels.add(`${sslug}|${l}`);
+        if (!(LEVELS_OF_CARE as readonly string[]).includes(l)) continue;
+        stateLevels.add(`${sslug}|${l}`);
+        if (cslug) cityLevels.add(`${sslug}|${cslug}|${l}`);
       }
-      if (f.city) stateCities.add(`${sslug}|${slugify(f.city)}`);
     }
     const mk = (path: string, priority: number): MetadataRoute.Sitemap[number] => ({
       url: `${SITE_URL}${path}`,
@@ -70,6 +74,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...[...states].map((s) => mk(`/treatment/${s}`, 0.7)),
       ...[...stateLevels].map((k) => mk(`/treatment/${k.split("|")[0]}/${k.split("|")[1]}`, 0.7)),
       ...[...stateCities].map((k) => mk(`/treatment/${k.split("|")[0]}/${k.split("|")[1]}`, 0.6)),
+      ...[...cityLevels].map((k) => {
+        const [s, c, l] = k.split("|");
+        return mk(`/treatment/${s}/${c}/${l}`, 0.6);
+      }),
     ];
   } catch {
     // DB unavailable at build/runtime — ship the static routes anyway.
