@@ -11,6 +11,7 @@ function buildLinks(providerSide: boolean, dashboardHref: string | null): NavLin
   const links: NavLink[] = [{ href: '/', label: 'Home' }];
   if (!providerSide) links.push({ href: '/match', label: 'Find care' });
   links.push({ href: '/programs', label: 'Browse programs' });
+  links.push({ href: '/treatment', label: 'Browse by state' });
   if (!providerSide) links.push({ href: '/me', label: 'My saved matches' });
   if (dashboardHref) links.push({ href: dashboardHref, label: 'My dashboard' });
   links.push({ href: '/for-providers', label: 'For providers' });

@@ -85,6 +85,9 @@ export default async function ProgramsDirectory({
         <p className="text-sm text-slate-500">
           Every program in our directory. Explore on your own — there&apos;s no wrong way to look.
         </p>
+        <Link href="/treatment" className="mt-2 inline-block text-sm font-medium text-teal-700 hover:underline">
+          Browse by state &amp; city →
+        </Link>
       </div>
 
       {/* Level filter */}
