@@ -93,7 +93,7 @@ const LOGO_URL = 'https://clearbedrecovery.com/images/email-logo-mark.png';
 function referralTeaser(): string {
   return `<div style="background:#fdf3ea;border:1px solid #f0d9c6;border-radius:10px;padding:14px 16px;margin:16px 0">
     <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:${BRAND.terracottaDark};margin-bottom:4px">Refer &amp; earn — free months</div>
-    <div style="font-size:14px;color:${BRAND.ink};line-height:1.55">Know other programs that belong here? For every paid facility you refer, you get <strong>50% off your next month</strong> — so just <strong>two paid referrals = a free month</strong> of service. There's no cap; keep referring, keep saving.</div>
+    <div style="font-size:14px;color:${BRAND.ink};line-height:1.55">Know other programs that belong here? For every paid facility you refer, you get <strong>50% off your next month</strong> — so <strong>two paid referrals = a free month</strong>, up to <strong>3 free months</strong> (6 paid referrals).</div>
   </div>`;
 }
 

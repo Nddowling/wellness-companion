@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { requireFacilityMember } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import {
   freshnessTone,
   LEVEL_LABELS,
@@ -66,7 +67,7 @@ export default async function FacilityManage({
   const { data: facility } = await supabase
     .from('facilities')
     .select(
-      'id, name, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, facility_capacity(level_of_care, beds_available, last_updated)'
+      'id, name, city, state, verified_at, is_published, plan, referral_credits_earned, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, facility_capacity(level_of_care, beds_available, last_updated)'
     )
     .eq('id', id)
     .maybeSingle();
@@ -99,6 +100,19 @@ export default async function FacilityManage({
     .eq('facility_id', id);
 
   const location = [facility.city, facility.state].filter(Boolean).join(', ');
+
+  // Referrals this facility has made (deny-all RLS table → service-role read, scoped
+  // to this facility). credits = paid referrals rewarded so far; cap is 6 (3 months).
+  const REFERRAL_CAP = 6;
+  const admin = createAdminClient();
+  const { data: referralData } = await admin
+    .from('facility_referrals')
+    .select('id, referred_name, status, created_at')
+    .eq('referrer_facility_id', id)
+    .order('created_at', { ascending: false });
+  const referrals = referralData ?? [];
+  const creditsEarned = facility.referral_credits_earned ?? 0;
+  const freeMonths = Math.floor(creditsEarned / 2);
 
   // ── EDIT MODE ────────────────────────────────────────────────────────────
   if (editing) {
@@ -364,10 +378,40 @@ export default async function FacilityManage({
       )}
 
       {/* Referral program */}
-      <div className="rounded-xl border border-terracotta/40 bg-terracotta/10 px-4 py-3 text-sm text-slate-700">
-        <span className="font-semibold text-terracotta-dark">Refer &amp; earn:</span> for every paid facility you
-        refer, get <strong>50% off your next month</strong> — two paid referrals add up to a{' '}
-        <strong>free month of service</strong>. No cap.
+      <div className="rounded-xl border border-terracotta/40 bg-terracotta/10 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-terracotta-dark">Refer &amp; earn</div>
+            <p className="mt-1 text-sm text-slate-700">
+              For every paid facility you refer, get <strong>50% off your next month</strong> — two paid referrals = a
+              free month, up to <strong>3 free months</strong> (6 paid referrals). Use the{' '}
+              <strong>Refer &amp; earn</strong> button in the header to send one.
+            </p>
+          </div>
+          <div className="shrink-0 rounded-lg bg-white/70 px-3 py-2 text-center">
+            <div className="text-lg font-semibold text-terracotta-dark">
+              {freeMonths} <span className="text-xs font-normal text-slate-500">free {freeMonths === 1 ? 'month' : 'months'}</span>
+            </div>
+            <div className="text-[11px] text-slate-500">{creditsEarned}/{REFERRAL_CAP} paid referrals</div>
+          </div>
+        </div>
+        {referrals.length > 0 && (
+          <div className="mt-3 space-y-1 border-t border-terracotta/20 pt-3">
+            {referrals.map((r) => (
+              <div key={r.id} className="flex items-center justify-between text-xs text-slate-600">
+                <span>{r.referred_name}</span>
+                <span
+                  className={
+                    'rounded-full px-2 py-0.5 ' +
+                    (r.status === 'converted' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500')
+                  }
+                >
+                  {r.status === 'converted' ? 'Paid — credited' : 'Pending'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Hero */}

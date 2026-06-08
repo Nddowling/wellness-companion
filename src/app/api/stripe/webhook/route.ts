@@ -3,9 +3,92 @@ import 'server-only';
 import crypto from 'node:crypto';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { normalizePlan } from '@/lib/facility/plan';
 
 // Stripe webhook: keeps a facility's plan in sync with its subscription. Verifies
 // the signature with STRIPE_WEBHOOK_SECRET (raw body + HMAC-SHA256, Stripe's scheme).
+
+// Facility referral reward: when a referred facility starts a PAID plan, the referrer
+// earns 50% off their next month, capped at 6 paid referrals (= 3 free months). Plan
+// list prices in cents (mirrors /pricing) so we can size the 50% credit.
+const REFERRAL_CAP = 6;
+const MONTHLY_CENTS: Record<string, number> = { starter: 49900, growth: 99900, anchor: 199900 };
+
+// Apply the reward as a Stripe customer-balance credit (negative amount = credit that
+// auto-reduces the referrer's next invoice). Best-effort; returns whether it landed.
+async function grantStripeCredit(customerId: string, amountCents: number, referralId: string): Promise<boolean> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return false;
+  try {
+    const body = new URLSearchParams();
+    body.set('amount', String(-Math.abs(amountCents)));
+    body.set('currency', 'usd');
+    body.set('description', 'Clear Bed Recovery referral reward — 50% off next month');
+    body.set('metadata[referral_id]', referralId);
+    const res = await fetch(`https://api.stripe.com/v1/customers/${customerId}/balance_transactions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// On a paid conversion, match the checkout email to a pending referral and reward the
+// referrer (capped). The referral is always marked converted; credit_applied records
+// whether a discount was actually granted (false when capped or the referrer is free).
+async function creditReferrer(
+  supabase: ReturnType<typeof createAdminClient>,
+  session: Record<string, unknown>,
+  convertedFacilityId: string
+): Promise<void> {
+  const details = session.customer_details as { email?: string } | undefined;
+  const email = String(details?.email || (session.customer_email as string) || '').toLowerCase().trim();
+  if (!email) return;
+
+  const { data: referral } = await supabase
+    .from('facility_referrals')
+    .select('id, referrer_facility_id')
+    .eq('status', 'pending')
+    .ilike('referred_email', email)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (!referral) return;
+
+  const { data: referrer } = await supabase
+    .from('facilities')
+    .select('id, plan, stripe_customer_id, referral_credits_earned')
+    .eq('id', referral.referrer_facility_id)
+    .maybeSingle();
+
+  let applied = false;
+  const earned = referrer?.referral_credits_earned ?? 0;
+  if (referrer && earned < REFERRAL_CAP && referrer.stripe_customer_id) {
+    const monthly = MONTHLY_CENTS[normalizePlan(referrer.plan)];
+    if (monthly) {
+      applied = await grantStripeCredit(referrer.stripe_customer_id, Math.round(monthly / 2), referral.id);
+      if (applied) {
+        await supabase
+          .from('facilities')
+          .update({ referral_credits_earned: earned + 1 })
+          .eq('id', referrer.id);
+      }
+    }
+  }
+
+  await supabase
+    .from('facility_referrals')
+    .update({
+      status: 'converted',
+      converted_facility_id: convertedFacilityId,
+      converted_at: new Date().toISOString(),
+      credit_applied: applied,
+    })
+    .eq('id', referral.id);
+}
 
 function verify(raw: string, sigHeader: string | null, secret: string): boolean {
   if (!sigHeader) return false;
@@ -83,6 +166,9 @@ export async function POST(request: Request) {
           stripe_subscription_id: (obj.subscription as string) ?? null,
         })
         .eq('id', facilityId);
+
+      // A real paid signup (not a comped lifetime grant) can satisfy a referral.
+      if (!lifetime && MONTHLY_CENTS[plan]) await creditReferrer(supabase, obj, facilityId);
     }
   } else if (event.type === 'customer.subscription.updated') {
     const status = obj.status as string; // active, past_due, canceled, ...

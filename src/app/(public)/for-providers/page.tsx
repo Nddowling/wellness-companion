@@ -219,7 +219,7 @@ export default function ForProvidersPage() {
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600">
               Know other programs that belong here? For every paid facility you refer, you get{' '}
               <strong>50% off your next month</strong> — so just two paid referrals add up to a{' '}
-              <strong>free month of service</strong>. No cap; keep referring, keep saving.
+              <strong>free month of service</strong> — up to <strong>3 free months</strong> (6 paid referrals).
             </p>
           </div>
         </Reveal>
