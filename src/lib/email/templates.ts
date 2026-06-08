@@ -76,12 +76,26 @@ const BRAND = {
   mist: '#e1f0ec',
   mistLine: '#cfe6df',
   terracotta: '#d4956a',
+  terracottaDark: '#bd7f55',
   ink: '#243b3a',
   slate: '#475569',
   muted: '#94a3b8',
   line: '#e2e8f0',
   panel: '#f8fafc',
 } as const;
+
+// Hosted logo mark (served from /public). Email clients don't render SVG, so this is
+// a PNG; the wordmark beside it is live text for crispness.
+const LOGO_URL = 'https://clearbedrecovery.com/images/email-logo-mark.png';
+
+// Referral teaser — providers earn 50% off their next month per paid facility they
+// refer, so two paid referrals = a free month. Shown in provider onboarding emails.
+function referralTeaser(): string {
+  return `<div style="background:#fdf3ea;border:1px solid #f0d9c6;border-radius:10px;padding:14px 16px;margin:16px 0">
+    <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:${BRAND.terracottaDark};margin-bottom:4px">Refer &amp; earn — free months</div>
+    <div style="font-size:14px;color:${BRAND.ink};line-height:1.55">Know other programs that belong here? For every paid facility you refer, you get <strong>50% off your next month</strong> — so just <strong>two paid referrals = a free month</strong> of service. There's no cap; keep referring, keep saving.</div>
+  </div>`;
+}
 
 /** A primary call-to-action button (teal for contrast with white text). */
 function button(href: string, label: string, color: string = BRAND.teal): string {
@@ -123,8 +137,13 @@ function wrap(title: string, inner: string, footer: string = CRISIS): string {
   return `<div style="margin:0;padding:24px 12px;background:#f1f6f4">
   <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${BRAND.line}">
     <div style="background:${BRAND.teal};padding:20px 24px">
-      <div style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-.01em">Clear Bed Recovery</div>
-      <div style="color:${BRAND.sage};font-size:12px;margin-top:2px">Connecting you to treatment that fits</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="padding-right:10px;vertical-align:middle"><img src="${LOGO_URL}" width="30" height="30" alt="Clear Bed Recovery" style="display:block;border:0"/></td>
+        <td style="vertical-align:middle">
+          <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;line-height:1.1"><span style="color:#7ad9bb">Clear</span><span style="color:#ffffff">Bed Recovery</span></div>
+          <div style="color:#9fdcc9;font-size:12px;margin-top:3px">Connecting you to treatment that fits</div>
+        </td>
+      </tr></table>
     </div>
     <div style="padding:24px;color:${BRAND.ink}">
       <h1 style="font-size:20px;color:${BRAND.ink};margin:0 0 12px;line-height:1.3">${esc(title)}</h1>
@@ -384,6 +403,7 @@ export function providerClaimApprovedEmail(params: {
        'Complete your profile and keep your bed availability current.',
        'Upgrade any time to unlock photos, video, analytics, and featured placement.',
      ])}
+     ${referralTeaser()}
      <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:12px 0 0">Keeping your bed availability current is what gets your program matched to the right referrals first. Flat monthly pricing — never per-lead or per-admission.</p>`,
     footer
   );

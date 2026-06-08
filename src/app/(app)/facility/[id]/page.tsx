@@ -363,6 +363,13 @@ export default async function FacilityManage({
         />
       )}
 
+      {/* Referral program */}
+      <div className="rounded-xl border border-terracotta/40 bg-terracotta/10 px-4 py-3 text-sm text-slate-700">
+        <span className="font-semibold text-terracotta-dark">Refer &amp; earn:</span> for every paid facility you
+        refer, get <strong>50% off your next month</strong> — two paid referrals add up to a{' '}
+        <strong>free month of service</strong>. No cap.
+      </div>
+
       {/* Hero */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         {images.length > 0 ? (
