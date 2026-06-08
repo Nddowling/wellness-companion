@@ -8,7 +8,7 @@ import { getRoles, isProviderSide } from '@/lib/auth';
 // so its metadata is declared here in a server-component layout wrapper.
 const MATCH_TITLE = 'Find Treatment That Fits — Talk to Our Care Companion';
 const MATCH_DESCRIPTION =
-  'Answer a few gentle questions and get matched to addiction treatment programs — including those for co-occurring mental-health needs — that fit your situation, insurance, and region. We connect you to treatment facilities; we don’t provide treatment ourselves. Free and private — sign in to save your conversations.';
+  'Answer a few gentle questions and get matched to addiction treatment programs — including those for co-occurring mental-health needs — that fit your situation, insurance, and region. We connect you to treatment facilities; we don’t provide treatment ourselves. Free and private — no account required to start.';
 
 export const metadata: Metadata = {
   title: MATCH_TITLE,
@@ -23,11 +23,10 @@ export const metadata: Metadata = {
 
 export default async function MatchLayout({ children }: { children: React.ReactNode }) {
   const roles = await getRoles();
-  // The chat now requires an account so conversations can be saved and revisited.
-  // Anonymous visitors are funnelled through a seeker-flavoured sign-in that returns
-  // them here. Provider-side users (facility/BD, not a Global Admin) don't use the
-  // seeker AI — send them to their dashboard instead.
-  if (!roles.user) redirect('/login?role=seeker&next=/match');
+  // The seeker AI is open to everyone — no account needed to start. An account is
+  // created mid-conversation once they choose to share contact details. Provider-side
+  // users (facility members) don't use this funnel and are sent to their dashboard;
+  // a Global Admin is NOT provider-side, so they can open it as a test.
   if (isProviderSide(roles)) redirect('/home');
   return children;
 }

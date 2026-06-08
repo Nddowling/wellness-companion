@@ -296,28 +296,43 @@ export type Database = {
       }
       facility_claims: {
         Row: {
+          claimant_email: string | null
+          claimant_name: string | null
+          claimant_phone: string | null
+          claimant_title: string | null
           created_at: string
-          facility_id: string
+          facility_id: string | null
+          facility_name_freetext: string | null
           id: string
           note: string | null
           status: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
+          claimant_email?: string | null
+          claimant_name?: string | null
+          claimant_phone?: string | null
+          claimant_title?: string | null
           created_at?: string
-          facility_id: string
+          facility_id?: string | null
+          facility_name_freetext?: string | null
           id?: string
           note?: string | null
           status?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
+          claimant_email?: string | null
+          claimant_name?: string | null
+          claimant_phone?: string | null
+          claimant_title?: string | null
           created_at?: string
-          facility_id?: string
+          facility_id?: string | null
+          facility_name_freetext?: string | null
           id?: string
           note?: string | null
           status?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

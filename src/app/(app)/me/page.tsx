@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
-import { requireUser } from '@/lib/auth';
+import { requireSeeker } from '@/lib/auth';
+import { createClient } from '@/lib/supabase/server';
 import { getSearchesByAuthUser } from '@/lib/vault/seekers';
 import { LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
 import { updateMyInfoAction } from './actions';
@@ -8,7 +9,12 @@ import { updateMyInfoAction } from './actions';
 const field = 'rounded border border-slate-300 px-3 py-2 text-sm';
 
 export default async function SeekerDashboard() {
-  const user = await requireUser();
+  const user = await requireSeeker();
+  const supabase = await createClient();
+  const {
+    data: { user: full },
+  } = await supabase.auth.getUser();
+  const mustReset = (full?.user_metadata as { must_reset_password?: boolean } | undefined)?.must_reset_password;
   const searches = await getSearchesByAuthUser(user.id);
   const latest = searches[0]?.search;
   const firstName = latest?.name ? latest.name.split(' ')[0] : null;
@@ -21,6 +27,16 @@ export default async function SeekerDashboard() {
         </h1>
         <p className="text-sm text-slate-500">Your information is saved privately. Reach out whenever you&apos;re ready.</p>
       </div>
+
+      {mustReset && (
+        <div className="rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
+          <strong>Finish setting up your account.</strong> We emailed you a temporary password —{' '}
+          <Link href="/reset" className="font-medium underline">
+            set your own password
+          </Link>{' '}
+          to secure your account. You can keep browsing in the meantime.
+        </div>
+      )}
 
       <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
         In an emergency, call <strong>911</strong>. In crisis or having thoughts of suicide, call or text{' '}

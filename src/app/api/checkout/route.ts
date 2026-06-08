@@ -8,9 +8,14 @@ import { getRoles } from '@/lib/auth';
 // a fixed monthly/annual subscription, never per-referral. Env-gated — until the
 // STRIPE_* vars are set, facilities go to /pricing?soon=1 instead of erroring.
 //
-// Checkout shows a coupon-code box (allow_promotion_codes). Active codes:
-//   FOUNDING50   — 50% off the first 12 months (founding facilities)
+// Checkout shows a coupon-code box (allow_promotion_codes). Codes are Stripe
+// promotion codes (limits/restrictions configured in Stripe, see
+// scripts/stripe-promo-setup.mjs):
+//   FOUNDING50   — 50% off the first 12 months; capped at 10 redemptions
 //   RECOVERYNOW  — 100% off, free access
+//   GODMODE      — lifetime free Anchor; ONE redemption, locked to the "samba"
+//                  customer. Its coupon id is STRIPE_LIFETIME_COUPON, which the
+//                  webhook uses to flag the facility plan_status = 'lifetime'.
 
 const PRICE_ENV: Record<string, Record<string, string>> = {
   starter: { monthly: 'STRIPE_PRICE_STARTER', annual: 'STRIPE_PRICE_STARTER_ANNUAL' },

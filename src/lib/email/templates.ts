@@ -305,6 +305,50 @@ export function staffInviteEmail(params: {
   return { subject, html, text };
 }
 
+// Provider claim approved — sent when an admin verifies a facility claim and creates
+// the provider's login. Carries the temp password for first sign-in (they're then
+// forced to set their own password).
+export function providerClaimApprovedEmail(params: {
+  facilityName: string;
+  loginUrl: string;
+  email: string;
+  password?: string; // present only when a brand-new login was created
+}): { subject: string; html: string; text: string } {
+  const subject = `You're verified — manage ${params.facilityName} on Clear Bed Recovery`;
+  const cred = params.password
+    ? `<div style="background:#e1f0ec;border-radius:8px;padding:12px;margin:12px 0">
+        <div style="font-weight:600;margin-bottom:6px">Your login</div>
+        <div style="font-size:14px">Email: <strong>${esc(params.email)}</strong></div>
+        <div style="font-size:14px">Temporary password: <strong>${esc(params.password)}</strong></div>
+        <div style="font-size:12px;color:#64748b;margin-top:4px">You'll set your own password right after you sign in.</div>
+      </div>`
+    : `<p style="font-size:14px">Sign in with your existing Clear Bed Recovery account (<strong>${esc(
+        params.email
+      )}</strong>).</p>`;
+  const footer =
+    'You received this because you requested to claim a facility on Clear Bed Recovery, the addiction-treatment referral directory.';
+
+  const html = wrap(
+    `You're verified`,
+    `<p>Good news — we've verified your claim for <strong>${esc(params.facilityName)}</strong> on Clear Bed Recovery.</p>
+     <p>Sign in to update your profile, keep your bed availability current, and start receiving referrals.</p>
+     ${cred}
+     <div style="margin:12px 0"><a href="${esc(params.loginUrl)}" style="background:#2f6f6a;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:14px">Sign in to manage ${esc(
+       params.facilityName
+     )}</a></div>
+     <p style="font-size:13px;color:#475569">Keeping your bed availability current is what gets your program matched to the right referrals first.</p>`,
+    footer
+  );
+
+  const text = `You're verified — manage ${params.facilityName} on Clear Bed Recovery.\n\nSign in: ${
+    params.loginUrl
+  }\nEmail: ${params.email}${
+    params.password ? `\nTemporary password: ${params.password} (you'll set your own right after signing in)` : ''
+  }\n\nKeeping your bed availability current is what gets your program matched to the right referrals first.\n\n${footer}`;
+
+  return { subject, html, text };
+}
+
 // 4) Weekly reminder — to seekers who haven't connected yet.
 export function weeklyReminderEmail(
   name: string | undefined,

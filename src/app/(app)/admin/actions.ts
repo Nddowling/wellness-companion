@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createVaultClient } from '@/lib/supabase/vault';
 import { sendEmail } from '@/lib/email/send';
-import { staffInviteEmail } from '@/lib/email/templates';
+import { providerClaimApprovedEmail, staffInviteEmail } from '@/lib/email/templates';
 import { SITE_URL } from '@/lib/seo';
 import { LEVELS_OF_CARE, PAYER_TYPES } from '@/lib/constants';
 
@@ -261,17 +261,53 @@ export async function approveClaim(formData: FormData) {
   const claimId = String(formData.get('claim_id'));
   const { data: claim } = await admin
     .from('facility_claims')
-    .select('user_id, facility_id')
+    .select('user_id, facility_id, claimant_email, claimant_name')
     .eq('id', claimId)
     .single();
-  if (claim) {
+  if (!claim) return;
+
+  // Resolve the provider's account. Public claims arrive with NO user_id — create
+  // their login now (temp password + must-reset), so verification is the only gate
+  // to a provider account existing at all.
+  let userId = claim.user_id as string | null;
+  let tempPw: string | null = null;
+  const email = (claim.claimant_email as string | null)?.trim().toLowerCase() || null;
+  if (!userId && email) {
+    tempPw = tempPassword();
+    const { data: created } = await admin.auth.admin.createUser({
+      email,
+      password: tempPw,
+      email_confirm: true,
+      user_metadata: { role: 'facility', must_reset_password: true, name: claim.claimant_name ?? null },
+    });
+    userId = created?.user?.id ?? (await findUserIdByEmail(admin, email));
+    if (!created?.user) tempPw = null; // account already existed — no new temp password to send
+  }
+
+  // Membership requires a known facility (a "not listed" claim has none — the admin
+  // links the facility after creating it, then the account is already in place).
+  if (userId && claim.facility_id) {
     await admin
       .from('facility_members')
       .upsert(
-        { facility_id: claim.facility_id, user_id: claim.user_id, role: 'staff' },
+        { facility_id: claim.facility_id, user_id: userId, role: 'staff' },
         { onConflict: 'facility_id,user_id', ignoreDuplicates: true }
       );
-    await admin.from('facility_claims').update({ status: 'approved' }).eq('id', claimId);
+  }
+  await admin.from('facility_claims').update({ status: 'approved' }).eq('id', claimId);
+
+  // Tell them they're verified + how to sign in.
+  if (email) {
+    const { data: facility } = claim.facility_id
+      ? await admin.from('facilities').select('name').eq('id', claim.facility_id).maybeSingle()
+      : { data: null };
+    const mail = providerClaimApprovedEmail({
+      facilityName: facility?.name ?? 'your facility',
+      loginUrl: `${SITE_URL}/login`,
+      email,
+      password: tempPw ?? undefined,
+    });
+    await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
   }
   revalidatePath('/admin/claims');
 }

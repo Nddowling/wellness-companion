@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { requireUser } from '@/lib/auth';
+import { requireSeeker } from '@/lib/auth';
 import { getConversation } from '@/lib/vault/conversations';
 
 export const metadata = { title: 'Conversation' };
@@ -19,7 +19,7 @@ export default async function ConversationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const user = await requireUser();
+  const user = await requireSeeker();
   const convo = await getConversation(user.id, id);
   if (!convo) notFound();
 

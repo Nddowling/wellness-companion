@@ -109,7 +109,7 @@ export default function ForProvidersPage() {
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
-                href="/get-started"
+                href="/claim"
                 className="rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
               >
                 Claim your facility →
@@ -118,7 +118,7 @@ export default function ForProvidersPage() {
                 href="/login"
                 className="rounded-md border border-white/40 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur transition hover:bg-white/20"
               >
-                Team sign in
+                Provider login
               </Link>
             </div>
             <p className="mt-5 text-xs text-white/70">
@@ -212,14 +212,23 @@ export default function ForProvidersPage() {
         <Reveal className="mx-auto max-w-3xl px-6 text-center text-white">
           <h2 className="text-3xl font-semibold">Put your openings in front of the right people</h2>
           <p className="mx-auto mt-3 max-w-xl text-white/90">
-            Claim your facility in a few minutes. Start free — upgrade when you’re ready.
+            Claim your facility in a few minutes. We verify every program; once you&apos;re approved you&apos;ll
+            get a login. Start free — upgrade when you&apos;re ready.
           </p>
-          <Link
-            href="/get-started"
-            className="mt-6 inline-block rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
-          >
-            Claim your facility →
-          </Link>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/claim"
+              className="inline-block rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+            >
+              Claim your facility →
+            </Link>
+            <Link
+              href="/login"
+              className="inline-block rounded-md border border-white/40 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur transition hover:bg-white/20"
+            >
+              Provider login
+            </Link>
+          </div>
         </Reveal>
       </section>
     </main>

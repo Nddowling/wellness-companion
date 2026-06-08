@@ -45,13 +45,17 @@ function LoginForm() {
             password,
             options: isSeeker ? { data: { role: 'seeker' } } : undefined,
           });
-    const { error } = await fn;
+    const { data, error } = await fn;
     setBusy(false);
     if (error) {
       setError(error.message);
       return;
     }
-    router.push(dest);
+    // Temp-password accounts (approved providers, mid-chat seekers) must choose a real
+    // password before anything else.
+    const mustReset = (data?.user?.user_metadata as { must_reset_password?: boolean } | undefined)
+      ?.must_reset_password;
+    router.push(mustReset ? '/reset' : dest);
     router.refresh();
   }
 

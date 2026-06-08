@@ -18,6 +18,7 @@ import {
   markInterestInfoSent,
   setSeekerAuthUser,
 } from '@/lib/vault/seekers';
+import { upsertConversation } from '@/lib/vault/conversations';
 
 // Seeker "complete & connect" endpoint.
 //
@@ -29,11 +30,16 @@ import {
 // in hand. Otherwise: nothing is stored or emailed — we return public contacts only.
 
 type FaceSheet = Record<string, unknown>;
+type ChatMsg = { role: 'user' | 'assistant'; content: string };
 type Body = {
   match_id?: string;
   facility_ids?: string[];
   face_sheet?: FaceSheet;
   consents?: { email?: boolean; share?: boolean };
+  // The conversation transcript + matched-program snapshot, sent so an anonymous
+  // chat is saved to the seeker's history the moment their account is created.
+  messages?: ChatMsg[];
+  matched_facilities?: { id: string; name: string; city: string | null; state: string | null }[];
 };
 
 const str = (v: unknown): string | undefined =>
@@ -159,6 +165,9 @@ export async function POST(request: Request) {
   const {
     data: { user: sessionUser },
   } = await (await createClient()).auth.getUser();
+  // The account this search/transcript ends up attached to (existing session, a
+  // freshly-created seeker login, or a matched existing account).
+  let authUserId: string | null = sessionUser?.id ?? null;
   if (sessionUser && seekerId) await setSeekerAuthUser(seekerId, sessionUser.id);
 
   // Seeker account + emails. With consent + an address, email their info + matches.
@@ -180,10 +189,17 @@ export async function POST(request: Request) {
         email: identity.email,
         password: tempPassword,
         email_confirm: true,
-        user_metadata: { role: 'seeker', name: identity.name ?? null },
+        // They accepted the terms in-chat; force a real password on first sign-in.
+        user_metadata: {
+          role: 'seeker',
+          name: identity.name ?? null,
+          must_reset_password: true,
+          terms_accepted_at: new Date().toISOString(),
+        },
       });
 
       if (created?.user) {
+        authUserId = created.user.id;
         if (seekerId) await setSeekerAuthUser(seekerId, created.user.id);
         const acct = seekerAccountEmail({
           email: identity.email,
@@ -199,7 +215,10 @@ export async function POST(request: Request) {
         try {
           const { data: list } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
           const existing = list?.users.find((u) => u.email?.toLowerCase() === identity.email!.toLowerCase());
-          if (existing && seekerId) await setSeekerAuthUser(seekerId, existing.id);
+          if (existing) {
+            authUserId = existing.id;
+            if (seekerId) await setSeekerAuthUser(seekerId, existing.id);
+          }
         } catch {
           /* best-effort */
         }
@@ -210,6 +229,30 @@ export async function POST(request: Request) {
         const tRes = await sendEmail({ to: identity.email, ...t });
         await logEmail({ seeker_id: seekerId, kind: 'treatment_info', to_email: identity.email, provider_id: tRes.id });
       }
+    }
+  }
+
+  // Save the chat transcript to the seeker's private history, linked to their account
+  // (only possible once an account exists — i.e. they consented + gave an email).
+  const transcript = Array.isArray(body.messages)
+    ? body.messages.filter(
+        (m): m is ChatMsg =>
+          !!m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
+      )
+    : [];
+  if (authUserId && transcript.length) {
+    const firstUser = transcript.find((m) => m.role === 'user');
+    try {
+      await upsertConversation({
+        authUserId,
+        title: firstUser ? firstUser.content.slice(0, 80) : null,
+        messages: transcript,
+        matchId: matchId || null,
+        matchedFacilities: Array.isArray(body.matched_facilities) ? body.matched_facilities : [],
+        faceSheet: fs,
+      });
+    } catch {
+      /* best-effort — history save never blocks the hand-off */
     }
   }
 

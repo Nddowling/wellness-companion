@@ -4,32 +4,40 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 type NavLink = { href: string; label: string };
+type Profile = 'admin' | 'facility' | 'seeker' | 'none';
 
-// Provider-side users (facility/BD, not a Global Admin) never see the seeker AI
-// "Find care" / "My saved matches" entries — they get a dashboard shortcut instead.
-function buildLinks(providerSide: boolean, dashboardHref: string | null): NavLink[] {
+// The public hamburger is built strictly from the viewer's canonical profile so it
+// never offers another lane's pages:
+//   • Seeker AI ("Find care") — seekers, guests/roleless, and admin (as a test). NOT facilities.
+//   • Provider marketing ("For providers", "Pricing") — everyone EXCEPT seekers.
+//   • A dashboard shortcut into the viewer's own lane.
+function buildLinks(profile: Profile, dashboardHref: string | null): NavLink[] {
   const links: NavLink[] = [{ href: '/', label: 'Home' }];
-  if (!providerSide) links.push({ href: '/match', label: 'Find care' });
+  if (profile !== 'facility') {
+    links.push({ href: '/match', label: profile === 'admin' ? 'AI chat (test)' : 'Find care' });
+  }
   links.push({ href: '/programs', label: 'Browse programs' });
   links.push({ href: '/treatment', label: 'Browse by state' });
   links.push({ href: '/insurance', label: 'By insurance' });
   links.push({ href: '/guides', label: 'Guides' });
-  if (!providerSide) links.push({ href: '/me', label: 'My saved matches' });
+  if (profile === 'seeker') links.push({ href: '/me', label: 'My care' });
+  if (profile !== 'seeker') {
+    links.push({ href: '/for-providers', label: 'For providers' });
+    links.push({ href: '/pricing', label: 'Pricing' });
+  }
   if (dashboardHref) links.push({ href: dashboardHref, label: 'My dashboard' });
-  links.push({ href: '/for-providers', label: 'For providers' });
-  links.push({ href: '/pricing', label: 'Pricing' });
   return links;
 }
 
 export default function SiteMenu({
-  providerSide = false,
+  profile = 'none',
   dashboardHref = null,
 }: {
-  providerSide?: boolean;
+  profile?: Profile;
   dashboardHref?: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const LINKS = buildLinks(providerSide, dashboardHref);
+  const LINKS = buildLinks(profile, dashboardHref);
 
   return (
     <>

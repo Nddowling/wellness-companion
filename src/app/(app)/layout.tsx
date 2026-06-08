@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-import { getRoles } from '@/lib/auth';
+import { getRoles, homePathFor, profileType } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { normalizePlan } from '@/lib/facility/plan';
 import { Logo } from '@/components/Logo';
@@ -9,48 +9,53 @@ import { AccountMenu } from '@/components/AccountMenu';
 import { MobileTabBar, type Tab } from '@/components/MobileTabBar';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, facilityIds, isSeeker } = await getRoles();
-  if (!user) redirect('/login'); // the authed shell always requires a session
+  const roles = await getRoles();
+  if (!roles.user) redirect('/login'); // the authed shell always requires a session
+  const { user, facilityIds } = roles;
+  const profile = profileType(roles);
+  const isFacility = profile === 'facility';
+  const homeHref = homePathFor(roles);
 
   // Persistent "Upgrade" pill when the user's facility is on the Free plan.
   let facilityOnFree = false;
-  if (!isSeeker && facilityIds.length > 0) {
+  if (isFacility && facilityIds.length > 0) {
     const supabase = await createClient();
     const { data } = await supabase.from('facilities').select('plan').eq('id', facilityIds[0]).maybeSingle();
     facilityOnFree = normalizePlan(data?.plan) === 'free';
   }
 
+  // Nav is built STRICTLY from the canonical profile — each lane sees only its own
+  // destinations, so the menu can never expose another profile's pages.
   const links: { href: string; label: string }[] = [];
-  if (isSeeker) {
+  const tabs: Tab[] = [];
+  if (profile === 'seeker') {
     links.push({ href: '/me', label: 'My care' });
     links.push({ href: '/conversations', label: 'Conversations' });
+    links.push({ href: '/programs', label: 'Browse programs' });
+    tabs.push({ href: '/me', label: 'My care', icon: 'care' });
+    tabs.push({ href: '/conversations', label: 'Conversations', icon: 'chat' });
+    tabs.push({ href: '/programs', label: 'Programs', icon: 'facility' });
+  } else if (profile === 'facility') {
+    links.push({ href: '/facility', label: 'My facility' });
+    links.push({ href: '/pricing', label: 'Upgrade' });
+    tabs.push({ href: '/facility', label: 'Facility', icon: 'facility' });
+    tabs.push({ href: '/pricing', label: 'Upgrade', icon: 'home' });
+  } else if (profile === 'admin') {
+    links.push({ href: '/admin', label: 'Admin' });
+    links.push({ href: '/match', label: 'AI chat (test)' }); // admin-only test of the seeker AI
+    tabs.push({ href: '/admin', label: 'Admin', icon: 'admin' });
+    tabs.push({ href: '/match', label: 'AI test', icon: 'chat' });
   } else {
-    if (isAdmin) links.push({ href: '/admin', label: 'Admin' });
-    if (facilityIds.length > 0) links.push({ href: '/facility', label: 'My facility' });
-    links.push({ href: '/bd', label: 'Referrer' }); // self-serve — always available
+    links.push({ href: '/get-started', label: 'Get started' });
+    tabs.push({ href: '/get-started', label: 'Get started', icon: 'home' });
   }
-
-  // App-like bottom tab bar (mobile). Same destinations as the desktop nav.
-  const tabs: Tab[] = isSeeker
-    ? [
-        { href: '/me', label: 'My care', icon: 'care' },
-        { href: '/conversations', label: 'Conversations', icon: 'chat' },
-      ]
-    : [
-        { href: '/home', label: 'Home', icon: 'home' },
-        ...((facilityIds.length > 0
-          ? [{ href: '/facility', label: 'Facility', icon: 'facility' }]
-          : []) as Tab[]),
-        { href: '/bd', label: 'Referrer', icon: 'referrer' },
-        ...((isAdmin ? [{ href: '/admin', label: 'Admin', icon: 'admin' }] : []) as Tab[]),
-      ];
 
   return (
     <div className="min-h-screen text-slate-800">
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-5">
-            <Link href={isSeeker ? '/me' : '/home'} aria-label="Clear Bed Recovery — home">
+            <Link href={homeHref} aria-label="Clear Bed Recovery — home">
               <Logo className="text-lg" />
             </Link>
             {/* Desktop nav; on mobile these live in the bottom tab bar */}
@@ -73,7 +78,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             )}
             <AccountMenu
               email={user.email ?? ''}
-              inviteHref={!isSeeker && facilityIds.length > 0 ? `/facility/${facilityIds[0]}/invite` : null}
+              inviteHref={isFacility && facilityIds.length > 0 ? `/facility/${facilityIds[0]}/invite` : null}
             />
           </div>
         </div>

@@ -49,7 +49,7 @@ export default async function LandingPage() {
             </h1>
             <p className="mt-4 max-w-xl text-lg text-white/90">
               A warm, judgment-free guide that listens for a few key things and connects you with treatment that
-              actually fits — your situation, your coverage, your needs. Free and private — your conversations are saved so you can pick up where you left off.
+              actually fits — your situation, your coverage, your needs. Free and private — no account required to start.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               {providerSide ? (
@@ -60,22 +60,29 @@ export default async function LandingPage() {
                   Go to your dashboard →
                 </Link>
               ) : (
-                <Link
-                  href="/match"
-                  className="rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
-                >
-                  Find care — start here →
-                </Link>
+                <>
+                  <Link
+                    href="/match"
+                    className="rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+                  >
+                    Seeking Information on Treatment →
+                  </Link>
+                  <Link
+                    href="/for-providers"
+                    className="rounded-md border border-white/40 bg-white/10 px-5 py-3 text-base font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
+                  >
+                    I run a treatment program →
+                  </Link>
+                </>
               )}
-              <Link
-                href="/programs"
-                className="rounded-md border border-white/40 bg-white/10 px-5 py-3 text-sm font-medium text-white backdrop-blur transition hover:bg-white/20"
-              >
-                Browse all programs
-              </Link>
             </div>
             {!providerSide && (
-              <p className="mt-5 text-xs text-white/70">Free · Private · Takes about 2 minutes</p>
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                <Link href="/programs" className="text-sm text-white/80 underline underline-offset-2 hover:text-white">
+                  Browse all programs
+                </Link>
+                <span className="text-xs text-white/70">Free · Private · Takes about 2 minutes</span>
+              </div>
             )}
             <p className="mt-4 text-xs text-white/70">
               In an emergency call <strong>911</strong>. In crisis, call or text <strong>988</strong> — anytime.

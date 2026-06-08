@@ -1,12 +1,12 @@
 import Link from 'next/link';
 
-import { requireUser } from '@/lib/auth';
+import { requireSeeker } from '@/lib/auth';
 import { listConversations } from '@/lib/vault/conversations';
 
 export const metadata = { title: 'Your conversations' };
 
 export default async function ConversationsPage() {
-  const user = await requireUser();
+  const user = await requireSeeker();
   const conversations = await listConversations(user.id);
 
   return (

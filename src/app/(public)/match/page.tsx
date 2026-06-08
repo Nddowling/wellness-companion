@@ -129,6 +129,10 @@ export default function MatchPage() {
   const [seekerName, setSeekerName] = useState<string | undefined>(undefined);
   const [shared, setShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Anonymous visitors can use the whole funnel; an account is created at handoff.
+  // Live per-turn autosave only runs for signed-in seekers — anonymous transcripts
+  // are persisted in one shot when the account is created (see runHandoff).
+  const [loggedIn, setLoggedIn] = useState(false);
 
   const supabase = createClient();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -158,9 +162,11 @@ export default function MatchPage() {
   useEffect(() => {
     let active = true;
     supabase.auth.getUser().then(({ data }) => {
+      if (!active) return;
+      setLoggedIn(!!data.user);
       const accepted = (data.user?.user_metadata as { terms_accepted_at?: string } | undefined)
         ?.terms_accepted_at;
-      if (active && accepted) setAcknowledged(true);
+      if (accepted) setAcknowledged(true);
     });
     return () => {
       active = false;
@@ -210,13 +216,14 @@ export default function MatchPage() {
   }
 
   // Debounced autosave on any meaningful change once the conversation has begun.
+  // Only for signed-in seekers — anonymous transcripts are saved at handoff instead.
   useEffect(() => {
-    if (!acknowledged) return;
+    if (!acknowledged || !loggedIn) return;
     if (!messages.some((m) => m.role === 'user')) return;
     const t = setTimeout(() => void saveConversation(), 800);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, matches, matchId, shared, acknowledged]);
+  }, [messages, matches, matchId, shared, acknowledged, loggedIn]);
 
   // Phase 1 is just the first 3 steps (need, location, coverage) — they produce
   // matches. Identity (STEPS[3]) is the optional "connect" phase, after results.
@@ -303,6 +310,15 @@ export default function MatchPage() {
             email: identitySheet.consent_contact === true,
             share: identitySheet.consent_share === true,
           },
+          // The transcript so far, so it's saved to the seeker's history the moment
+          // their account is created (anonymous chats have no per-turn autosave).
+          messages: dataRef.current.messages,
+          matched_facilities: (dataRef.current.matches ?? []).map((f) => ({
+            id: f.id,
+            name: f.name,
+            city: f.city,
+            state: f.state,
+          })),
         }),
       });
       const hd = await h.json().catch(() => ({}));
@@ -588,15 +604,17 @@ export default function MatchPage() {
               >
                 ＋ New conversation
               </button>
-              <Link href="/conversations" className="text-xs text-slate-500 underline hover:text-teal-700">
-                Past conversations →
-              </Link>
+              {loggedIn && (
+                <Link href="/conversations" className="text-xs text-slate-500 underline hover:text-teal-700">
+                  Past conversations →
+                </Link>
+              )}
             </div>
           </div>
           <p className="mt-2 text-sm text-slate-600">
-            Answer three quick questions and we&apos;ll show you real programs near you right away — matched to your
-            coverage and what you&apos;re looking for. Your conversations are saved privately so you can pick up where
-            you left off. We connect you to treatment facilities; we don&apos;t provide treatment ourselves.
+            No account needed to start. Answer three quick questions and we&apos;ll show you real programs near you
+            right away — matched to your coverage and what you&apos;re looking for. Share your details only if you want
+            them to reach out. We connect you to treatment facilities; we don&apos;t provide treatment ourselves.
           </p>
 
           {/* Progress — only the 3 de-identified questions before results */}

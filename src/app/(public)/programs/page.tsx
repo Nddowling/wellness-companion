@@ -43,9 +43,9 @@ function acceptedSummary(r: Row): string {
 export default async function ProgramsDirectory({
   searchParams,
 }: {
-  searchParams: Promise<{ level?: string; q?: string }>;
+  searchParams: Promise<{ level?: string; q?: string; region?: string }>;
 }) {
-  const { level, q } = await searchParams;
+  const { level, q, region } = await searchParams;
   const providerSide = isProviderSide(await getRoles());
   const supabase = createAdminClient();
 
@@ -55,7 +55,12 @@ export default async function ProgramsDirectory({
     .eq('is_published', true)
     .order('name');
 
-  let rows = (data ?? []) as Row[];
+  const all = (data ?? []) as Row[];
+  // Region options come from the states actually present in the directory.
+  const states = [...new Set(all.map((r) => r.state).filter((s): s is string => !!s))].sort();
+
+  let rows = all;
+  if (region) rows = rows.filter((r) => r.state === region);
   if (level && LEVELS_OF_CARE.includes(level as LevelOfCare)) {
     rows = rows.filter((r) => (r.levels_of_care ?? []).includes(level));
   }
@@ -67,6 +72,16 @@ export default async function ProgramsDirectory({
         [r.city, r.state].filter(Boolean).join(', ').toLowerCase().includes(needle)
     );
   }
+
+  // Build a /programs href that keeps the other two filters intact.
+  const hrefFor = (l?: string) => {
+    const p = new URLSearchParams();
+    if (l) p.set('level', l);
+    if (region) p.set('region', region);
+    if (q) p.set('q', q);
+    const s = p.toString();
+    return s ? `/programs?${s}` : '/programs';
+  };
 
   const tabClass = (active: boolean) =>
     'rounded-full px-3 py-1 text-xs font-medium ' +
@@ -90,29 +105,46 @@ export default async function ProgramsDirectory({
         </Link>
       </div>
 
-      {/* Level filter */}
+      {/* Treatment-type filter (always available) */}
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link href="/programs" className={tabClass(!level)}>
+        <Link href={hrefFor(undefined)} className={tabClass(!level)}>
           All
         </Link>
         {LEVELS_OF_CARE.map((l) => (
-          <Link key={l} href={`/programs?level=${l}`} className={tabClass(level === l)}>
+          <Link key={l} href={hrefFor(l)} className={tabClass(level === l)}>
             {LEVEL_LABELS[l]}
           </Link>
         ))}
       </div>
 
-      {/* Search */}
-      <form className="mt-3 flex gap-2" action="/programs">
+      {/* Region + search (always available). One GET form so all three filters compose. */}
+      <form className="mt-3 flex flex-wrap gap-2" action="/programs">
         {level && <input type="hidden" name="level" value={level} />}
+        <select
+          name="region"
+          defaultValue={region ?? ''}
+          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="">All regions</option>
+          {states.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
         <input
           name="q"
           defaultValue={q ?? ''}
           placeholder="Search by name or city…"
-          className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="min-w-[10rem] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
         />
         <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Search</button>
       </form>
+      {(level || region || q) && (
+        <Link href="/programs" className="mt-2 inline-block text-xs text-slate-500 underline hover:text-teal-700">
+          Clear filters
+        </Link>
+      )}
 
       <p className="mt-4 text-xs text-slate-400">{rows.length} programs</p>
 

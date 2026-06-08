@@ -81,10 +81,53 @@ export async function getRoles(): Promise<Roles> {
   };
 }
 
+/**
+ * The single canonical profile a signed-in user belongs to. The app is a strict
+ * three-lane model — Admin, Facility Admin, Seeker — and every routing/nav decision
+ * derives from this. Admin wins (global oversight); then facility membership; then
+ * the seeker tag. The legacy BD/referrer role is intentionally NOT a profile here:
+ * it's kept dormant in the DB but has no lane in the UI.
+ */
+export type ProfileType = 'admin' | 'facility' | 'seeker' | 'none';
+
+export function profileType(r: Roles): ProfileType {
+  if (!r.user) return 'none';
+  if (r.isAdmin) return 'admin';
+  if (r.facilityIds.length > 0) return 'facility';
+  if (r.isSeeker) return 'seeker';
+  return 'none';
+}
+
+/** Where this user's lane begins — used to route logins and bounce out-of-lane hits. */
+export function homePathFor(r: Roles): string {
+  switch (profileType(r)) {
+    case 'admin':
+      return '/admin';
+    case 'facility':
+      return r.facilityIds.length === 1 ? `/facility/${r.facilityIds[0]}` : '/facility';
+    case 'seeker':
+      return '/me';
+    default:
+      return '/get-started'; // no lane yet (or a dormant BD-only account)
+  }
+}
+
+/**
+ * Gate a route to seekers. A signed-in user in a different lane is sent to THEIR
+ * home base (not shown an error) so nobody can cross profiles via a typed URL.
+ */
+export async function requireSeeker() {
+  const roles = await getRoles();
+  if (!roles.user) redirect('/login');
+  if (profileType(roles) !== 'seeker') redirect(homePathFor(roles));
+  return roles.user;
+}
+
 /** Gate a route to facility members (admins manage via /admin, not here). */
 export async function requireFacilityMember(): Promise<{ userId: string; facilityIds: string[] }> {
-  const { user, facilityIds } = await getRoles();
-  if (!user) redirect('/login');
-  if (facilityIds.length === 0) redirect('/login?error=no_facility_access');
-  return { userId: user.id, facilityIds };
+  const roles = await getRoles();
+  if (!roles.user) redirect('/login');
+  // Out-of-lane (seeker/admin/none) → their own home base, never another profile's page.
+  if (roles.facilityIds.length === 0) redirect(homePathFor(roles));
+  return { userId: roles.user.id, facilityIds: roles.facilityIds };
 }
