@@ -52,6 +52,7 @@ export async function inviteStaff(formData: FormData) {
       email,
       password: tempPw,
       email_confirm: true,
+      user_metadata: { role: 'facility', must_reset_password: true },
     });
     if (error || !created?.user) throw new Error(`Could not invite: ${error?.message ?? 'unknown error'}`);
     userId = created.user.id;

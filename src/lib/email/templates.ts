@@ -69,13 +69,72 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 }
 
-// Seeker-facing emails carry the 988 crisis footer; business emails (e.g. staff
-// invites) pass their own footer instead — the crisis line is out of place there.
+// Brand palette (mirrors globals.css). Inlined as hex so emails render anywhere.
+const BRAND = {
+  teal: '#2f6f6a',
+  sage: '#5dcaa5',
+  mist: '#e1f0ec',
+  mistLine: '#cfe6df',
+  terracotta: '#d4956a',
+  ink: '#243b3a',
+  slate: '#475569',
+  muted: '#94a3b8',
+  line: '#e2e8f0',
+  panel: '#f8fafc',
+} as const;
+
+/** A primary call-to-action button (teal for contrast with white text). */
+function button(href: string, label: string, color: string = BRAND.teal): string {
+  return `<a href="${esc(href)}" style="display:inline-block;background:${color};color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;line-height:1">${esc(
+    label
+  )}</a>`;
+}
+
+/** The temporary-credentials card used in every onboarding email. */
+function credsCard(email: string, password?: string): string {
+  const pw = password
+    ? `<div style="font-size:14px;color:${BRAND.ink};margin-top:2px">Temporary password: <strong style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#ffffff;border:1px solid ${BRAND.mistLine};border-radius:6px;padding:2px 6px">${esc(
+        password
+      )}</strong></div>
+      <div style="font-size:12px;color:${BRAND.slate};margin-top:8px">For your security you'll choose your own password right after you sign in.</div>`
+    : `<div style="font-size:13px;color:${BRAND.slate};margin-top:4px">Sign in with your existing Clear Bed Recovery password.</div>`;
+  return `<div style="background:${BRAND.mist};border:1px solid ${BRAND.mistLine};border-radius:10px;padding:16px;margin:16px 0">
+    <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:${BRAND.teal};margin-bottom:8px">Your login</div>
+    <div style="font-size:14px;color:${BRAND.ink}">Email: <strong>${esc(email)}</strong></div>
+    ${pw}
+  </div>`;
+}
+
+/** A compact numbered "how to get started" list. */
+function steps(items: string[]): string {
+  const lis = items
+    .map(
+      (s) =>
+        `<li style="margin:0 0 6px;padding:0;font-size:14px;color:${BRAND.slate};line-height:1.5">${s}</li>`
+    )
+    .join('');
+  return `<ol style="margin:8px 0 16px;padding-left:20px">${lis}</ol>`;
+}
+
+// Branded shell. Header band + card + footer. Seeker-facing emails carry the 988
+// crisis footer; business emails pass their own (the crisis line is out of place there).
+// Signature is unchanged so existing callers brand automatically.
 function wrap(title: string, inner: string, footer: string = CRISIS): string {
-  return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#1e293b">
-  <h1 style="font-size:20px;color:#0f766e">${esc(title)}</h1>
-  ${inner}
-  <p style="font-size:12px;color:#94a3b8;margin-top:24px;border-top:1px solid #e2e8f0;padding-top:12px">${esc(footer)}</p>
+  return `<div style="margin:0;padding:24px 12px;background:#f1f6f4">
+  <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${BRAND.line}">
+    <div style="background:${BRAND.teal};padding:20px 24px">
+      <div style="color:#ffffff;font-size:18px;font-weight:700;letter-spacing:-.01em">Clear Bed Recovery</div>
+      <div style="color:${BRAND.sage};font-size:12px;margin-top:2px">Connecting you to treatment that fits</div>
+    </div>
+    <div style="padding:24px;color:${BRAND.ink}">
+      <h1 style="font-size:20px;color:${BRAND.ink};margin:0 0 12px;line-height:1.3">${esc(title)}</h1>
+      ${inner}
+    </div>
+    <div style="padding:16px 24px;background:${BRAND.panel};border-top:1px solid ${BRAND.line}">
+      <p style="font-size:12px;color:${BRAND.muted};margin:0;line-height:1.5">${esc(footer)}</p>
+      <p style="font-size:11px;color:${BRAND.muted};margin:8px 0 0">Clear Bed Recovery is a connector — we help you reach treatment; we don't provide treatment ourselves.</p>
+    </div>
+  </div>
 </div>`;
 }
 
@@ -153,20 +212,23 @@ export function seekerAccountEmail(params: {
   ).filter(([, v]) => v && v.trim()) as [string, string][];
 
   const html = wrap('Welcome — your account is ready', `
-    <p>${esc(hi)}</p>
-    <p>We saved everything you shared so you can come back to your matches anytime — no need to start over.</p>
-    <div style="background:#e1f0ec;border-radius:8px;padding:12px;margin:12px 0">
-      <div style="font-weight:600;margin-bottom:6px">Your login</div>
-      <div style="font-size:14px">Email: <strong>${esc(params.email)}</strong></div>
-      <div style="font-size:14px">Temporary password: <strong>${esc(params.password)}</strong></div>
-      <div style="margin-top:8px"><a href="${esc(params.loginUrl)}" style="background:#2f6f6a;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:14px">Sign in to revisit your matches</a></div>
-    </div>
-    ${info.length ? `<div style="font-size:14px;color:#475569"><strong>What you shared:</strong> ${info.map(([k, v]) => `${esc(k)} — ${esc(v)}`).join(' · ')}</div>` : ''}
-    <h2 style="font-size:14px;color:#0f766e;margin-top:16px">Programs matched to you</h2>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.6">${esc(hi)}</p>
+    <p style="margin:0 0 4px;font-size:15px;line-height:1.6">Thank you for taking this step — that took courage. We saved everything you shared, so your matched programs and your conversation are waiting whenever you come back. No need to start over.</p>
+    ${credsCard(params.email, params.password)}
+    <div style="margin:16px 0">${button(params.loginUrl, 'Sign in & set your password')}</div>
+    <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:${BRAND.ink}">What happens next:</p>
+    ${steps([
+      'Sign in with the email and temporary password above.',
+      'Choose your own password when prompted — it only takes a moment.',
+      'You’re in: your matched programs and saved conversations are all there.',
+    ])}
+    <p style="margin:0 0 12px;font-size:14px;color:${BRAND.slate};line-height:1.6">You don’t have to sign in to keep going — you can reach any of the programs below directly, any time.</p>
+    ${info.length ? `<div style="font-size:14px;color:${BRAND.slate};margin:0 0 8px"><strong>What you shared:</strong> ${info.map(([k, v]) => `${esc(k)} — ${esc(v)}`).join(' · ')}</div>` : ''}
+    <h2 style="font-size:15px;color:${BRAND.teal};margin:16px 0 4px">Programs matched to you</h2>
     ${params.facilities.map(facilityBlockHtml).join('')}
-    <p style="font-size:13px">Reach out to any of them whenever you're ready — there's no pressure and no wrong pace.</p>`);
+    <p style="font-size:13px;color:${BRAND.slate};margin-top:12px">Reach out whenever you’re ready — there’s no pressure and no wrong pace.</p>`);
 
-  const text = `${hi}\n\nYour Clear Bed Recovery account is ready.\n\nSign in: ${params.loginUrl}\nEmail: ${params.email}\nTemporary password: ${params.password}\n\nPrograms matched to you:\n${params.facilities.map(facilityBlockText).join('\n')}\n\n${CRISIS}`;
+  const text = `${hi}\n\nThank you for taking this step. Your Clear Bed Recovery account is ready — your matches and conversation are saved.\n\nGet started:\n1) Sign in: ${params.loginUrl}\n2) Email: ${params.email}\n3) Temporary password: ${params.password}\n4) Choose your own password when prompted.\n\nYou can also reach any program directly, any time.\n\nPrograms matched to you:\n${params.facilities.map(facilityBlockText).join('\n')}\n\n${CRISIS}`;
   return { subject, html, text };
 }
 
@@ -271,28 +333,18 @@ export function staffInviteEmail(params: {
     params.role === 'owner'
       ? 'As an <strong>owner</strong>, you can update beds and profile, manage leads, and invite others.'
       : 'As <strong>staff</strong>, you can update beds and profile and manage incoming referrals.';
-  const cred = params.password
-    ? `<div style="background:#e1f0ec;border-radius:8px;padding:12px;margin:12px 0">
-        <div style="font-weight:600;margin-bottom:6px">Your login</div>
-        <div style="font-size:14px">Email: <strong>${esc(params.email)}</strong></div>
-        <div style="font-size:14px">Temporary password: <strong>${esc(params.password)}</strong></div>
-        <div style="font-size:12px;color:#64748b;margin-top:4px">Change it after you sign in.</div>
-      </div>`
-    : `<p style="font-size:14px">Sign in with your existing Clear Bed Recovery account (<strong>${esc(
-        params.email
-      )}</strong>) to get started.</p>`;
   const footer =
     'You received this because someone added you to a facility team on Clear Bed Recovery, the addiction-treatment referral directory.';
 
   const html = wrap(
     `Welcome to the ${params.facilityName} team`,
-    `<p>You've been added to <strong>${esc(params.facilityName)}</strong> on Clear Bed Recovery.</p>
-     <p>${roleLine}</p>
-     ${cred}
-     <div style="margin:12px 0"><a href="${esc(params.loginUrl)}" style="background:#2f6f6a;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:14px">Sign in to manage ${esc(
-       params.facilityName
-     )}</a></div>
-     <p style="font-size:13px;color:#475569">Keeping your bed availability current is what gets your program matched to the right referrals first.</p>`,
+    `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">You've been added to <strong>${esc(
+      params.facilityName
+    )}</strong> on Clear Bed Recovery.</p>
+     <p style="margin:0 0 4px;font-size:14px;color:${BRAND.slate};line-height:1.6">${roleLine}</p>
+     ${credsCard(params.email, params.password)}
+     <div style="margin:16px 0">${button(params.loginUrl, params.password ? 'Sign in & set your password' : 'Sign in to get started')}</div>
+     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:0">Keeping your bed availability current is what gets your program matched to the right referrals first.</p>`,
     footer
   );
 
@@ -315,37 +367,66 @@ export function providerClaimApprovedEmail(params: {
   password?: string; // present only when a brand-new login was created
 }): { subject: string; html: string; text: string } {
   const subject = `You're verified — manage ${params.facilityName} on Clear Bed Recovery`;
-  const cred = params.password
-    ? `<div style="background:#e1f0ec;border-radius:8px;padding:12px;margin:12px 0">
-        <div style="font-weight:600;margin-bottom:6px">Your login</div>
-        <div style="font-size:14px">Email: <strong>${esc(params.email)}</strong></div>
-        <div style="font-size:14px">Temporary password: <strong>${esc(params.password)}</strong></div>
-        <div style="font-size:12px;color:#64748b;margin-top:4px">You'll set your own password right after you sign in.</div>
-      </div>`
-    : `<p style="font-size:14px">Sign in with your existing Clear Bed Recovery account (<strong>${esc(
-        params.email
-      )}</strong>).</p>`;
   const footer =
     'You received this because you requested to claim a facility on Clear Bed Recovery, the addiction-treatment referral directory.';
 
   const html = wrap(
-    `You're verified`,
-    `<p>Good news — we've verified your claim for <strong>${esc(params.facilityName)}</strong> on Clear Bed Recovery.</p>
-     <p>Sign in to update your profile, keep your bed availability current, and start receiving referrals.</p>
-     ${cred}
-     <div style="margin:12px 0"><a href="${esc(params.loginUrl)}" style="background:#2f6f6a;color:#fff;padding:8px 14px;border-radius:6px;text-decoration:none;font-size:14px">Sign in to manage ${esc(
-       params.facilityName
-     )}</a></div>
-     <p style="font-size:13px;color:#475569">Keeping your bed availability current is what gets your program matched to the right referrals first.</p>`,
+    `You're verified — welcome aboard`,
+    `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">Good news — we've verified your claim for <strong>${esc(
+      params.facilityName
+    )}</strong>. Your account is ready, and you can start managing your program right away.</p>
+     ${credsCard(params.email, params.password)}
+     <div style="margin:16px 0">${button(params.loginUrl, 'Sign in & set your password')}</div>
+     <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:${BRAND.ink}">Getting set up:</p>
+     ${steps([
+       'Sign in with the email and temporary password above.',
+       'Choose your own password when prompted.',
+       'Complete your profile and keep your bed availability current.',
+       'Upgrade any time to unlock photos, video, analytics, and featured placement.',
+     ])}
+     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:12px 0 0">Keeping your bed availability current is what gets your program matched to the right referrals first. Flat monthly pricing — never per-lead or per-admission.</p>`,
     footer
   );
 
-  const text = `You're verified — manage ${params.facilityName} on Clear Bed Recovery.\n\nSign in: ${
-    params.loginUrl
-  }\nEmail: ${params.email}${
-    params.password ? `\nTemporary password: ${params.password} (you'll set your own right after signing in)` : ''
-  }\n\nKeeping your bed availability current is what gets your program matched to the right referrals first.\n\n${footer}`;
+  const text = `You're verified — welcome to Clear Bed Recovery.\n\nYour account for ${
+    params.facilityName
+  } is ready.\n\nGet set up:\n1) Sign in: ${params.loginUrl}\n2) Email: ${params.email}${
+    params.password ? `\n3) Temporary password: ${params.password}\n4) Choose your own password when prompted.` : ''
+  }\n\nThen complete your profile and keep your bed availability current — that's what gets you matched to the right referrals first.\n\n${footer}`;
 
+  return { subject, html, text };
+}
+
+// Admin welcome — for provisioning the single global administrator. Not wired to an
+// automated trigger (admins are added directly to platform_admins); send manually
+// from a script/console when setting up or moving the admin account.
+export function adminWelcomeEmail(params: {
+  email: string;
+  loginUrl: string;
+  password?: string;
+}): { subject: string; html: string; text: string } {
+  const subject = 'Your Clear Bed Recovery admin access';
+  const footer =
+    'You received this because you were granted administrator access to Clear Bed Recovery.';
+  const html = wrap(
+    'Welcome — you have admin access',
+    `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">You've been set up as the <strong>global administrator</strong> for Clear Bed Recovery. You have full oversight: review and approve facility claims, manage every program, and view seeker records.</p>
+     ${credsCard(params.email, params.password)}
+     <div style="margin:16px 0">${button(params.loginUrl, params.password ? 'Sign in & set your password' : 'Sign in to the admin dashboard')}</div>
+     <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:${BRAND.ink}">Getting started:</p>
+     ${steps([
+       'Sign in with the email and temporary password above.',
+       'Choose your own password when prompted.',
+       'You’ll land on the admin dashboard — claims, facilities, and seekers are all there.',
+       'You can open the seeker AI from your menu (“AI chat (test)”) any time to try it.',
+     ])}`,
+    footer
+  );
+  const text = `Welcome to Clear Bed Recovery — you have global admin access.\n\nGet started:\n1) Sign in: ${
+    params.loginUrl
+  }\n2) Email: ${params.email}${
+    params.password ? `\n3) Temporary password: ${params.password}\n4) Choose your own password when prompted.` : ''
+  }\n\nYou'll land on the admin dashboard — claims, facilities, and seekers.\n\n${footer}`;
   return { subject, html, text };
 }
 

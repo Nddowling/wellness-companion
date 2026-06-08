@@ -217,7 +217,7 @@ export async function addFacilityMember(formData: FormData) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { role: 'facility' },
+    user_metadata: { role: 'facility', must_reset_password: true },
   });
 
   let userId = created?.user?.id ?? null;
