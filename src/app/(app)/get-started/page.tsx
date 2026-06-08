@@ -1,17 +1,10 @@
 import { requireUser } from '@/lib/auth';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { requestClaim } from '../facility/actions';
+import { FacilityPicker } from '@/components/FacilityPicker';
 
 export default async function GetStarted({ searchParams }: { searchParams: Promise<{ claimed?: string }> }) {
   const user = await requireUser();
   const { claimed } = await searchParams;
-
-  const admin = createAdminClient();
-  const { data: facilities } = await admin
-    .from('facilities')
-    .select('id, name, city, state')
-    .order('name');
 
   const supabase = await createClient();
   const { data: myClaims } = await supabase
@@ -44,20 +37,7 @@ export default async function GetStarted({ searchParams }: { searchParams: Promi
         </div>
       )}
 
-      <form action={requestClaim} className="space-y-2 rounded-lg border border-slate-200 bg-white p-5">
-        <div className="text-lg font-semibold text-slate-800">I represent a facility</div>
-        <p className="text-sm text-slate-500">Request to manage your program&apos;s profile and beds.</p>
-        <select name="facility_id" required className="w-full rounded border border-slate-300 px-3 py-2 text-sm">
-          <option value="">Choose your facility…</option>
-          {(facilities ?? []).map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.name} {[f.city, f.state].filter(Boolean).length ? `— ${[f.city, f.state].filter(Boolean).join(', ')}` : ''}
-            </option>
-          ))}
-        </select>
-        <input name="note" placeholder="Your role (optional)" className="w-full rounded border border-slate-300 px-3 py-2 text-sm" />
-        <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Request access</button>
-      </form>
+      <FacilityPicker />
     </div>
   );
 }
