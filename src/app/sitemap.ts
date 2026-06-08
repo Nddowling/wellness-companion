@@ -32,7 +32,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const supabase = createAdminClient();
     const { data } = await supabase
       .from("facilities")
-      .select("id, updated_at, state, city, levels_of_care")
+      .select("id, updated_at, state, city, levels_of_care, facility_payers(payer_type)")
       .eq("is_published", true)
       .order("updated_at", { ascending: false });
     const rows = data ?? [];
@@ -51,6 +51,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const stateCities = new Set<string>(); // "georgia|atlanta"
     const cityLevels = new Set<string>(); // "georgia|atlanta|detox"
     const states = new Set<string>();
+    const payers = new Set<string>(); // "medicaid"
+    const payerStates = new Set<string>(); // "medicaid|georgia"
     for (const f of rows) {
       const code = (f.state ?? "").toUpperCase();
       if (!code) continue;
@@ -62,6 +64,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         if (!(LEVELS_OF_CARE as readonly string[]).includes(l)) continue;
         stateLevels.add(`${sslug}|${l}`);
         if (cslug) cityLevels.add(`${sslug}|${cslug}|${l}`);
+      }
+      for (const p of (f.facility_payers ?? []) as { payer_type: string }[]) {
+        const pslug = p.payer_type.replace(/_/g, "-");
+        payers.add(pslug);
+        payerStates.add(`${pslug}|${sslug}`);
       }
     }
     const mk = (path: string, priority: number): MetadataRoute.Sitemap[number] => ({
@@ -77,6 +84,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...[...cityLevels].map((k) => {
         const [s, c, l] = k.split("|");
         return mk(`/treatment/${s}/${c}/${l}`, 0.6);
+      }),
+      ...(payers.size ? [mk(`/insurance`, 0.7)] : []),
+      ...[...payers].map((p) => mk(`/insurance/${p}`, 0.7)),
+      ...[...payerStates].map((k) => {
+        const [p, s] = k.split("|");
+        return mk(`/insurance/${p}/${s}`, 0.6);
       }),
     ];
   } catch {
