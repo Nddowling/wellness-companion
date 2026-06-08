@@ -51,6 +51,10 @@ export const metadata: Metadata = {
   creator: SITE_NAME,
   publisher: SITE_NAME,
   category: "health",
+  // Google Search Console — renders <meta name="google-site-verification" ...>.
+  // Lets you verify a URL-prefix property (https://clearbedrecovery.com) via the
+  // HTML-tag method, no DNS needed.
+  verification: { google: "rGxIUlkBRdVotDfVzVoWTtxKQnynTXhmXPi_aeqn91w" },
   formatDetection: { telephone: true, email: true, address: true },
   openGraph: {
     type: "website",

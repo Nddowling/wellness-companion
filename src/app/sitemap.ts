@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SITE_URL } from "@/lib/seo";
 import { LEVELS_OF_CARE } from "@/lib/constants";
 import { stateSlug, slugify } from "@/lib/geo";
+import { GUIDES } from "@/lib/guides";
 
 // Regenerate hourly so newly published programs + SEO landing pages appear without a redeploy.
 export const revalidate = 3600;
@@ -15,7 +16,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/match`, lastModified: now, changeFrequency: "monthly", priority: 0.9 },
     { url: `${SITE_URL}/programs`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
     { url: `${SITE_URL}/treatment`, lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    { url: `${SITE_URL}/guides`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE_URL}/for-providers`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    ...GUIDES.map((g) => ({
+      url: `${SITE_URL}/guides/${g.slug}`,
+      lastModified: new Date(g.updated),
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
   ];
 
   let programs: MetadataRoute.Sitemap = [];
