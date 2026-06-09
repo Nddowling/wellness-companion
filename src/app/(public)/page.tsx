@@ -79,9 +79,6 @@ export default async function LandingPage() {
             </div>
             {!providerSide && (
               <div className="mt-4 flex flex-wrap items-center gap-4">
-                <Link href="/programs" className="text-sm text-white/80 underline underline-offset-2 hover:text-white">
-                  Browse all programs
-                </Link>
                 <span className="text-xs text-white/70">Free · Private · Takes about 2 minutes</span>
               </div>
             )}
