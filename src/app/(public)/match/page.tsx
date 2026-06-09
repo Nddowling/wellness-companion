@@ -128,6 +128,9 @@ export default function MatchPage() {
   const [matchId, setMatchId] = useState<string | null>(null);
   const [seekerName, setSeekerName] = useState<string | undefined>(undefined);
   const [shared, setShared] = useState(false);
+  // True when the handoff minted a brand-new login for this (previously anonymous)
+  // seeker — so we can tell them an account now exists and to check their inbox.
+  const [accountCreated, setAccountCreated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Anonymous visitors can use the whole funnel; an account is created at handoff.
   // Live per-turn autosave only runs for signed-in seekers — anonymous transcripts
@@ -331,6 +334,7 @@ export default function MatchPage() {
       const hd = await h.json().catch(() => ({}));
       const didShare = !!hd.shared;
       setShared(didShare);
+      setAccountCreated(!!hd.accountCreated);
     } catch {
       setError(
         'We saved your matches, but had trouble sharing your details just now. You can still reach the programs directly below.'
@@ -360,6 +364,7 @@ export default function MatchPage() {
     setMatches(null);
     setMatchId(null);
     setShared(false);
+    setAccountCreated(false);
     setSeekerName(undefined);
     setStepIdx(0);
     setError(null);
@@ -722,6 +727,13 @@ export default function MatchPage() {
                   <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
                     ✓ We&apos;ve shared your details with these programs so their intake team has what they need —
                     they may reach out to you. You&apos;re always welcome to contact them directly too.
+                  </div>
+                )}
+
+                {accountCreated && (
+                  <div className="rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
+                    📬 We&apos;ve also created a private account for you and emailed a sign-in link — log in anytime to
+                    revisit these matches and pick up where you left off.
                   </div>
                 )}
 

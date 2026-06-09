@@ -29,7 +29,7 @@ export default async function LandingPage() {
         />
 
         {/* Top bar — logo + an above-the-fold entry for providers, kept clear of the patient flow */}
-        <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-5 pr-20">
+        <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-5 pr-6 sm:pr-20">
           <Logo tone="light" className="text-lg" />
           <Link
             href="/for-providers"

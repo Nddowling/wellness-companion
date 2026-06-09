@@ -120,7 +120,7 @@ export default async function ProgramsDirectory({
       </div>
 
       {/* Region + search (always available). One GET form so all three filters compose. */}
-      <form className="mt-3 flex flex-wrap gap-2" action="/programs">
+      <form className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap" action="/programs">
         {level && <input type="hidden" name="level" value={level} />}
         <select
           name="region"
@@ -138,9 +138,11 @@ export default async function ProgramsDirectory({
           name="q"
           defaultValue={q ?? ''}
           placeholder="Search by name or city…"
-          className="min-w-[10rem] flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm sm:min-w-[10rem]"
         />
-        <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Search</button>
+        <button className="w-full rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white sm:w-auto">
+          Search
+        </button>
       </form>
       {(level || region || q) && (
         <Link href="/programs" className="mt-2 inline-block text-xs text-slate-500 underline hover:text-teal-700">

@@ -158,16 +158,19 @@ export async function POST(request: Request) {
     transportation_needs: str(fs.transportation_needs),
   };
 
-  // The chat now requires a login, so the seeker is normally already signed in:
-  // link this search to their account (it then shows on /me + their history) and
-  // skip creating a duplicate login. The no-session branch below is kept for the
-  // legacy/anonymous path.
+  // /match is anonymous-start by design — the seeker may have no account here. If
+  // they happen to be signed in, link this search to their account (so it shows on
+  // /me + their history) and skip creating a duplicate login. Otherwise the branch
+  // below creates one ONLY when they consented to email and gave an address.
   const {
     data: { user: sessionUser },
   } = await (await createClient()).auth.getUser();
   // The account this search/transcript ends up attached to (existing session, a
   // freshly-created seeker login, or a matched existing account).
   let authUserId: string | null = sessionUser?.id ?? null;
+  // True only when we mint a brand-new login for an anonymous seeker — drives the
+  // "we created an account for you, check your email" reassurance in the UI.
+  let accountCreated = false;
   if (sessionUser && seekerId) await setSeekerAuthUser(seekerId, sessionUser.id);
 
   // Seeker account + emails. With consent + an address, email their info + matches.
@@ -200,6 +203,7 @@ export async function POST(request: Request) {
 
       if (created?.user) {
         authUserId = created.user.id;
+        accountCreated = true;
         if (seekerId) await setSeekerAuthUser(seekerId, created.user.id);
         const acct = seekerAccountEmail({
           email: identity.email,
@@ -277,6 +281,7 @@ export async function POST(request: Request) {
     ok: true,
     mode: 'forward',
     shared: consents.share,
+    accountCreated,
     facilities: facilities.map((f) => ({ id: f.id, name: f.name, referral_contact: f.referral_contact })),
   });
 }

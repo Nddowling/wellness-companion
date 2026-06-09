@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Nunito, Fraunces } from "next/font/google";
 import "./globals.css";
 import JsonLd from "@/components/JsonLd";
@@ -82,6 +82,15 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
+};
+
+// Explicit so mobile rendering never depends on framework defaults. viewportFit
+// 'cover' is what makes the env(safe-area-inset-*) usage in /match reliable on
+// notched phones — the primary device for our seekers.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
