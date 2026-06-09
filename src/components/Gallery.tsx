@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 /** Facility photo gallery with a full-screen lightbox (claimed/paid profiles). */
 export function Gallery({ images, alt }: { images: string[]; alt: string }) {
@@ -15,10 +16,19 @@ export function Gallery({ images, alt }: { images: string[]; alt: string }) {
           <button
             key={i}
             onClick={() => setOpen(i)}
-            className={'relative block ' + (i === 0 ? 'col-span-2 row-span-2 sm:col-span-2 sm:row-span-2' : '')}
+            className={
+              'relative block overflow-hidden ' +
+              (i === 0 ? 'col-span-2 row-span-2 h-44 sm:col-span-2 sm:row-span-2 sm:h-full' : 'h-[5.5rem]')
+            }
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt={alt} className={'w-full object-cover ' + (i === 0 ? 'h-44 sm:h-full' : 'h-[5.5rem]')} />
+            <Image
+              src={src}
+              alt={alt}
+              fill
+              sizes="(max-width: 640px) 50vw, 25vw"
+              className="object-cover"
+              priority={i === 0}
+            />
             {i === shown.length - 1 && images.length > shown.length && (
               <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm font-semibold text-white">
                 +{images.length - shown.length} more
