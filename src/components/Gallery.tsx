@@ -18,7 +18,9 @@ export function Gallery({ images, alt }: { images: string[]; alt: string }) {
             onClick={() => setOpen(i)}
             className={
               'relative block overflow-hidden ' +
-              (i === 0 ? 'col-span-2 row-span-2 h-44 sm:col-span-2 sm:row-span-2 sm:h-full' : 'h-[5.5rem]')
+              // Explicit height (= two 5.5rem tiles + the gap) so the fill image
+              // always has a sized box — h-full has nothing to resolve against.
+              (i === 0 ? 'col-span-2 row-span-2 h-[11.25rem]' : 'h-[5.5rem]')
             }
           >
             <Image
