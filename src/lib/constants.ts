@@ -19,6 +19,17 @@ export const LEVEL_LABELS: Record<LevelOfCare, string> = {
   op: 'Outpatient',
 };
 
+// Plain-language "what is this level of care" answers, used in landing-page FAQs.
+export const LEVEL_BLURB: Record<LevelOfCare, string> = {
+  detox:
+    'Medical detox is short-term, supervised care to safely manage withdrawal — usually the first step before ongoing treatment.',
+  residential:
+    'Residential (inpatient) rehab is live-in care with 24/7 support, typically lasting 30 to 90 days.',
+  php: 'A partial hospitalization program (PHP) is intensive day treatment — several hours most days — while you live at home or in sober housing.',
+  iop: 'An intensive outpatient program (IOP) offers structured therapy a few days a week, built around work, school, or family.',
+  op: 'Outpatient treatment is regular counseling and medication management you attend while living at home.',
+};
+
 export const PAYER_TYPES = [
   'medicaid',
   'medicare',

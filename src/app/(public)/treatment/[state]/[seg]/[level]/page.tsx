@@ -5,8 +5,8 @@ import { notFound } from 'next/navigation';
 import JsonLd from '@/components/JsonLd';
 import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { absoluteUrl, SITE_NAME } from '@/lib/seo';
-import { LEVELS_OF_CARE, LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
+import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
+import { LEVELS_OF_CARE, LEVEL_LABELS, LEVEL_BLURB, type LevelOfCare } from '@/lib/constants';
 import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
 
 export const revalidate = 3600;
@@ -63,20 +63,37 @@ export default async function CityLevelPage({
   const r = await load(state, seg, level);
   if (!r) notFound();
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Treatment', item: absoluteUrl('/treatment') },
-      { '@type': 'ListItem', position: 2, name: r.state, item: absoluteUrl(`/treatment/${state}`) },
-      { '@type': 'ListItem', position: 3, name: r.cityName, item: absoluteUrl(`/treatment/${state}/${seg}`) },
-      { '@type': 'ListItem', position: 4, name: LEVEL_LABELS[r.level], item: absoluteUrl(`/treatment/${state}/${seg}/${level}`) },
-    ],
-  };
+  const levelLabel = LEVEL_LABELS[r.level];
+  const faqs = [
+    {
+      q: `How many ${levelLabel.toLowerCase()} programs are in ${r.cityName}, ${r.code}?`,
+      a: `${r.rows.length} ${levelLabel.toLowerCase()} program${r.rows.length === 1 ? '' : 's'} in ${r.cityName}, ${r.code} ${r.rows.length === 1 ? 'is' : 'are'} listed on ${SITE_NAME}, each showing current bed availability.`,
+    },
+    { q: `What is ${levelLabel.toLowerCase()}?`, a: LEVEL_BLURB[r.level] },
+    {
+      q: `Does insurance cover ${levelLabel.toLowerCase()} in ${r.cityName}?`,
+      a: `Most health plans cover medically necessary addiction treatment. Many ${r.cityName} programs accept Medicaid, Medicare, commercial insurance, TRICARE, or self-pay — always confirm current in-network status with the program.`,
+    },
+    {
+      q: `How do I find a ${levelLabel.toLowerCase()} program with an open bed in ${r.cityName}?`,
+      a: `Each listing shows live bed availability, so you can see who has space now — or answer three quick questions and get matched, free and private.`,
+    },
+  ];
+
+  const schema = [
+    breadcrumbJsonLd([
+      { name: 'Treatment', path: '/treatment' },
+      { name: r.state, path: `/treatment/${state}` },
+      { name: r.cityName, path: `/treatment/${state}/${seg}` },
+      { name: levelLabel, path: `/treatment/${state}/${seg}/${level}` },
+    ]),
+    facilityItemListJsonLd(r.rows),
+    faqJsonLd(faqs),
+  ];
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <JsonLd data={jsonLd} />
+      <JsonLd data={schema} />
       <nav className="text-xs text-slate-500">
         <Link href="/treatment" className="text-teal-700 hover:underline">
           Treatment
@@ -118,6 +135,20 @@ export default async function CityLevelPage({
           <FacilityCard key={f.id} f={f} />
         ))}
       </div>
+
+      <section className="mt-10 border-t border-slate-200 pt-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">
+          {levelLabel} in {r.cityName} — common questions
+        </h2>
+        <dl className="mt-3 space-y-4">
+          {faqs.map((f) => (
+            <div key={f.q}>
+              <dt className="text-sm font-medium text-slate-800">{f.q}</dt>
+              <dd className="mt-1 text-sm leading-relaxed text-slate-600">{f.a}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
     </main>
   );
 }
