@@ -56,8 +56,8 @@ export default async function ConversationDetailPage({
               <div
                 className={
                   m.role === 'user'
-                    ? 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white'
-                    : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink'
+                    ? 'max-w-[80%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white'
+                    : 'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink'
                 }
               >
                 {text}

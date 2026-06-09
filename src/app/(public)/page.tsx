@@ -27,8 +27,10 @@ export default async function LandingPage() {
           }}
         />
 
-        {/* Top bar — logo + an above-the-fold entry for providers, kept clear of the patient flow */}
-        <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-5">
+        {/* Top bar — logo + an above-the-fold entry for providers, kept clear of the patient flow.
+            Extra right padding below xl reserves room for the floating menu button (SiteMenu,
+            fixed top-right) so it never overlaps the providers pill on phones/tablets. */}
+        <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-5 max-xl:pr-16">
           <Logo tone="light" className="text-lg" />
           <Link
             href="/for-providers"

@@ -650,8 +650,8 @@ export default function MatchPage() {
                 <div
                   className={
                     m.role === 'user'
-                      ? 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white'
-                      : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink'
+                      ? 'max-w-[80%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white'
+                      : 'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink'
                   }
                 >
                   {(m.role === 'assistant' ? parseChips(m.content).text : m.content) ||
@@ -750,13 +750,20 @@ export default function MatchPage() {
                         {f.in_network ? ' · In-network' : ''} · {a.detail}
                       </p>
                       {f.referral_contact && (f.referral_contact.phone || f.referral_contact.email) && (
-                        <p className="mt-2 text-sm text-slate-700">
+                        <p className="mt-2 text-sm break-words text-slate-700">
                           Reach their intake team
                           {f.referral_contact.name ? ` (${f.referral_contact.name})` : ''}:{' '}
-                          {f.referral_contact.phone && <span className="font-medium">{f.referral_contact.phone}</span>}
+                          {f.referral_contact.phone && (
+                            <a
+                              className="font-medium text-teal-700 underline"
+                              href={`tel:${f.referral_contact.phone.replace(/[^\d+]/g, '')}`}
+                            >
+                              {f.referral_contact.phone}
+                            </a>
+                          )}
                           {f.referral_contact.phone && f.referral_contact.email ? ' · ' : ''}
                           {f.referral_contact.email && (
-                            <a className="font-medium text-teal-700 underline" href={`mailto:${f.referral_contact.email}`}>
+                            <a className="font-medium text-teal-700 underline break-all" href={`mailto:${f.referral_contact.email}`}>
                               {f.referral_contact.email}
                             </a>
                           )}

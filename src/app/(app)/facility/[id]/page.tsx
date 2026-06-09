@@ -280,11 +280,11 @@ export default async function FacilityManage({
                 <form
                   key={lvl}
                   action={updateCapacity}
-                  className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3"
+                  className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-3"
                 >
                   <input type="hidden" name="facility_id" value={id} />
                   <input type="hidden" name="level_of_care" value={lvl} />
-                  <span className="w-48 text-sm text-slate-700">
+                  <span className="w-full text-sm text-slate-700 sm:w-48">
                     {LEVEL_LABELS[lvl as LevelOfCare] ?? lvl}
                   </span>
                   <input

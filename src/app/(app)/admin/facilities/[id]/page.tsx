@@ -135,10 +135,10 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
         {facLevels.map((lvl) => {
           const cap = capByLevel.get(lvl);
           return (
-            <form key={lvl} action={updateCapacity} className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
+            <form key={lvl} action={updateCapacity} className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
               <input type="hidden" name="facility_id" value={id} />
               <input type="hidden" name="level_of_care" value={lvl} />
-              <span className="w-44 text-sm text-slate-700">{LEVEL_LABELS[lvl as (typeof LEVELS_OF_CARE)[number]] ?? lvl}</span>
+              <span className="w-full text-sm text-slate-700 sm:w-44">{LEVEL_LABELS[lvl as (typeof LEVELS_OF_CARE)[number]] ?? lvl}</span>
               <input type="number" name="beds_available" min={0} defaultValue={cap?.beds_available ?? 0} className={`${field} w-20`} />
               <span className="text-xs text-slate-400">beds</span>
               <button className="ml-auto rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">Save</button>
