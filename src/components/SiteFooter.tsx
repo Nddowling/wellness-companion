@@ -41,6 +41,7 @@ export default function SiteFooter() {
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               <li><Link href="/about" className="hover:text-teal-700 hover:underline">About &amp; how we vet</Link></li>
               <li><Link href="/terms" className="hover:text-teal-700 hover:underline">Terms of Service</Link></li>
+              <li><Link href="/privacy" className="hover:text-teal-700 hover:underline">Privacy Policy</Link></li>
             </ul>
             {/* Clearly labeled so seekers read these as not-for-them */}
             <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">For treatment providers</h3>

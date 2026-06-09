@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { PricingTable } from '@/components/PricingTable';
+import SiteFooter from '@/components/SiteFooter';
 
 export const metadata: Metadata = {
   title: 'Pricing — Clear Bed Recovery',
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 
 export default function PricingPage() {
   return (
+    <>
     <main className="text-slate-800">
       <section className="mx-auto max-w-5xl px-6 pb-2 pt-16 text-center">
         <span className="eyebrow text-teal-700">For treatment programs</span>
@@ -60,5 +62,7 @@ export default function PricingPage() {
         </Link>
       </section>
     </main>
+    <SiteFooter />
+    </>
   );
 }

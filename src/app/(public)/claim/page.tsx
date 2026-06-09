@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { Logo } from '@/components/Logo';
 import { ClaimFacilityField } from '@/components/ClaimFacilityField';
 import { submitPublicClaim } from './actions';
+import SiteFooter from '@/components/SiteFooter';
 
 export const metadata: Metadata = {
   title: 'Claim your facility — Clear Bed Recovery',
@@ -21,6 +22,7 @@ export default async function ClaimPage({
   const { submitted, error } = await searchParams;
 
   return (
+    <>
     <main className="mx-auto min-h-screen max-w-xl px-5 py-10">
       <Link href="/" aria-label="Clear Bed Recovery — home">
         <Logo className="text-xl" />
@@ -74,5 +76,7 @@ export default async function ClaimPage({
         </form>
       )}
     </main>
+    <SiteFooter />
+    </>
   );
 }

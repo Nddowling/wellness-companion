@@ -581,6 +581,16 @@ export default function MatchPage() {
                   onClick={(e) => e.stopPropagation()}
                 >
                   Terms of Service
+                </a>{' '}
+                &amp;{' '}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-teal-700 underline underline-offset-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Privacy Policy
                 </a>
                 .
               </span>

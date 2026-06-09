@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import Reveal from '@/components/Reveal';
 import { absoluteUrl } from '@/lib/seo';
+import SiteFooter from '@/components/SiteFooter';
 
 export const metadata: Metadata = {
   title: 'For Providers — List Your Program & Reach Patients Who Fit',
@@ -90,6 +91,7 @@ const TIERS: Tier[] = [
 
 export default function ForProvidersPage() {
   return (
+    <>
     <main className="text-slate-800">
       {/* ── HERO ─────────────────────────────────────────────── */}
       <section className="relative isolate overflow-hidden">
@@ -260,5 +262,7 @@ export default function ForProvidersPage() {
         </Reveal>
       </section>
     </main>
+    <SiteFooter />
+    </>
   );
 }

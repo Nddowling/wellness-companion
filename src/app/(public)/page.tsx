@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Reveal from '@/components/Reveal';
 import { Logo } from '@/components/Logo';
 import { getRoles, isProviderSide } from '@/lib/auth';
+import SiteFooter from '@/components/SiteFooter';
 
 export const metadata: Metadata = {
   // Home inherits the layout's default (brand) title + OG; just pin the canonical.
@@ -15,6 +16,7 @@ export default async function LandingPage() {
   // Provider-side users (facility/BD, not Global Admin) see no seeker AI/match CTA.
   const providerSide = isProviderSide(await getRoles());
   return (
+    <>
     <main className="text-slate-800">
       {/* ── HERO ─────────────────────────────────────────────── */}
       <section className="relative isolate flex min-h-[88vh] flex-col overflow-hidden">
@@ -249,5 +251,7 @@ export default async function LandingPage() {
         </div>
       </footer>
     </main>
+    <SiteFooter />
+    </>
   );
 }
