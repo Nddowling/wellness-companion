@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 
 import Reveal from '@/components/Reveal';
@@ -28,18 +29,18 @@ export default async function LandingPage() {
         />
 
         {/* Top bar — logo + an above-the-fold entry for providers, kept clear of the patient flow */}
-        <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-5">
+        <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-5 pr-20">
           <Logo tone="light" className="text-lg" />
           <Link
             href="/for-providers"
-            className="shrink-0 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
+            className="hidden shrink-0 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20 sm:block"
           >
             Clear Bed for providers →
           </Link>
         </div>
 
         {/* Patient hero — the dominant message */}
-        <div className="mx-auto flex w-full max-w-5xl flex-1 items-center px-6 pb-20">
+        <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-6 pb-24 pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.92fr)] lg:gap-12 lg:pt-0">
           <div className="max-w-2xl animate-fade-up text-white">
             <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wide backdrop-blur">
               Connecting you to treatment that fits
@@ -87,6 +88,27 @@ export default async function LandingPage() {
             <p className="mt-4 text-xs text-white/70">
               In an emergency call <strong>911</strong>. In crisis, call or text <strong>988</strong> — anytime.
             </p>
+          </div>
+
+          <div className="relative mt-1 animate-fade-up lg:mt-0">
+            <div className="absolute -inset-5 rounded-[2rem] bg-sage/15 blur-2xl" aria-hidden />
+            <div className="relative h-64 overflow-hidden rounded-2xl border border-white/20 bg-white/10 shadow-2xl shadow-ink/35 sm:h-80 lg:h-[min(36rem,64vh)] lg:min-h-[27rem]">
+              <Image
+                src="/images/recovery-support-hero.png"
+                alt="A welcoming peer support group listening as one person shares"
+                fill
+                preload
+                sizes="(max-width: 1023px) 100vw, 46vw"
+                className="object-cover object-center"
+              />
+              <div
+                className="absolute inset-0 bg-gradient-to-t from-ink/35 via-transparent to-transparent lg:bg-gradient-to-r lg:from-brand/25 lg:via-transparent lg:to-transparent"
+                aria-hidden
+              />
+              <div className="absolute bottom-4 left-4 rounded-full border border-white/25 bg-ink/55 px-3 py-1.5 text-xs font-medium text-white shadow-sm backdrop-blur-md">
+                Support starts with being heard.
+              </div>
+            </div>
           </div>
         </div>
 

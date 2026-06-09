@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type NavLink = { href: string; label: string };
 type Profile = 'admin' | 'facility' | 'seeker' | 'none';
@@ -39,42 +39,91 @@ export default function SiteMenu({
   const [open, setOpen] = useState(false);
   const LINKS = buildLinks(profile, dashboardHref);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
   return (
     <>
       {open && (
         <button
-          aria-hidden
-          tabIndex={-1}
+          aria-label="Dismiss navigation"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-30 cursor-default bg-transparent"
+          className="fixed inset-0 z-30 cursor-default bg-ink/25 backdrop-blur-[2px]"
         />
       )}
-      <div className="fixed right-3 top-3 z-40">
+      <div className="fixed right-3 top-3 z-40 sm:right-5 sm:top-5">
         <button
           onClick={() => setOpen((o) => !o)}
           aria-label={open ? 'Close menu' : 'Open menu'}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-lg text-slate-700 shadow ring-1 ring-slate-200 backdrop-blur hover:text-teal-700"
+          aria-expanded={open}
+          aria-controls="site-navigation"
+          className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/70 bg-white/95 text-ink shadow-lg shadow-ink/15 backdrop-blur transition hover:bg-white hover:text-teal-700 focus:outline-none focus:ring-2 focus:ring-sage focus:ring-offset-2"
         >
-          {open ? '✕' : '☰'}
+          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+            {open ? (
+              <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            ) : (
+              <path d="M5 7h14M5 12h14M5 17h14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            )}
+          </svg>
         </button>
         {open && (
-          <nav className="absolute right-0 mt-2 w-56 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-slate-200">
-            {LINKS.map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                onClick={() => setOpen(false)}
-                className="block px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 hover:text-teal-700"
+          <nav
+            id="site-navigation"
+            aria-label="Site navigation"
+            className="fixed inset-x-3 top-[4.5rem] max-h-[calc(100dvh-5.5rem)] overflow-y-auto rounded-2xl border border-white/70 bg-white/95 p-2 shadow-2xl shadow-ink/25 backdrop-blur-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-72"
+          >
+            <div className="px-3 pb-2 pt-2">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Clear Bed Recovery</div>
+              <p className="mt-1 text-xs text-slate-500">Find care, explore programs, or manage your account.</p>
+            </div>
+            <div className="space-y-1 border-t border-slate-100 pt-2">
+              {LINKS.map((l) => {
+                const primary = l.href === '/match';
+                return (
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    onClick={() => setOpen(false)}
+                    className={
+                      'flex min-h-11 items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition ' +
+                      (primary
+                        ? 'bg-teal-700 text-white hover:bg-teal-800'
+                        : 'text-slate-700 hover:bg-teal-50 hover:text-teal-700')
+                    }
+                  >
+                    <span>{l.label}</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden className={primary ? 'text-white/80' : 'text-slate-400'}>
+                      <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </Link>
+                );
+              })}
+            </div>
+            <div className="mt-2 border-t border-slate-100 pt-2">
+              <a
+                href="tel:988"
+                className="flex min-h-11 items-center justify-between rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
               >
-                {l.label}
-              </Link>
-            ))}
-            <a
-              href="tel:988"
-              className="block border-t border-slate-100 px-4 py-2.5 text-sm font-medium text-teal-700 hover:bg-teal-50"
-            >
-              Crisis line — call or text 988
-            </a>
+                <span>Crisis support: call or text 988</span>
+                <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden>
+                  <path d="M7 4h3l2 5-2 1.5a11 11 0 003.5 3.5L15 12l5 2v3a3 3 0 01-3 3A15 15 0 014 7a3 3 0 013-3z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+                </svg>
+              </a>
+            </div>
           </nav>
         )}
       </div>

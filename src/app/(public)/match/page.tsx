@@ -153,7 +153,14 @@ export default function MatchPage() {
 
   // Keep the cursor in the box so people can keep typing without re-clicking.
   useEffect(() => {
-    if (acknowledged && !busy && (phase === 'intake' || phase === 'connect')) inputRef.current?.focus();
+    if (
+      acknowledged &&
+      !busy &&
+      (phase === 'intake' || phase === 'connect') &&
+      window.matchMedia('(min-width: 640px)').matches
+    ) {
+      inputRef.current?.focus();
+    }
   }, [acknowledged, busy, phase]);
 
   // Terms are accepted once per ACCOUNT (not per browser): skip the gate if this
@@ -463,11 +470,11 @@ export default function MatchPage() {
   }
 
   return (
-    <main className="grid min-h-[100dvh] lg:grid-cols-[minmax(0,22rem)_1fr]">
+    <main className="grid h-[100dvh] min-h-0 overflow-hidden lg:grid-cols-[minmax(0,22rem)_1fr]">
       {/* ── Acknowledgment gate ─────────────────────────────── */}
       {!acknowledged && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-ink/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm sm:items-center">
+          <div className="my-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-2xl">🤝</div>
             <h2 className="h2 text-ink">Hi, I&apos;m your Clear Bed Recovery companion</h2>
             <p className="mt-2 text-sm text-slate-600">
@@ -581,18 +588,40 @@ export default function MatchPage() {
 
       {/* ── Right: conversation ─────────────────────────────── */}
       <section className="flex min-h-0 flex-col bg-[#eef5f2]">
-        <div className="mx-auto flex h-[100dvh] w-full max-w-2xl flex-col px-5 py-6 lg:px-8">
-          {/* Mobile logo */}
-          <Link href="/" aria-label="Clear Bed Recovery — home" className="mb-4 lg:hidden">
+        <div className="mx-auto flex h-[100dvh] min-h-0 w-full max-w-2xl flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:py-6 lg:px-8">
+          {/* Conversation-first phone toolbar */}
+          <div className="mb-2 flex items-center justify-between gap-3 pr-16 sm:hidden">
+            <Link href="/" aria-label="Clear Bed Recovery — home">
+              <Logo className="text-lg" />
+            </Link>
+            <button
+              onClick={startOver}
+              className="min-h-11 shrink-0 rounded-full border border-teal-200 bg-white px-3 py-2 text-xs font-semibold text-teal-700 shadow-sm transition hover:border-teal-300 hover:bg-teal-50"
+            >
+              New chat
+            </button>
+          </div>
+
+          {/* Tablet logo; desktop uses the left rail */}
+          <Link href="/" aria-label="Clear Bed Recovery — home" className="mb-4 hidden sm:block lg:hidden">
             <Logo className="text-xl" />
           </Link>
 
-          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            <strong>In an emergency, call 911.</strong> In crisis or having thoughts of suicide, call or text{' '}
-            <strong>988</strong> (Suicide &amp; Crisis Lifeline) right now.
+          <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:mb-4 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm">
+            <span className="sm:hidden">
+              <strong>Emergency: 911.</strong> Crisis:{' '}
+              <a href="tel:988" className="font-semibold underline underline-offset-2">
+                call or text 988
+              </a>
+              .
+            </span>
+            <span className="hidden sm:inline">
+              <strong>In an emergency, call 911.</strong> In crisis or having thoughts of suicide, call or text{' '}
+              <strong>988</strong> (Suicide &amp; Crisis Lifeline) right now.
+            </span>
           </div>
 
-          <div className="flex items-start justify-between gap-3">
+          <div className="hidden items-start justify-between gap-3 sm:flex">
             <h1 className="font-serif text-3xl leading-tight text-ink sm:text-4xl">
               Let&apos;s find care{' '}
               <span className="italic text-brand">that actually fits.</span>
@@ -611,7 +640,7 @@ export default function MatchPage() {
               )}
             </div>
           </div>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 hidden text-sm text-slate-600 sm:block">
             No account needed to start. Answer three quick questions and we&apos;ll show you real programs near you
             right away — matched to your coverage and what you&apos;re looking for. Share your details only if you want
             them to reach out. We connect you to treatment facilities; we don&apos;t provide treatment ourselves.
@@ -619,7 +648,7 @@ export default function MatchPage() {
 
           {/* Progress — only the 3 de-identified questions before results */}
           {phase === 'intake' && (
-            <div className="mt-5">
+            <div className="mt-1 sm:mt-5">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-teal-700">
                 <span>Question {stepNumber} of 3</span>
                 <span className="text-slate-400">{progressPct}%</span>
@@ -635,7 +664,7 @@ export default function MatchPage() {
 
           {/* Connect (opt-in) banner */}
           {phase === 'connect' && (
-            <div className="mt-5 flex items-center justify-between gap-3 rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-teal-800">
+            <div className="mt-1 flex items-center justify-between gap-3 rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-teal-800 sm:mt-5">
               <span>Just a couple quick things so the programs can reach you — your choice.</span>
               <button onClick={() => setPhase('results')} className="shrink-0 underline hover:text-teal-900">
                 ← Back to matches
@@ -644,14 +673,17 @@ export default function MatchPage() {
           )}
 
           {/* Conversation / results */}
-          <div ref={scrollRef} className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto rounded-2xl bg-white p-4 shadow-sm">
+          <div
+            ref={scrollRef}
+            className="mt-2 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl bg-white p-3 shadow-sm sm:mt-4 sm:p-4"
+          >
             {messages.map((m, i) => (
               <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
                 <div
                   className={
                     m.role === 'user'
-                      ? 'max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white'
-                      : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink'
+                      ? 'max-w-[90%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white sm:max-w-[80%]'
+                      : 'max-w-[94%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink sm:max-w-[85%]'
                   }
                 >
                   {(m.role === 'assistant' ? parseChips(m.content).text : m.content) ||
@@ -667,7 +699,7 @@ export default function MatchPage() {
                   <button
                     key={c}
                     onClick={() => send(c)}
-                    className="rounded-full border border-teal-200 bg-teal-50 px-3.5 py-1.5 text-sm font-medium text-teal-800 transition hover:border-teal-300 hover:bg-teal-100"
+                    className="min-h-11 rounded-full border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm font-medium text-teal-800 transition hover:border-teal-300 hover:bg-teal-100 sm:min-h-0 sm:px-3.5 sm:py-1.5"
                   >
                     {c}
                   </button>
@@ -702,7 +734,7 @@ export default function MatchPage() {
                     </p>
                     <button
                       onClick={startConnect}
-                      className="mt-2 rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-800"
+                      className="mt-2 w-full rounded-md bg-teal-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-800 sm:w-auto sm:py-2"
                     >
                       Have them reach out to me →
                     </button>
@@ -723,7 +755,7 @@ export default function MatchPage() {
                   const a = availability(f);
                   return (
                     <div key={f.id} className="rounded-lg border border-slate-200 p-3">
-                      <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                         <Link
                           href={`/programs/${f.id}`}
                           target="_blank"
@@ -734,7 +766,7 @@ export default function MatchPage() {
                         </Link>
                         <span
                           className={
-                            'shrink-0 rounded-full px-2 py-0.5 text-xs ' +
+                            'shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs ' +
                             (a.tone === 'green'
                               ? 'bg-green-100 text-green-800'
                               : a.tone === 'amber'
@@ -796,7 +828,7 @@ export default function MatchPage() {
           {/* Composer */}
           {(phase === 'intake' || phase === 'connect') && (
             <form
-              className="mt-3 flex gap-2"
+              className="mt-2 flex gap-2 sm:mt-3"
               onSubmit={(e) => {
                 e.preventDefault();
                 send(input);
@@ -804,16 +836,15 @@ export default function MatchPage() {
             >
               <input
                 ref={inputRef}
-                autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={`Or type something… (${step.placeholder})`}
-                className="flex-1 rounded-xl bg-ink px-4 py-3 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-brand/50"
+                className="min-w-0 flex-1 rounded-xl bg-ink px-4 py-3 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-brand/50"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50"
+                className="rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50 sm:px-5"
               >
                 {busy ? '…' : 'Send'}
               </button>
