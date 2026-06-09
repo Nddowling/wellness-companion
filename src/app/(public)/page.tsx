@@ -30,13 +30,17 @@ export default async function LandingPage() {
         {/* Top bar — logo + an above-the-fold entry for providers, kept clear of the patient flow.
             Extra right padding below xl reserves room for the floating menu button (SiteMenu,
             fixed top-right) so it never overlaps the providers pill on phones/tablets. */}
-        <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-5 max-xl:pr-16">
+        <div className="relative mx-auto flex w-full max-w-5xl items-center justify-between gap-4 py-5 pl-6 pr-16 xl:pr-6">
           <Logo tone="light" className="text-lg" />
+          {/* Hidden on the narrowest phones (<360px), where the logo + menu button leave no
+              room; providers still have the menu's "For providers" link and the hero button. */}
           <Link
             href="/for-providers"
-            className="shrink-0 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
+            className="hidden shrink-0 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition min-[360px]:inline-block hover:-translate-y-0.5 hover:bg-white/20"
           >
-            Clear Bed for providers →
+            {/* Short label on phones so the pill fits beside the floating menu button. */}
+            <span className="sm:hidden">For providers →</span>
+            <span className="hidden sm:inline">Clear Bed for providers →</span>
           </Link>
         </div>
 
