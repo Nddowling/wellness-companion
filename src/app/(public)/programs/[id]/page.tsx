@@ -18,6 +18,7 @@ import {
   type PayerType,
 } from '@/lib/constants';
 import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from '@/lib/seo';
+import { stateSlug, stateName, slugify } from '@/lib/geo';
 import { addReview } from '../actions';
 
 export async function generateMetadata({
@@ -150,6 +151,10 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
   if (showDescription) jsonLd.description = f.description;
   if (intakePhone) jsonLd.telephone = intakePhone;
   if (showWebsite) jsonLd.sameAs = [f.website];
+  if (f.city || f.state) {
+    jsonLd.areaServed = { '@type': 'Place', name: [f.city, f.state].filter(Boolean).join(', ') };
+  }
+  if (f.cash_rate) jsonLd.priceRange = `$${Number(f.cash_rate).toLocaleString()}`;
   if (avg !== null && ratings.length) {
     jsonLd.aggregateRating = {
       '@type': 'AggregateRating',
@@ -203,6 +208,9 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
         ...(f.zip ? { postalCode: f.zip } : {}),
         addressCountry: 'US',
       },
+      ...(f.city || f.state
+        ? { areaServed: { '@type': 'Place', name: [f.city, f.state].filter(Boolean).join(', ') } }
+        : {}),
       ...(email ? { email } : {}),
       ...(intakePhone ? { telephone: intakePhone } : {}),
     };
@@ -631,6 +639,39 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
           </p>
         </form>
       </section>
+
+      {f.state && (
+        <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-700">
+            Explore more treatment near {f.city || stateName(f.state.toUpperCase())}
+          </h2>
+          <div className="mt-2 flex flex-wrap gap-2 text-sm">
+            {f.city && (
+              <Link
+                href={`/treatment/${stateSlug(f.state.toUpperCase())}/${slugify(f.city)}`}
+                className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-slate-700 transition hover:border-teal-300"
+              >
+                All treatment in {f.city}
+              </Link>
+            )}
+            <Link
+              href={`/treatment/${stateSlug(f.state.toUpperCase())}`}
+              className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-slate-700 transition hover:border-teal-300"
+            >
+              Treatment in {stateName(f.state.toUpperCase())}
+            </Link>
+            {levels.slice(0, 3).map((l) => (
+              <Link
+                key={l}
+                href={`/treatment/${stateSlug(f.state!.toUpperCase())}/${l}`}
+                className="rounded-full border border-teal-200 bg-teal-50 px-3.5 py-1.5 font-medium text-teal-800 transition hover:bg-teal-100"
+              >
+                {LEVEL_LABELS[l as LevelOfCare] ?? l} in {stateName(f.state!.toUpperCase())}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }
