@@ -103,6 +103,17 @@ function LoginForm() {
                 : 'Set up a provider or team account to get started.'}
           </p>
 
+          {/* Seeker escape — this page is for providers; never trap someone seeking care. */}
+          {!isSeeker && (
+            <p className="mt-3 rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">
+              Looking for treatment?{' '}
+              <Link href="/match" className="font-semibold underline underline-offset-2">
+                Find care →
+              </Link>{' '}
+              — free, and no account needed to start.
+            </p>
+          )}
+
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
             <div>
               <Label htmlFor="email">Email</Label>

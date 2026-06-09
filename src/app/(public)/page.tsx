@@ -234,9 +234,9 @@ export default async function LandingPage() {
                 <Link href="/programs" className="block text-white/70 hover:text-white">Browse programs</Link>
               </div>
               <div className="space-y-1">
-                <div className="font-medium text-white/90">Providers</div>
-                <Link href="/for-providers" className="block text-white/70 hover:text-white">For providers</Link>
-                <Link href="/login" className="block text-white/70 hover:text-white">Team sign in</Link>
+                <div className="font-medium text-white/90">For treatment providers</div>
+                <Link href="/for-providers" className="block text-white/70 hover:text-white">List your facility</Link>
+                <Link href="/login" className="block text-white/70 hover:text-white">Provider sign in</Link>
               </div>
               <div className="space-y-1">
                 <div className="font-medium text-white/90">Crisis</div>

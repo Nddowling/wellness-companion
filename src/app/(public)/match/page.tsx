@@ -183,6 +183,57 @@ export default function MatchPage() {
     };
   }, [supabase]);
 
+  // Restore an in-tab results session so "view a profile → back" returns to the
+  // matches instead of restarting the flow (and re-showing the consent gate).
+  // sessionStorage is tab-scoped, so a brand-new visit still starts clean.
+  useEffect(() => {
+    // Deliberate post-hydration restore from a browser-only store: render the
+    // default (SSR-matching) state first, then swap in the saved results. Reading
+    // sessionStorage in a lazy initializer instead would cause a hydration mismatch.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    try {
+      const raw = sessionStorage.getItem('wc_match_session');
+      if (!raw) return;
+      const s = JSON.parse(raw) as {
+        messages?: Message[];
+        matches?: MatchedFacility[];
+        matchId?: string | null;
+        faceSheet?: Record<string, unknown>;
+        shared?: boolean;
+        accountCreated?: boolean;
+        seekerName?: string;
+      };
+      if (!s || !s.matchId || !Array.isArray(s.matches)) return;
+      if (Array.isArray(s.messages)) setMessages(s.messages);
+      setMatches(s.matches);
+      setMatchId(s.matchId);
+      setFaceSheet(s.faceSheet ?? {});
+      setShared(!!s.shared);
+      setAccountCreated(!!s.accountCreated);
+      setSeekerName(s.seekerName);
+      setStepIdx(3);
+      setPhase('results');
+      setAcknowledged(true);
+    } catch {
+      /* ignore a corrupt snapshot */
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  // Mirror the results state into that tab-scoped session whenever it changes, so a
+  // profile round-trip can restore it (see the rehydrate effect above). startOver clears it.
+  useEffect(() => {
+    if (phase !== 'results' || !matches || !matchId) return;
+    try {
+      sessionStorage.setItem(
+        'wc_match_session',
+        JSON.stringify({ messages, matches, matchId, faceSheet, shared, accountCreated, seekerName })
+      );
+    } catch {
+      /* ignore quota/availability errors */
+    }
+  }, [phase, matches, matchId, faceSheet, shared, accountCreated, seekerName, messages]);
+
   // Persist the transcript to the seeker's private history (best-effort, debounced).
   // Only once there's real user content, so we never create empty rows.
   async function saveConversation() {
@@ -238,7 +289,6 @@ export default function MatchPage() {
   // Phase 1 is just the first 3 steps (need, location, coverage) — they produce
   // matches. Identity (STEPS[3]) is the optional "connect" phase, after results.
   const MATCH_STEPS = 3;
-  const stepNumber = stepIdx + 1;
   const step = STEPS[stepIdx];
 
   // A step can ask more than one question (e.g. "need" asks level, then concern), so
@@ -263,6 +313,12 @@ export default function MatchPage() {
       : lastAssistant?.content === step.opener
         ? [...step.chips]
         : [];
+
+  // The placeholder should track the question actually on screen, not just the step:
+  // during a step's follow-up sub-questions the step default ("Outpatient, residential…")
+  // would mislead, so fall back to a neutral hint until the next step opens.
+  const composerHint =
+    lastAssistant && lastAssistant.content !== step.opener ? 'Type your answer…' : step.placeholder;
 
   // PHASE 1 → results. Match on the de-identified subset only (no identity yet) and
   // show real programs immediately. The handoff (sharing personal details) is a
@@ -357,6 +413,7 @@ export default function MatchPage() {
     conversationIdRef.current = null;
     try {
       localStorage.removeItem('wc_matches');
+      sessionStorage.removeItem('wc_match_session');
     } catch {
       /* ignore */
     }
@@ -592,7 +649,7 @@ export default function MatchPage() {
       </aside>
 
       {/* ── Right: conversation ─────────────────────────────── */}
-      <section className="flex min-h-0 flex-col bg-[#eef5f2]">
+      <section className="flex min-h-0 min-w-0 flex-col bg-[#eef5f2]">
         <div className="mx-auto flex h-[100dvh] min-h-0 w-full max-w-2xl flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:py-6 lg:px-8">
           {/* Conversation-first phone toolbar */}
           <div className="mb-2 flex items-center justify-between gap-3 pr-16 sm:hidden">
@@ -655,7 +712,7 @@ export default function MatchPage() {
           {phase === 'intake' && (
             <div className="mt-1 sm:mt-5">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-teal-700">
-                <span>Question {stepNumber} of 3</span>
+                <span>{step.label}</span>
                 <span className="text-slate-400">{progressPct}%</span>
               </div>
               <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-teal-100">
@@ -687,8 +744,8 @@ export default function MatchPage() {
                 <div
                   className={
                     m.role === 'user'
-                      ? 'max-w-[90%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white sm:max-w-[80%]'
-                      : 'max-w-[94%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink sm:max-w-[85%]'
+                      ? 'max-w-[90%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white sm:max-w-[80%]'
+                      : 'max-w-[94%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink sm:max-w-[85%]'
                   }
                 >
                   {(m.role === 'assistant' ? parseChips(m.content).text : m.content) ||
@@ -770,8 +827,6 @@ export default function MatchPage() {
                       <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                         <Link
                           href={`/programs/${f.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
                           className="font-medium text-teal-700 hover:underline"
                         >
                           {f.name}
@@ -808,8 +863,6 @@ export default function MatchPage() {
                       )}
                       <Link
                         href={`/programs/${f.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="mt-2 inline-block text-xs font-medium text-teal-700 hover:underline"
                       >
                         View profile, photos &amp; reviews →
@@ -821,8 +874,6 @@ export default function MatchPage() {
                 <div className="flex flex-wrap items-center gap-3 pt-1">
                   <Link
                     href="/programs"
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="text-sm font-medium text-teal-700 hover:underline"
                   >
                     Browse all programs →
@@ -850,7 +901,7 @@ export default function MatchPage() {
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={`Or type something… (${step.placeholder})`}
+                placeholder={`Or type something… (${composerHint})`}
                 className="min-w-0 flex-1 rounded-xl bg-ink px-4 py-3 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-brand/50"
               />
               <button

@@ -6,6 +6,15 @@ import { useEffect, useState } from 'react';
 type NavLink = { href: string; label: string };
 type Profile = 'admin' | 'facility' | 'seeker' | 'none';
 
+// Subtitle is audience-aware — seekers don't "manage an account", so the old
+// one-size line confused them.
+const SUBTITLE: Record<Profile, string> = {
+  seeker: 'Find care, browse programs, and your saved info.',
+  facility: 'Manage your listing and account.',
+  admin: 'Admin tools — plus the seeker AI to test.',
+  none: 'Find care or explore treatment programs.',
+};
+
 // The public hamburger is built strictly from the viewer's canonical profile so it
 // never offers another lane's pages:
 //   • Seeker AI ("Find care") — seekers, guests/roleless, and admin (as a test). NOT facilities.
@@ -88,7 +97,7 @@ export default function SiteMenu({
           >
             <div className="px-3 pb-2 pt-2">
               <div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Clear Bed Recovery</div>
-              <p className="mt-1 text-xs text-slate-500">Find care, explore programs, or manage your account.</p>
+              <p className="mt-1 text-xs text-slate-500">{SUBTITLE[profile]}</p>
             </div>
             <div className="space-y-1 border-t border-slate-100 pt-2">
               {LINKS.map((l) => {

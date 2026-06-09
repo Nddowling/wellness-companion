@@ -22,6 +22,14 @@ export default function PricingPage() {
           Programs pay to be found. People seeking care <strong>never</strong> pay. Start free and upgrade when
           you&apos;re ready — no contracts, cancel anytime.
         </p>
+        {/* Seeker escape — this is provider pricing; never let someone seeking care think they'd pay. */}
+        <p className="mx-auto mt-4 max-w-xl rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-800">
+          Looking for treatment for yourself or someone else?{' '}
+          <Link href="/match" className="font-semibold underline underline-offset-2">
+            Find care →
+          </Link>{' '}
+          — always free, no account needed.
+        </p>
       </section>
 
       <section className="mx-auto max-w-5xl px-6 py-8">
