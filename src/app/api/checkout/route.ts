@@ -30,8 +30,12 @@ export async function GET(request: Request) {
   if (!(plan in PRICE_ENV)) redirect('/pricing');
 
   const { user, facilityIds } = await getRoles();
-  if (!user) redirect('/login');
-  if (facilityIds.length === 0) redirect('/get-started'); // must manage a facility to subscribe
+  // Preserve the chosen plan across auth: come back here and resume checkout after
+  // sign-in, instead of dropping the provider on a context-free "Welcome back".
+  const resume = `/api/checkout?plan=${plan}&cycle=${cycle}`;
+  if (!user) redirect(`/login?next=${encodeURIComponent(resume)}`);
+  // Must manage a facility to subscribe — carry the plan so onboarding can show it.
+  if (facilityIds.length === 0) redirect(`/get-started?plan=${plan}`);
   const facilityId = facilityIds[0];
 
   const key = process.env.STRIPE_SECRET_KEY;

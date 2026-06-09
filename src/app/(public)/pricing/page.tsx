@@ -53,7 +53,7 @@ export default function PricingPage() {
           List your program for free today — you can upgrade to a paid plan anytime.
         </p>
         <Link
-          href="/get-started"
+          href="/claim"
           className="mt-4 inline-block rounded-md bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800"
         >
           Get your free listing →

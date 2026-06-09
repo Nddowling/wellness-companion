@@ -221,6 +221,15 @@ export default function ForProvidersPage() {
               <strong>50% off your next month</strong> — so just two paid referrals add up to a{' '}
               <strong>free month of service</strong> — up to <strong>3 free months</strong> (6 paid referrals).
             </p>
+            <Link
+              href="/claim"
+              className="mt-5 inline-block rounded-md bg-terracotta px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+            >
+              Claim your facility to start referring →
+            </Link>
+            <p className="mt-2 text-xs text-slate-500">
+              Your referral link and credits appear in your dashboard once you&apos;re verified.
+            </p>
           </div>
         </Reveal>
       </section>

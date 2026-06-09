@@ -1,10 +1,18 @@
 import { requireUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { FacilityPicker } from '@/components/FacilityPicker';
+import { PLAN_LABEL, normalizePlan } from '@/lib/facility/plan';
 
-export default async function GetStarted({ searchParams }: { searchParams: Promise<{ claimed?: string }> }) {
+export default async function GetStarted({
+  searchParams,
+}: {
+  searchParams: Promise<{ claimed?: string; plan?: string }>;
+}) {
   const user = await requireUser();
-  const { claimed } = await searchParams;
+  const { claimed, plan } = await searchParams;
+  // Arrived mid-upgrade (chose a plan, but no facility to bill yet) — keep the
+  // intent visible so the plan choice isn't silently lost.
+  const pendingPlan = plan && plan !== 'free' ? PLAN_LABEL[normalizePlan(plan)] : null;
 
   const supabase = await createClient();
   const { data: myClaims } = await supabase
@@ -22,6 +30,13 @@ export default async function GetStarted({ searchParams }: { searchParams: Promi
       {claimed && (
         <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
           ✓ Request sent. An admin will review and approve your facility access.
+        </div>
+      )}
+
+      {pendingPlan && (
+        <div className="rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
+          You picked the <strong>{pendingPlan}</strong> plan. First connect your facility below — once it&apos;s
+          approved you can start {pendingPlan} from your dashboard.
         </div>
       )}
 
