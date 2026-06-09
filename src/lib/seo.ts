@@ -55,11 +55,35 @@ export const organizationJsonLd = {
   '@type': 'Organization',
   '@id': `${SITE_URL}/#organization`,
   name: SITE_NAME,
+  alternateName: 'ClearBed',
   url: SITE_URL,
   logo: absoluteUrl('/images/hero.jpg'),
   image: absoluteUrl(DEFAULT_OG_IMAGE.url),
   description: DEFAULT_DESCRIPTION,
+  slogan: 'The live directory behind every good referral.',
   areaServed: { '@type': 'Country', name: 'United States' },
+  // Topical-authority signal (March-2026 core update rewards focused expertise).
+  knowsAbout: [
+    'Addiction treatment',
+    'Substance use disorder',
+    'Medication-assisted treatment (MAT)',
+    'Medical detox',
+    'Residential rehab',
+    'Partial hospitalization (PHP)',
+    'Intensive outpatient (IOP)',
+    'Outpatient treatment',
+    'Co-occurring disorders',
+    'Insurance coverage for rehab',
+  ],
+  contactPoint: {
+    '@type': 'ContactPoint',
+    contactType: 'customer support',
+    email: 'hello@clearbedrecovery.com',
+    areaServed: 'US',
+    availableLanguage: ['English'],
+  },
+  // NOTE: add real verified social profiles here (LinkedIn, Instagram, X) — Google
+  // treats sameAs as an entity-trust signal. Leaving empty rather than guessing.
 } as const;
 
 /** schema.org WebSite with a sitelinks search box pointed at the directory. */
@@ -79,3 +103,51 @@ export const websiteJsonLd = {
     'query-input': 'required name=search_term_string',
   },
 } as const;
+
+/** BreadcrumbList from an ordered list of {name, path} crumbs. */
+export function breadcrumbJsonLd(crumbs: { name: string; path: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: crumbs.map((c, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: c.name,
+      item: absoluteUrl(c.path),
+    })),
+  };
+}
+
+/**
+ * ItemList of facilities for a directory/landing page. Helps search + AI engines
+ * read the page as a structured list of programs (and is one of the strongest
+ * signals for AI-citation per 2026 research).
+ */
+export function facilityItemListJsonLd(
+  items: { id: string; name: string; city?: string | null; state?: string | null }[]
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: items.slice(0, 50).map((f, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: absoluteUrl(`/programs/${f.id}`),
+      name: [f.name, [f.city, f.state].filter(Boolean).join(', ')].filter(Boolean).join(' — '),
+    })),
+  };
+}
+
+/** FAQPage from question/answer pairs. (Rich results deprecated May 2026, but the
+ *  markup still aids parsing + AI answer engines.) */
+export function faqJsonLd(qa: { q: string; a: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: qa.map(({ q, a }) => ({
+      '@type': 'Question',
+      name: q,
+      acceptedAnswer: { '@type': 'Answer', text: a },
+    })),
+  };
+}

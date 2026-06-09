@@ -5,7 +5,7 @@ import { notFound } from 'next/navigation';
 import JsonLd from '@/components/JsonLd';
 import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { absoluteUrl, SITE_NAME } from '@/lib/seo';
+import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
 import { LEVELS_OF_CARE, LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
 import { codeFromStateSlug, stateName, stateSlug, slugify } from '@/lib/geo';
 
@@ -64,19 +64,41 @@ export default async function StatePage({ params }: { params: Promise<{ state: s
   for (const r of rows) if (r.city) cityCounts.set(r.city, (cityCounts.get(r.city) ?? 0) + 1);
   const cities = [...cityCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 18);
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      { '@type': 'ListItem', position: 1, name: 'Home', item: absoluteUrl('/') },
-      { '@type': 'ListItem', position: 2, name: 'Treatment', item: absoluteUrl('/treatment') },
-      { '@type': 'ListItem', position: 3, name, item: absoluteUrl(`/treatment/${state}`) },
-    ],
-  };
+  const levelText = levels.map((l) => LEVEL_LABELS[l as LevelOfCare]).join(', ');
+  const topCity = cities[0]?.[0];
+
+  const faqs = [
+    {
+      q: `How many addiction treatment programs are in ${name}?`,
+      a: `${rows.length} published treatment program${rows.length === 1 ? '' : 's'} in ${name} ${rows.length === 1 ? 'is' : 'are'} listed on Clear Bed Recovery${levelText ? `, covering ${levelText.toLowerCase()}` : ''}. Each listing shows location, levels of care, and current bed availability.`,
+    },
+    {
+      q: `What levels of care are available in ${name}?`,
+      a: `${name} programs include ${levelText.toLowerCase() || 'a range of addiction treatment options'}. Detox and residential are overnight, bed-based care; PHP, IOP, and outpatient are day programs you live at home for.`,
+    },
+    {
+      q: `Does insurance cover rehab in ${name}?`,
+      a: `Most health plans cover addiction and mental-health treatment by law. Many ${name} programs accept Medicaid, Medicare, commercial insurance, TRICARE, or self-pay — always confirm current in-network status and benefits directly with the program.`,
+    },
+    {
+      q: `How do I find a program with an open bed in ${name}?`,
+      a: `Every ${name} listing shows live bed availability, so you can see who has space now. Or answer three quick questions and get matched to programs that fit your situation, coverage, and region — free, private, and no account required.`,
+    },
+  ];
+
+  const schema = [
+    breadcrumbJsonLd([
+      { name: 'Home', path: '/' },
+      { name: 'Treatment', path: '/treatment' },
+      { name, path: `/treatment/${state}` },
+    ]),
+    facilityItemListJsonLd(rows),
+    faqJsonLd(faqs),
+  ];
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-8">
-      <JsonLd data={jsonLd} />
+      <JsonLd data={schema} />
       <nav className="text-xs text-slate-500">
         <Link href="/treatment" className="text-teal-700 hover:underline">
           Treatment
@@ -92,6 +114,14 @@ export default async function StatePage({ params }: { params: Promise<{ state: s
         real-time bed availability. {SITE_NAME} connects you to treatment facilities; we don&apos;t provide treatment
         ourselves.
       </p>
+      {(levels.length > 0 || cities.length > 0) && (
+        <p className="mt-2 max-w-xl text-sm text-slate-600">
+          {name} programs span {levels.length} level{levels.length === 1 ? '' : 's'} of care
+          {cities.length > 0 ? ` across ${cities.length} cit${cities.length === 1 ? 'y' : 'ies'}` : ''}
+          {topCity ? `, with the most options in ${topCity}` : ''}. Compare detox, residential, PHP, IOP, and
+          outpatient programs below — filter by city or by the insurance you have.
+        </p>
+      )}
 
       <div className="mt-4">
         <Link href="/match" className="text-sm font-medium text-teal-700 hover:underline">
@@ -142,6 +172,20 @@ export default async function StatePage({ params }: { params: Promise<{ state: s
             <FacilityCard key={f.id} f={f} />
           ))}
         </div>
+      </section>
+
+      <section className="mt-10 border-t border-slate-200 pt-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">
+          Treatment in {name} — common questions
+        </h2>
+        <dl className="mt-3 space-y-4">
+          {faqs.map((f) => (
+            <div key={f.q}>
+              <dt className="text-sm font-medium text-slate-800">{f.q}</dt>
+              <dd className="mt-1 text-sm leading-relaxed text-slate-600">{f.a}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
     </main>
   );
