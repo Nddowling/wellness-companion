@@ -75,16 +75,16 @@ const F = {
     description: "Whether insurance is currently active. 'unsure' is valid, but you must have asked.",
   },
   insurance_carrier: { type: 'string', description: 'Insurance carrier / plan name (for anyone insured).' },
-  insurance_member_id: { type: 'string', description: 'Member or policy ID — a must-have for anyone insured.' },
+  insurance_member_id: { type: 'string', description: 'Member or policy ID, only if volunteered; never ask for it.' },
   insurance_group: { type: 'string', description: 'Group number, if available (optional).' },
   subscriber_name: { type: 'string', description: 'Policy holder name, if not the person themselves (optional).' },
   subscriber_relationship: { type: 'string', description: 'Relationship to the policy holder (optional).' },
-  full_name: { type: 'string', description: 'Full legal name.' },
+  full_name: { type: 'string', description: 'Name they want us to use; first name alone is enough.' },
   preferred_name: { type: 'string', description: 'What they like to be called, if different (optional).' },
   dob: { type: 'string', description: 'Date of birth (as they give it).' },
   phone: { type: 'string', description: 'Best phone number.' },
   contact_pref: { type: 'string', description: 'How/when to reach them; OK to call/text/leave voicemail (optional).' },
-  email: { type: 'string', description: 'Email address, if they share one (optional).' },
+  email: { type: 'string', description: 'Best email address.' },
   emergency_contact_name: { type: 'string' },
   emergency_contact_relationship: { type: 'string' },
   emergency_contact_phone: { type: 'string' },
@@ -132,36 +132,15 @@ export const STEP_TOOLS: Record<StepKey, Anthropic.Tool> = {
   ),
   coverage: tool(
     'record_coverage',
-    'Record how care would be paid for. Call this once you know the payer type AND whether coverage is active right now (ask both plainly). For anyone insured, also gather carrier + member ID before recording if they can share them.',
-    [
-      'payer_type',
-      'coverage_status',
-      'insurance_carrier',
-      'insurance_member_id',
-      'insurance_group',
-      'subscriber_name',
-      'subscriber_relationship',
-    ],
+    'Record how care would be paid for. Call this once you know the payer type AND whether coverage is active right now (ask both plainly). Capture the carrier or plan name only if they share it. Never ask for policy, member, group, or subscriber details.',
+    ['payer_type', 'coverage_status', 'insurance_carrier'],
     ['payer_type', 'coverage_status'],
   ),
   identity: tool(
     'record_identity',
-    'Record who they are and their consent — the last step. Call this once you have their full name, date of birth, and phone, AND have asked the two consent questions. Capture email and an emergency contact if offered.',
-    [
-      'full_name',
-      'preferred_name',
-      'dob',
-      'phone',
-      'contact_pref',
-      'email',
-      'emergency_contact_name',
-      'emergency_contact_relationship',
-      'emergency_contact_phone',
-      'court_ordered',
-      'consent_share',
-      'consent_contact',
-    ],
-    ['full_name', 'dob', 'phone', 'consent_share', 'consent_contact'],
+    'Record the optional five-question connect flow. Call this once you have their name (first name is enough), email, phone, date of birth, and the answers to the final permissions choice.',
+    ['full_name', 'email', 'phone', 'dob', 'consent_share', 'consent_contact'],
+    ['full_name', 'email', 'phone', 'dob', 'consent_share', 'consent_contact'],
   ),
 };
 
@@ -190,7 +169,7 @@ If anything signals immediate danger to them or someone else — thoughts of sui
 Make your role explicit — you are a resource agent, NOT a counselor — but reassure them the programs you connect them with have counselors who provide exactly that support. Then gently steer back. Keep it warm and brief; do not counsel.
 
 PRIVACY & DIGNITY
-Ask for sensitive items (DOB, insurance ID, emergency contact) plainly, without pressure, and only once. If they hesitate, reassure them it's their choice and only used to connect them with care. Their information is confidential.
+Ask for sensitive items (such as DOB) plainly, without pressure, and only once. If they hesitate, reassure them it's their choice and only used to connect them with care. Their information is confidential.
 
 HOW THIS STEP WORKS
 You are gathering ONE focused thing in this step (below). If the person's message gives you what this step needs, call the step's tool right away — do not pad with extra questions. If something essential for THIS step is missing or unclear, ask exactly ONE warm, plain follow-up, then wait. Respond directly with your message to the person — no analysis or meta-commentary. Do not announce or mention the tool.
@@ -217,13 +196,26 @@ Find out roughly where they are so we can match nearby programs. A ZIP code or a
   coverage: `${PREAMBLE}
 
 THIS STEP — "Coverage":
-Find out how care would be paid for: Medicaid, Medicare, commercial/employer plan, TRICARE, or self-pay. Then ask the single most important question plainly — is that insurance ACTIVE right now? ("Not sure" is a fine answer.) For anyone insured, it helps a lot to also get their carrier/plan name and member ID — ask once; if they can't share now, that's okay. Once you know the payer type and active-or-not, call record_coverage.`,
+Find out how care would be paid for: Medicaid, Medicare, commercial/employer plan, TRICARE, or self-pay. Then ask the single most important question plainly — is that insurance ACTIVE right now? ("Not sure" is a fine answer.) If they volunteer their carrier or plan name, capture it, but do NOT ask for a member ID, policy number, group number, subscriber name, or subscriber relationship. Those details belong with the treatment center. Once you know the payer type and active-or-not, call record_coverage.`,
 
   identity: `${PREAMBLE}
 
 THIS STEP — "Connect" (OPTIONAL, and the person has ALREADY been shown their matches):
-They've already seen programs that fit. This step exists only to pass their contact details to those programs so the intake teams can reach out — entirely their choice. Don't re-introduce the search or imply you're still finding programs. Gather what the programs need: full name, date of birth, and best phone number (and whether it's okay to call/text/leave a voicemail). Email and an emergency contact (name, relationship, phone) are welcome if offered — never forced. Then, in plain warm language, ask TWO consent questions and record their real answers:
-  - May we share these details with the programs you saw, so their intake team can reach out to you? (consent_share)
-  - Is it okay if Clear Bed Recovery checks in with you by email? (consent_contact)
-Once you have name, DOB, phone, and both consent answers, give ONE brief warm line ("Thank you — I'll pass this along so they can reach out.") and call record_identity in that same turn.`,
+They've already seen programs that fit. This step exists only to pass their contact details to those programs so the intake teams can reach out — entirely their choice. Don't re-introduce the search or imply you're still finding programs.
+
+Ask exactly FIVE questions, one at a time, in this exact order:
+1. Their name. A first name is enough; never require a last or legal name.
+2. Their best email address.
+3. Their best phone number.
+4. Their date of birth.
+5. One permissions question asking both whether Clear Bed Recovery may share their details with the programs they saw and whether Clear Bed Recovery may check in by email. End this question with exactly:
+[[chips]] Share + email me | Share only | Email me only | Neither
+
+Map the final choice exactly:
+- "Share + email me" → consent_share=true and consent_contact=true
+- "Share only" → consent_share=true and consent_contact=false
+- "Email me only" → consent_share=false and consent_contact=true
+- "Neither" → consent_share=false and consent_contact=false
+
+Do not ask for contact preferences, an emergency contact, insurance details, legal involvement, or any other optional information. Once all five answers are complete, give ONE brief warm line ("Thank you — I'll pass this along so they can reach out.") and call record_identity in that same turn.`,
 };

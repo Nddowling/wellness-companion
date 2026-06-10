@@ -54,10 +54,10 @@ const STEPS = [
   {
     key: 'identity',
     label: 'Connect (optional)',
-    opener: "Great — to have these programs reach out to you, what's your full name?",
+    opener: 'Great — what name should we use? Your first name is enough.',
     encouragement: "Your details stay private and are only used to connect you with care you choose.",
     chips: [],
-    placeholder: 'Type your answer…',
+    placeholder: 'First name is enough',
   },
 ] as const;
 
@@ -302,6 +302,9 @@ export default function MatchPage() {
     phase === 'results'
       ? 100
       : Math.max(6, Math.min(96, Math.round(((stepIdx + withinStep) / MATCH_STEPS) * 100)));
+  const connectAnswers = phase === 'connect' ? messages.filter((m) => m.role === 'user').length : 0;
+  const connectQuestionNumber = Math.min(connectAnswers + 1, 5);
+  const connectProgressPct = (connectQuestionNumber / 5) * 100;
 
   // Chips track the question actually on screen: the model's own suggestions for a
   // follow-up if it offered any, otherwise the step opener's curated chips, else none.
@@ -736,11 +739,19 @@ export default function MatchPage() {
 
           {/* Connect (opt-in) banner */}
           {phase === 'connect' && (
-            <div className="mt-1 flex items-center justify-between gap-3 rounded-lg bg-teal-50 px-3 py-2 text-xs font-medium text-teal-800 sm:mt-5">
-              <span>Just a couple quick things so the programs can reach you — your choice.</span>
-              <button onClick={() => setPhase('results')} className="shrink-0 underline hover:text-teal-900">
-                ← Back to matches
-              </button>
+            <div className="mt-1 rounded-xl border border-teal-100 bg-teal-50 px-3 py-2.5 sm:mt-5">
+              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-teal-800">
+                <span>Question {connectQuestionNumber} of 5</span>
+                <button onClick={() => setPhase('results')} className="shrink-0 underline hover:text-teal-900">
+                  ← Back to matches
+                </button>
+              </div>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-teal-100">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-sage to-brand transition-all duration-500"
+                  style={{ width: `${connectProgressPct}%` }}
+                />
+              </div>
             </div>
           )}
 
