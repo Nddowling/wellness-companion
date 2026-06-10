@@ -14,6 +14,8 @@ import {
 } from '@/lib/constants';
 import { updateCapacity, setLeadStatus, updateContact, updateProfile, uploadPhoto, removePhoto, uploadVideo, removeVideo } from '../actions';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
+import { ShareProfile } from '@/components/ShareProfile';
+import { absoluteUrl } from '@/lib/seo';
 import { normalizePlan, PLAN_LABEL, planAllows } from '@/lib/facility/plan';
 
 const CONCERN_LABELS: Record<string, string> = {
@@ -543,6 +545,8 @@ export default async function FacilityManage({
             : `${perfTotal} contact actions from your ClearBed profile in the last 30 days.`}
         </p>
       </section>
+
+      {facility.is_published && <ShareProfile profileUrl={absoluteUrl(`/programs/${id}`)} facilityName={facility.name} />}
 
       {/* About */}
       <section className="space-y-3">
