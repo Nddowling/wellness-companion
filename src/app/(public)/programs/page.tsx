@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
+import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, isBedBased, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
 import { BedChip } from '@/components/FacilityCard';
 import { absoluteUrl } from '@/lib/seo';
 import { getRoles, isProviderSide } from '@/lib/auth';
@@ -45,9 +45,9 @@ function acceptedSummary(r: Row): string {
 export default async function ProgramsDirectory({
   searchParams,
 }: {
-  searchParams: Promise<{ level?: string; q?: string; region?: string }>;
+  searchParams: Promise<{ level?: string; q?: string; region?: string; pay?: string; open?: string }>;
 }) {
-  const { level, q, region } = await searchParams;
+  const { level, q, region, pay, open } = await searchParams;
   const providerSide = isProviderSide(await getRoles());
   const supabase = createAdminClient();
 
@@ -74,13 +74,27 @@ export default async function ProgramsDirectory({
         [r.city, r.state].filter(Boolean).join(', ').toLowerCase().includes(needle)
     );
   }
+  // Referrer axes: payment accepted, and "available now" (open overnight beds, or
+  // outpatient — which is always accepting).
+  if (pay && (PAYER_TYPES as readonly string[]).includes(pay)) {
+    rows = rows.filter((r) => (r.facility_payers ?? []).some((p) => p.payer_type === pay));
+  }
+  if (open) {
+    rows = rows.filter((r) => {
+      const openBeds = (r.facility_capacity ?? []).some((c) => isBedBased(c.level_of_care) && c.beds_available > 0);
+      const hasBedLevel = (r.levels_of_care ?? []).some(isBedBased);
+      return openBeds || !hasBedLevel;
+    });
+  }
 
-  // Build a /programs href that keeps the other two filters intact.
+  // Build a /programs href that keeps the other filters intact.
   const hrefFor = (l?: string) => {
     const p = new URLSearchParams();
     if (l) p.set('level', l);
     if (region) p.set('region', region);
     if (q) p.set('q', q);
+    if (pay) p.set('pay', pay);
+    if (open) p.set('open', open);
     const s = p.toString();
     return s ? `/programs?${s}` : '/programs';
   };
@@ -134,17 +148,39 @@ export default async function ProgramsDirectory({
             </option>
           ))}
         </select>
+        <select
+          name="pay"
+          defaultValue={pay ?? ''}
+          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700"
+        >
+          <option value="">Any insurance</option>
+          {PAYER_TYPES.map((pt) => (
+            <option key={pt} value={pt}>
+              {PAYER_LABELS[pt]}
+            </option>
+          ))}
+        </select>
         <input
           name="q"
           defaultValue={q ?? ''}
           placeholder="Search by name or city…"
           className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm sm:min-w-[10rem]"
         />
+        <label className="flex items-center gap-2 whitespace-nowrap text-sm text-slate-600">
+          <input
+            type="checkbox"
+            name="open"
+            value="1"
+            defaultChecked={!!open}
+            className="h-4 w-4 rounded border-slate-300"
+          />
+          Available now
+        </label>
         <button className="w-full rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white sm:w-auto">
           Search
         </button>
       </form>
-      {(level || region || q) && (
+      {(level || region || q || pay || open) && (
         <Link href="/programs" className="mt-2 inline-block text-xs text-slate-500 underline hover:text-teal-700">
           Clear filters
         </Link>
