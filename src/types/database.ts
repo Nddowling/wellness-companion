@@ -436,6 +436,41 @@ export type Database = {
           },
         ]
       }
+      facility_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          facility_id: string
+          id: string
+          match_id: string | null
+          referrer: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          facility_id: string
+          id?: string
+          match_id?: string | null
+          referrer?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          facility_id?: string
+          id?: string
+          match_id?: string | null
+          referrer?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_events_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facility_members: {
         Row: {
           created_at: string

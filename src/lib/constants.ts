@@ -72,6 +72,11 @@ export function freshnessTone(lastUpdated: string | null): 'green' | 'amber' | '
   return 'red';
 }
 
+/** ISO timestamp for N days ago — for "last 30 days" style query windows. */
+export function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString();
+}
+
 export type CapacityRow = { level_of_care: string; beds_available: number; last_updated: string };
 
 // One-line bed indicator for a facility card. Sums beds across overnight (bed-based)

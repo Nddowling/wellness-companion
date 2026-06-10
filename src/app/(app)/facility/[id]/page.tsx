@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   freshnessTone,
+  isoDaysAgo,
   LEVEL_LABELS,
   PAYER_LABELS,
   type LevelOfCare,
@@ -113,6 +114,35 @@ export default async function FacilityManage({
   const referrals = referralData ?? [];
   const creditsEarned = facility.referral_credits_earned ?? 0;
   const freeMonths = Math.floor(creditsEarned / 2);
+
+  // Profile performance (last 30 days) — the de-identified engagement counts a
+  // facility shows their leadership. facility_events is deny-all RLS, so read it
+  // with the service role, scoped to this (already membership-verified) facility.
+  const since30 = isoDaysAgo(30);
+  const evCount = (type: string) =>
+    admin
+      .from('facility_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('facility_id', id)
+      .eq('event_type', type)
+      .gte('created_at', since30);
+  const [{ count: calls30 }, { count: dirs30 }, { count: emails30 }, { count: web30 }] = await Promise.all([
+    evCount('call'),
+    evCount('directions'),
+    evCount('email'),
+    admin
+      .from('outbound_clicks')
+      .select('id', { count: 'exact', head: true })
+      .eq('facility_id', id)
+      .gte('created_at', since30),
+  ]);
+  const perf = [
+    { label: 'Website clicks', value: web30 ?? 0 },
+    { label: 'Calls', value: calls30 ?? 0 },
+    { label: 'Directions', value: dirs30 ?? 0 },
+    { label: 'Emails', value: emails30 ?? 0 },
+  ];
+  const perfTotal = perf.reduce((s, p) => s + p.value, 0);
 
   // ── EDIT MODE ────────────────────────────────────────────────────────────
   if (editing) {
@@ -492,6 +522,27 @@ export default async function FacilityManage({
           </div>
         </div>
       </div>
+
+      {/* Profile performance — de-identified engagement a facility shows leadership */}
+      <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700">Profile performance</h2>
+          <span className="text-xs text-slate-400">last 30 days</span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {perf.map((p) => (
+            <div key={p.label} className="rounded-lg bg-slate-50 p-3 text-center">
+              <div className="text-2xl font-semibold text-slate-800">{p.value}</div>
+              <div className="mt-0.5 text-xs text-slate-500">{p.label}</div>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          {perfTotal === 0
+            ? 'No activity yet in the last 30 days — these climb as seekers find your profile.'
+            : `${perfTotal} contact actions from your ClearBed profile in the last 30 days.`}
+        </p>
+      </section>
 
       {/* About */}
       <section className="space-y-3">

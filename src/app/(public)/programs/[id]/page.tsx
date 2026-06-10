@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 
 import JsonLd from '@/components/JsonLd';
 import { GoToWebsiteButton } from '@/components/GoToWebsiteButton';
+import { TrackedContactLink } from '@/components/TrackedContactLink';
 import { MatchBackLink } from '@/components/MatchBackLink';
 import { Gallery } from '@/components/Gallery';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -267,9 +268,14 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Email</dt>
                 <dd className="text-right">
-                  <a href={`mailto:${email}`} className="text-teal-700 hover:underline">
+                  <TrackedContactLink
+                    facilityId={f.id}
+                    eventType="email"
+                    href={`mailto:${email}`}
+                    className="text-teal-700 hover:underline"
+                  >
                     {email}
-                  </a>
+                  </TrackedContactLink>
                 </dd>
               </div>
             )}
@@ -277,9 +283,14 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
               <div className="flex justify-between gap-4">
                 <dt className="text-slate-500">Phone</dt>
                 <dd className="text-right">
-                  <a href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`} className="text-teal-700 hover:underline">
+                  <TrackedContactLink
+                    facilityId={f.id}
+                    eventType="call"
+                    href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`}
+                    className="text-teal-700 hover:underline"
+                  >
                     {intakePhone}
-                  </a>
+                  </TrackedContactLink>
                 </dd>
               </div>
             )}
@@ -352,12 +363,14 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
                 </GoToWebsiteButton>
               )}
               {intakePhone && showCallIntake && (
-                <a
+                <TrackedContactLink
+                  facilityId={f.id}
+                  eventType="call"
                   href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`}
                   className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
                 >
                   Call intake
-                </a>
+                </TrackedContactLink>
               )}
             </div>
           </div>
@@ -398,6 +411,19 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
+          <div className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+            <span className="truncate text-slate-500">{mapQuery}</span>
+            <TrackedContactLink
+              facilityId={f.id}
+              eventType="directions"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(mapQuery)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 font-medium text-teal-700 hover:underline"
+            >
+              Get directions ↗
+            </TrackedContactLink>
+          </div>
         </section>
       )}
 
@@ -607,20 +633,24 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
       {((showCallIntake && intakePhone) || contact.email) && (
         <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
           {showCallIntake && intakePhone && (
-            <a
+            <TrackedContactLink
+              facilityId={f.id}
+              eventType="call"
               href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`}
               className="flex-1 rounded-md bg-teal-700 px-4 py-2.5 text-center text-sm font-semibold text-white"
             >
               Call intake
-            </a>
+            </TrackedContactLink>
           )}
           {contact.email && (
-            <a
+            <TrackedContactLink
+              facilityId={f.id}
+              eventType="email"
               href={`mailto:${contact.email}`}
               className="flex-1 rounded-md border border-teal-600 px-4 py-2.5 text-center text-sm font-semibold text-teal-700"
             >
               Email
-            </a>
+            </TrackedContactLink>
           )}
         </div>
       )}
