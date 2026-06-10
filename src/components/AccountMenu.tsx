@@ -5,7 +5,16 @@ import { useState } from 'react';
 
 import { signOut } from '@/app/(app)/actions';
 
-export function AccountMenu({ email, inviteHref }: { email: string; inviteHref: string | null }) {
+export function AccountMenu({
+  email,
+  inviteHref,
+  extraItems = [],
+}: {
+  email: string;
+  inviteHref: string | null;
+  // Profile-specific links injected by the layout (e.g. admin-only "Seeker contacts").
+  extraItems?: { href: string; label: string }[];
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -32,6 +41,16 @@ export function AccountMenu({ email, inviteHref }: { email: string; inviteHref: 
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-slate-200">
           <div className="border-b border-slate-100 px-4 py-2 text-xs text-slate-500 sm:hidden">{email}</div>
+          {extraItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setOpen(false)}
+              className="block px-4 py-2.5 text-sm text-slate-700 hover:bg-teal-50 hover:text-teal-700"
+            >
+              {item.label}
+            </Link>
+          ))}
           {inviteHref && (
             <Link
               href={inviteHref}

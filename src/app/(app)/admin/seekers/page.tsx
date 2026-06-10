@@ -13,8 +13,11 @@ export default async function AdminSeekers() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-slate-800">Seekers</h1>
-        <p className="text-sm text-slate-500">{seekers.length} records · protected information, handle with care.</p>
+        <h1 className="text-xl font-semibold text-slate-800">Seeker contacts</h1>
+        <p className="text-sm text-slate-500">
+          {seekers.length} {seekers.length === 1 ? 'contact' : 'contacts'} · everyone who shared their details through
+          the care chat. Protected information — handle with care.
+        </p>
       </div>
 
       <div className="space-y-2">

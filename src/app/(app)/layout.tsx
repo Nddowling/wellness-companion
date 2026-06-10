@@ -82,6 +82,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <AccountMenu
               email={user.email ?? ''}
               inviteHref={isFacility && facilityIds.length > 0 ? `/facility/${facilityIds[0]}/invite` : null}
+              // Global admin only — surface the seeker contact list in the dropdown.
+              extraItems={
+                profile === 'admin'
+                  ? [
+                      { href: '/admin/seekers', label: 'Seeker contacts' },
+                      { href: '/admin', label: 'Admin dashboard' },
+                    ]
+                  : []
+              }
             />
           </div>
         </div>

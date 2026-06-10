@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { requireAdmin } from '@/lib/auth';
-import { getSeekerById, getConsentEvents } from '@/lib/vault/seekers';
+import { getSeekerById, getConsentEvents, getSeekerTranscripts } from '@/lib/vault/seekers';
 import { adminUpdateSeeker, adminDeleteSeeker } from '../../actions';
 
 const field = 'rounded border border-slate-300 px-3 py-2 text-sm';
@@ -20,6 +20,7 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
   const { seeker, facilities } = data;
   const fs = seeker.face_sheet ?? {};
   const consentEvents = await getConsentEvents(id);
+  const transcripts = await getSeekerTranscripts(id);
 
   return (
     <div className="space-y-6">
@@ -103,6 +104,38 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
           ))}
           {facilities.length === 0 && <li className="text-slate-400">No matched programs.</li>}
         </ul>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <h2 className="mb-2 text-sm font-semibold text-slate-700">Conversation</h2>
+        <p className="mb-3 text-xs text-slate-400">
+          The full chat their information was gathered from.
+        </p>
+        {transcripts.length === 0 ? (
+          <p className="text-sm text-slate-400">No saved transcript for this contact.</p>
+        ) : (
+          transcripts.map((t) => (
+            <div key={t.id} className="mb-4 last:mb-0">
+              <p className="mb-2 text-xs text-slate-400">{new Date(t.created_at).toLocaleString()}</p>
+              <div className="space-y-2">
+                {t.messages.map((m, i) => (
+                  <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
+                    <div
+                      className={
+                        'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5 text-sm ' +
+                        (m.role === 'user'
+                          ? 'rounded-br-sm bg-teal-700 text-white'
+                          : 'rounded-bl-sm bg-slate-100 text-slate-700')
+                      }
+                    >
+                      {m.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
       </section>
 
       <section className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-4">

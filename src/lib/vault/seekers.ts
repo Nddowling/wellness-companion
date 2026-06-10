@@ -230,6 +230,45 @@ export async function getSeekerById(
   return { seeker: seeker as SeekerRow, facilities: await facilitiesForSeeker(vault, id) };
 }
 
+export type SeekerTranscript = {
+  id: string;
+  title: string | null;
+  created_at: string;
+  messages: { role: 'user' | 'assistant'; content: string }[];
+};
+
+/**
+ * Admin: the saved chat transcript(s) behind a seeker contact — the full back-and-forth
+ * the contact's information was gathered from. Matched by the de-identified match_id
+ * first (the exact conversation for this contact), falling back to the account. Returns
+ * empty when no transcript was saved (e.g. an anonymous contact who declined an account).
+ */
+export async function getSeekerTranscripts(seekerId: string): Promise<SeekerTranscript[]> {
+  const vault = createVaultClient();
+  const { data: s } = await vault
+    .from('vault_seekers')
+    .select('match_id, auth_user_id')
+    .eq('id', seekerId)
+    .maybeSingle();
+  if (!s) return [];
+
+  let q = vault
+    .from('vault_conversations')
+    .select('id, title, created_at, messages')
+    .order('created_at', { ascending: false });
+  if (s.match_id) q = q.eq('match_id', s.match_id);
+  else if (s.auth_user_id) q = q.eq('auth_user_id', s.auth_user_id);
+  else return [];
+
+  const { data } = await q;
+  return (data ?? []).map((c) => ({
+    id: c.id,
+    title: c.title,
+    created_at: c.created_at,
+    messages: (Array.isArray(c.messages) ? c.messages : []) as { role: 'user' | 'assistant'; content: string }[],
+  }));
+}
+
 /** Seeker dashboard: every past search for this account, newest first. */
 export async function getSearchesByAuthUser(
   authUserId: string
