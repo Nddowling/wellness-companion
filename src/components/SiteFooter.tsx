@@ -40,6 +40,7 @@ export default function SiteFooter() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Company</h2>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               <li><Link href="/about" className="hover:text-teal-700 hover:underline">About &amp; how we vet</Link></li>
+              <li><Link href="/how-we-make-money" className="hover:text-teal-700 hover:underline">How we make money</Link></li>
               <li><Link href="/terms" className="hover:text-teal-700 hover:underline">Terms of Service</Link></li>
               <li><Link href="/privacy" className="hover:text-teal-700 hover:underline">Privacy Policy</Link></li>
             </ul>
@@ -55,6 +56,7 @@ export default function SiteFooter() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">In a crisis?</h2>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               <li><a href="tel:988" className="hover:text-teal-700 hover:underline">988 — Suicide &amp; Crisis Lifeline</a></li>
+              <li><a href="tel:18007154225" className="hover:text-teal-700 hover:underline">GA Crisis &amp; Access Line 1-800-715-4225</a></li>
               <li><a href="tel:18006624357" className="hover:text-teal-700 hover:underline">SAMHSA 1-800-662-4357</a></li>
               <li><a href="tel:911" className="hover:text-teal-700 hover:underline">911 — Emergencies</a></li>
             </ul>
