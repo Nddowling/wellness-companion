@@ -255,7 +255,15 @@ export async function removeFacilityMember(formData: FormData) {
   revalidatePath(`/admin/facilities/${facilityId}`);
 }
 
-export async function approveClaim(formData: FormData) {
+// Returned to the admin UI so approval is usable even when the credentials email
+// can't be delivered (e.g. Resend sandbox / unverified domain) — the admin can then
+// relay the temp password by hand.
+export type ApproveResult =
+  | { ok: true; email: string | null; tempPassword: string | null; mailSent: boolean; facilityLinked: boolean }
+  | { ok: false; error: string }
+  | null;
+
+export async function approveClaim(_prev: ApproveResult, formData: FormData): Promise<ApproveResult> {
   await requireAdmin();
   const admin = createAdminClient();
   const claimId = String(formData.get('claim_id'));
@@ -264,7 +272,7 @@ export async function approveClaim(formData: FormData) {
     .select('user_id, facility_id, claimant_email, claimant_name')
     .eq('id', claimId)
     .single();
-  if (!claim) return;
+  if (!claim) return { ok: false, error: 'Claim not found.' };
 
   // Resolve the provider's account. Public claims arrive with NO user_id — create
   // their login now (temp password + must-reset), so verification is the only gate
@@ -296,7 +304,9 @@ export async function approveClaim(formData: FormData) {
   }
   await admin.from('facility_claims').update({ status: 'approved' }).eq('id', claimId);
 
-  // Tell them they're verified + how to sign in.
+  // Tell them they're verified + how to sign in. The send can fail (sandbox / no
+  // verified domain) — we report that back so the admin can hand off credentials.
+  let mailSent = false;
   if (email) {
     const { data: facility } = claim.facility_id
       ? await admin.from('facilities').select('name').eq('id', claim.facility_id).maybeSingle()
@@ -307,9 +317,11 @@ export async function approveClaim(formData: FormData) {
       email,
       password: tempPw ?? undefined,
     });
-    await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+    const res = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
+    mailSent = res.ok;
   }
   revalidatePath('/admin/claims');
+  return { ok: true, email, tempPassword: tempPw, mailSent, facilityLinked: !!(userId && claim.facility_id) };
 }
 
 export async function rejectClaim(formData: FormData) {

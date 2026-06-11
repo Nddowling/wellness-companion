@@ -1,6 +1,7 @@
 import { requireAdmin } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { approveClaim, rejectClaim } from '../actions';
+import { rejectClaim } from '../actions';
+import { ApproveClaim } from './ApproveClaim';
 
 type Claim = {
   id: string;
@@ -70,11 +71,8 @@ export default async function AdminClaims() {
               )}
               {c.note && <div className="text-slate-600">“{c.note}”</div>}
             </div>
-            <div className="mt-2 flex gap-2">
-              <form action={approveClaim}>
-                <input type="hidden" name="claim_id" value={c.id} />
-                <button className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white">Approve</button>
-              </form>
+            <div className="mt-2 flex items-start gap-2">
+              <ApproveClaim claimId={c.id} />
               <form action={rejectClaim}>
                 <input type="hidden" name="claim_id" value={c.id} />
                 <button className="rounded-md border border-slate-300 px-3 py-1 text-xs text-slate-600">Reject</button>
