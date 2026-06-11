@@ -37,8 +37,8 @@ export async function generateMetadata({
   const loaded = await load(state);
   if (!loaded) return { title: 'Treatment not found', robots: { index: false, follow: true } };
   const name = stateName(loaded.code);
-  const title = `Addiction & Mental Health Treatment in ${name}`;
-  const description = `Browse ${loaded.rows.length} vetted treatment programs in ${name} — detox, residential, PHP, IOP, and outpatient — with real-time bed availability. Free and private; no account required.`;
+  const title = `Drug & Alcohol Rehab in ${name}`;
+  const description = `Browse ${loaded.rows.length} vetted drug & alcohol rehab programs in ${name} — detox, residential, PHP, IOP, and outpatient — with real-time bed availability. Free and private; no account required.`;
   return {
     title,
     description,
@@ -107,7 +107,7 @@ export default async function StatePage({ params }: { params: Promise<{ state: s
       </nav>
 
       <h1 className="mt-2 font-serif text-3xl leading-tight text-ink sm:text-4xl">
-        Treatment in <span className="italic text-brand">{name}</span>
+        Drug &amp; Alcohol Rehab in <span className="italic text-brand">{name}</span>
       </h1>
       <p className="mt-2 max-w-xl text-sm text-slate-600">
         {rows.length} vetted addiction and mental-health program{rows.length === 1 ? '' : 's'} in {name}, with

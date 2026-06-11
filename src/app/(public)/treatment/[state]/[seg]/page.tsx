@@ -68,10 +68,10 @@ export async function generateMetadata({
   if (!r) return { title: 'Treatment not found', robots: { index: false, follow: true } };
   const title =
     r.kind === 'level'
-      ? `${LEVEL_LABELS[r.level!]} in ${r.state}`
-      : `Addiction & Mental Health Treatment in ${r.cityName}, ${r.code}`;
+      ? `${LEVEL_LABELS[r.level!]} Treatment in ${r.state}`
+      : `Drug & Alcohol Rehab in ${r.cityName}, ${r.code}`;
   const where = r.kind === 'level' ? r.state : `${r.cityName}, ${r.state}`;
-  const what = r.kind === 'level' ? LEVEL_LABELS[r.level!].toLowerCase() : 'addiction and mental-health treatment';
+  const what = r.kind === 'level' ? LEVEL_LABELS[r.level!].toLowerCase() : 'drug and alcohol rehab';
   const description = `${r.rows.length} vetted ${what} program${r.rows.length === 1 ? '' : 's'} in ${where}, with real-time bed availability. Free and private — get matched or browse directly.`;
   return {
     title,
@@ -97,7 +97,7 @@ export default async function StateSegPage({
       </>
     ) : (
       <>
-        Treatment in <span className="italic text-brand">{r.cityName}</span>, {r.code}
+        Drug &amp; Alcohol Rehab in <span className="italic text-brand">{r.cityName}</span>, {r.code}
       </>
     );
 
