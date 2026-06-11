@@ -33,12 +33,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let landing: MetadataRoute.Sitemap = [];
   try {
     const supabase = createAdminClient();
-    const { data } = await supabase
-      .from("facilities")
-      .select("id, updated_at, state, city, levels_of_care, facility_payers(payer_type)")
-      .eq("is_published", true)
-      .order("updated_at", { ascending: false });
-    const rows = data ?? [];
+    // Page past PostgREST's 1,000-row cap so EVERY published program reaches the
+    // sitemap (we publish the full directory for SEO — tens of thousands of pages).
+    type SitemapFacility = {
+      id: string;
+      updated_at: string | null;
+      state: string | null;
+      city: string | null;
+      levels_of_care: string[] | null;
+      facility_payers: { payer_type: string }[];
+    };
+    const rows: SitemapFacility[] = [];
+    const PAGE = 1000;
+    for (let from = 0; from < 100000; from += PAGE) {
+      const { data, error } = await supabase
+        .from("facilities")
+        .select("id, updated_at, state, city, levels_of_care, facility_payers(payer_type)")
+        .eq("is_published", true)
+        .order("updated_at", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      rows.push(...(data as SitemapFacility[]));
+      if (data.length < PAGE) break;
+    }
 
     // One entry per published program.
     programs = rows.map((f) => ({
