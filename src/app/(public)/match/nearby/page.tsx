@@ -13,10 +13,14 @@ export const metadata: Metadata = {
 
 const RADIUS_MI = 25;
 
-export default async function NearbyPage({ searchParams }: { searchParams: Promise<{ zip?: string }> }) {
-  const { zip } = await searchParams;
-  const cleanZip = (String(zip ?? '').match(/\d{5}/) || [])[0] ?? '';
-  const { origin, facilities } = cleanZip ? await getNearby(cleanZip, RADIUS_MI, 20) : { origin: null, facilities: [] };
+export default async function NearbyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ zip?: string; city?: string; state?: string }>;
+}) {
+  const { zip, city, state } = await searchParams;
+  const { origin, facilities } = await getNearby({ zip, city, state }, RADIUS_MI, 20);
+  const where = (String(zip ?? '').match(/\d{5}/) || [])[0] || [city, state].filter(Boolean).join(', ');
   const hasMapKey = !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   return (
@@ -26,9 +30,9 @@ export default async function NearbyPage({ searchParams }: { searchParams: Promi
       </Link>
       <h1 className="mt-2 font-serif text-2xl text-ink sm:text-3xl">Treatment near you</h1>
 
-      {!cleanZip || !origin ? (
+      {!origin ? (
         <p className="mt-3 rounded-md border border-dashed border-slate-300 p-6 text-sm text-slate-600">
-          We couldn&apos;t read a ZIP code to search from.{' '}
+          We couldn&apos;t pin down a location to search from.{' '}
           <Link href="/match" className="font-medium text-teal-700 hover:underline">
             Start the guide
           </Link>{' '}
@@ -42,7 +46,7 @@ export default async function NearbyPage({ searchParams }: { searchParams: Promi
         <>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
             <strong>{facilities.length}</strong> program{facilities.length === 1 ? '' : 's'} within {RADIUS_MI} miles of{' '}
-            {cleanZip}, <strong>closest first</strong>. Pick any to see its full profile — we show everyone nearby and
+            {where}, <strong>closest first</strong>. Pick any to see its full profile — we show everyone nearby and
             never rank or favor one program over another.
           </p>
 

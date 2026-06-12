@@ -569,7 +569,9 @@ export default function MatchPage() {
         // (everyone within range, by distance, no favoritism); record the de-identified
         // demand fire-and-forget. Without one (city/state only), keep the in-page flow.
         const fullZip = typeof merged.zip === 'string' ? (merged.zip.match(/\d{5}/) || [])[0] : undefined;
-        if (fullZip) {
+        const city = typeof merged.city === 'string' ? merged.city.trim() : '';
+        const st = typeof merged.state === 'string' ? merged.state.trim() : '';
+        if (fullZip || (city && st)) {
           try {
             void fetch('/api/match', {
               method: 'POST',
@@ -579,7 +581,8 @@ export default function MatchPage() {
           } catch {
             /* demand analytics is best-effort */
           }
-          router.push(`/match/nearby?zip=${fullZip}`);
+          const q = fullZip ? `zip=${fullZip}` : `city=${encodeURIComponent(city)}&state=${encodeURIComponent(st)}`;
+          router.push(`/match/nearby?${q}`);
         } else {
           await runMatch(merged);
         }
