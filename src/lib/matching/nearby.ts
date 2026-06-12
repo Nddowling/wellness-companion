@@ -1,7 +1,19 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { toStateCode } from '@/lib/geo';
+import { US_STATES } from '@/lib/geo';
+
+// Normalize a 2-letter code or full state name → 2-letter code ('' if unknown).
+// Self-contained so this feature doesn't depend on helpers added elsewhere.
+function normStateCode(input?: string | null): string {
+  const s = String(input ?? '').trim();
+  if (!s) return '';
+  if (US_STATES[s.toUpperCase()]) return s.toUpperCase();
+  for (const [code, name] of Object.entries(US_STATES)) {
+    if (name.toLowerCase() === s.toLowerCase()) return code;
+  }
+  return '';
+}
 
 // Neutral, distance-only discovery: every published facility within a radius of the
 // seeker's location, sorted purely by miles. No ranking, no favoritism. Origin comes
@@ -62,7 +74,7 @@ export async function resolveOrigin(loc: LocationInput): Promise<{ lat: number; 
     if (data) return { lat: Number(data.lat), lng: Number(data.lng) };
   }
 
-  const stateCode = toStateCode(loc.state);
+  const stateCode = normStateCode(loc.state);
   if (loc.city && stateCode) {
     const geo = await geocodeCity(loc.city, stateCode);
     if (geo) return geo;
