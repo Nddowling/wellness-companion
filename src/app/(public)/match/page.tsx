@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/Logo';
@@ -120,6 +121,7 @@ function parseChips(content: string): { text: string; chips: string[] } {
 
 export default function MatchPage() {
   // Warm acknowledgment gate before the conversation begins.
+  const router = useRouter();
   const [acknowledged, setAcknowledged] = useState(false);
   const [ackChecked, setAckChecked] = useState(false);
 
@@ -563,8 +565,24 @@ export default function MatchPage() {
         setStepIdx(next);
         setMessages((m) => [...m, { role: 'assistant', content: STEPS[next].opener }]);
       } else {
-        // Coverage recorded — we have enough to match. Show results right away.
-        await runMatch(merged);
+        // Conversation done. With a precise ZIP, send them to the neutral nearby map
+        // (everyone within range, by distance, no favoritism); record the de-identified
+        // demand fire-and-forget. Without one (city/state only), keep the in-page flow.
+        const fullZip = typeof merged.zip === 'string' ? (merged.zip.match(/\d{5}/) || [])[0] : undefined;
+        if (fullZip) {
+          try {
+            void fetch('/api/match', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(merged),
+            });
+          } catch {
+            /* demand analytics is best-effort */
+          }
+          router.push(`/match/nearby?zip=${fullZip}`);
+        } else {
+          await runMatch(merged);
+        }
       }
     }
   }
