@@ -82,6 +82,14 @@ export default function TermsPage() {
           HIPAA and 42 CFR Part 2.
         </p>
         <p>
+          <strong>Communications and marketing.</strong> When you provide your email address or phone number, you
+          consent to receive communications from Clear Bed Recovery — including treatment options, recovery resources,
+          product offers, newsletters, and other informational or promotional messages — by email, text, or phone.
+          Message and data rates may apply. You can opt out of marketing messages at any time using the unsubscribe link
+          or by contacting us, though we may still send you essential service-related messages. We use your information
+          consistent with our Privacy Policy and do not sell your personal information to third-party advertisers.
+        </p>
+        <p>
           Our handling of your information is further described in our Privacy Policy. By using the Service, you
           consent to that handling.
         </p>

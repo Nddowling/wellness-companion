@@ -627,6 +627,10 @@ export default function MatchPage() {
                 .
               </span>
             </label>
+            <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              By continuing, you agree Clear Bed Recovery may email or text you about treatment options, resources, and
+              offers. You can unsubscribe anytime.
+            </p>
             <button
               onClick={async () => {
                 if (!ackChecked) return;
