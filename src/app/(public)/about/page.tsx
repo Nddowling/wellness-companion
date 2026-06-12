@@ -81,9 +81,10 @@ export default function AboutPage() {
         <section className="mt-8">
           <h2 className="font-serif text-xl text-ink">Private by design</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            You can search and get matched anonymously — no account, no insurance member ID, no commitment. When you
-            choose to share your information with a specific program, you control that, and we record your consent with
-            a timestamp. We never sell personal information, and we follow strict privacy rules for any health-related
+            You can browse the full directory anonymously. The guided match starts with your name and email so a real
+            program can follow up — but never an insurance member ID, and there&apos;s no account and no commitment. When
+            you choose to share your information with a specific program, you control that, and we record your consent
+            with a timestamp. We never sell personal information, and we follow strict privacy rules for any health-related
             data (HIPAA and 42 CFR Part 2).
           </p>
         </section>

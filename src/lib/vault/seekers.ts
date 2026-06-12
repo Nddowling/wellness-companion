@@ -18,9 +18,40 @@ export type SeekerIdentity = {
 
 export type EmailKind = 'welcome' | 'treatment_info' | 'face_sheet' | 'weekly_reminder';
 
-/** Store a seeker (identity + consent + full face sheet) and their interests. Returns the id. */
+/**
+ * Capture a contact the moment the conversation starts — just a name + email — so the
+ * lead is saved even if the person drops off before finishing. Stored as a vault_seekers
+ * row with no consent yet (consent_at stays null → distinguishes a fresh lead from a
+ * completed hand-off). Returns the id to thread through to the hand-off. Best-effort:
+ * callers treat a null return as "lead not captured" and continue the funnel.
+ */
+export async function createContact(params: { name?: string; email?: string }): Promise<string | null> {
+  const vault = createVaultClient();
+  const { data, error } = await vault
+    .from('vault_seekers')
+    .insert({
+      name: params.name ?? null,
+      email: params.email ?? null,
+      consent_email: false,
+      consent_share: false,
+      status: 'active',
+      face_sheet: {} as Json,
+    })
+    .select('id')
+    .single();
+  if (error || !data) return null;
+  return data.id;
+}
+
+/**
+ * Store a seeker (identity + consent + full face sheet) and their interests. When
+ * `contactId` is given (the early lead from createContact), UPDATE that row instead of
+ * inserting — so the early contact and the completed hand-off are one record, not two.
+ * Returns the id.
+ */
 export async function createSeekerWithInterest(params: {
   matchId: string | null;
+  contactId?: string | null;
   identity: SeekerIdentity;
   coverageStatus?: string | null;
   consents: { email: boolean; share: boolean };
@@ -30,36 +61,47 @@ export async function createSeekerWithInterest(params: {
   const vault = createVaultClient();
   const now = new Date().toISOString();
 
-  const { data: seeker, error } = await vault
-    .from('vault_seekers')
-    .insert({
-      match_id: params.matchId,
-      email: params.identity.email ?? null,
-      name: params.identity.name ?? null,
-      dob: params.identity.dob ?? null,
-      insurance: params.identity.insurance ?? null,
-      coverage_status: params.coverageStatus ?? null,
-      phone: params.identity.phone ?? null,
-      consent_email: params.consents.email,
-      consent_share: params.consents.share,
-      consent_at: now,
-      status: 'active',
-      face_sheet: (params.faceSheet ?? {}) as Json,
-    })
-    .select('id')
-    .single();
-  if (error || !seeker) return null;
+  const fields = {
+    match_id: params.matchId,
+    email: params.identity.email ?? null,
+    name: params.identity.name ?? null,
+    dob: params.identity.dob ?? null,
+    insurance: params.identity.insurance ?? null,
+    coverage_status: params.coverageStatus ?? null,
+    phone: params.identity.phone ?? null,
+    consent_email: params.consents.email,
+    consent_share: params.consents.share,
+    consent_at: now,
+    status: 'active',
+    face_sheet: (params.faceSheet ?? {}) as Json,
+  };
+
+  let seekerId: string | null = null;
+  if (params.contactId) {
+    const { data, error } = await vault
+      .from('vault_seekers')
+      .update(fields)
+      .eq('id', params.contactId)
+      .select('id')
+      .single();
+    if (!error && data) seekerId = data.id;
+  }
+  if (!seekerId) {
+    const { data, error } = await vault.from('vault_seekers').insert(fields).select('id').single();
+    if (error || !data) return null;
+    seekerId = data.id;
+  }
 
   if (params.facilityIds.length) {
     await vault.from('vault_seeker_interest').insert(
       params.facilityIds.map((facility_id) => ({
-        seeker_id: seeker.id,
+        seeker_id: seekerId,
         facility_id,
         match_id: params.matchId,
       }))
     );
   }
-  return seeker.id;
+  return seekerId;
 }
 
 export type ConsentChannel = 'share' | 'email';

@@ -40,7 +40,7 @@ export const INTAKE_MODEL = 'claude-sonnet-4-6';
 // model never re-asks for something the person already volunteered.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const STEP_ORDER = ['need', 'location', 'coverage', 'identity'] as const;
+export const STEP_ORDER = ['contact', 'need', 'location', 'coverage', 'identity'] as const;
 export type StepKey = (typeof STEP_ORDER)[number];
 
 // Field property definitions, shared between step tools so wording stays in sync.
@@ -118,6 +118,12 @@ function tool(
 }
 
 export const STEP_TOOLS: Record<StepKey, Anthropic.Tool> = {
+  contact: tool(
+    'record_contact',
+    'Record who they are so we can save their place and a program can follow up. Call this the moment you have BOTH a first name and an email address. Ask the name first, then the email — nothing else in this step.',
+    ['full_name', 'email'],
+    ['full_name', 'email'],
+  ),
   need: tool(
     'record_need',
     "Record what kind of help fits this person. Call this once you can name a level of care (even a best inference) and a coarse concern. If they're unsure, ask ONE gentle clarifying question first; otherwise infer and record.",
@@ -138,9 +144,9 @@ export const STEP_TOOLS: Record<StepKey, Anthropic.Tool> = {
   ),
   identity: tool(
     'record_identity',
-    'Record the optional five-question connect flow. Call this once you have their name (first name is enough), email, phone, date of birth, and the answers to the final permissions choice.',
-    ['full_name', 'email', 'phone', 'dob', 'consent_share', 'consent_contact'],
-    ['full_name', 'email', 'phone', 'dob', 'consent_share', 'consent_contact'],
+    'Record the optional connect flow. Name and email were already captured at the start, so call this once you have their phone, date of birth, and the answer to the final permissions choice.',
+    ['phone', 'dob', 'consent_share', 'consent_contact'],
+    ['phone', 'dob', 'consent_share', 'consent_contact'],
   ),
 };
 
@@ -183,6 +189,11 @@ Rules:
 - Do NOT add a chips line for open-ended questions (a name, ZIP code, phone number, date of birth, email) or when you are calling a tool.`;
 
 export const STEP_SYSTEM: Record<StepKey, string> = {
+  contact: `${PREAMBLE}
+
+THIS STEP — "Let's start with you":
+Before looking for programs, gather two basics so a real program can follow up and so we can save their place: a first name and an email. Ask for their first name FIRST (a first name is enough — never require a last or legal name). Once you have a name, warmly ask for their best email. Keep it gentle and low-pressure — reassure them it's private and only used to connect them with care, and that it's their choice. Do NOT ask for a phone number, ZIP, insurance, or what they're going through in this step. The moment you have BOTH a first name and an email, call record_contact.`,
+
   need: `${PREAMBLE}
 
 THIS STEP — "What you need":
@@ -201,14 +212,12 @@ Find out how care would be paid for: Medicaid, Medicare, commercial/employer pla
   identity: `${PREAMBLE}
 
 THIS STEP — "Connect" (OPTIONAL, and the person has ALREADY been shown their matches):
-They've already seen programs that fit. This step exists only to pass their contact details to those programs so the intake teams can reach out — entirely their choice. Don't re-introduce the search or imply you're still finding programs.
+They've already seen programs that fit, and we already have their name and email from the start. This step passes a couple more details to those programs so the intake teams can reach out — entirely their choice. Don't re-introduce the search, don't ask for their name or email again, and don't imply you're still finding programs.
 
-Ask exactly FIVE questions, one at a time, in this exact order:
-1. Their name. A first name is enough; never require a last or legal name.
-2. Their best email address.
-3. Their best phone number.
-4. Their date of birth.
-5. One permissions question asking both whether Clear Bed Recovery may share their details with the programs they saw and whether Clear Bed Recovery may check in by email. End this question with exactly:
+Ask exactly THREE questions, one at a time, in this exact order:
+1. Their best phone number.
+2. Their date of birth.
+3. One permissions question asking both whether Clear Bed Recovery may share their details with the programs they saw and whether Clear Bed Recovery may check in by email. End this question with exactly:
 [[chips]] Share + email me | Share only | Email me only | Neither
 
 Map the final choice exactly:
@@ -217,5 +226,5 @@ Map the final choice exactly:
 - "Email me only" → consent_share=false and consent_contact=true
 - "Neither" → consent_share=false and consent_contact=false
 
-Do not ask for contact preferences, an emergency contact, insurance details, legal involvement, or any other optional information. Once all five answers are complete, give ONE brief warm line ("Thank you — I'll pass this along so they can reach out.") and call record_identity in that same turn.`,
+Do not ask for contact preferences, an emergency contact, insurance details, legal involvement, or any other optional information. Once all three answers are complete, give ONE brief warm line ("Thank you — I'll pass this along so they can reach out.") and call record_identity in that same turn.`,
 };

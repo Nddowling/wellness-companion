@@ -28,9 +28,17 @@ type MatchedFacility = {
 // the step's fields and advances. Keys match STEP_ORDER in lib/intake/prompt.
 const STEPS = [
   {
+    key: 'contact',
+    label: 'Start with you',
+    opener: "Hey — I'm really glad you reached out. Before we look at programs, what's your first name?",
+    encouragement: 'This stays private. It just lets a real program follow up, and it saves your place so nothing gets lost.',
+    chips: [],
+    placeholder: 'First name',
+  },
+  {
     key: 'need',
     label: 'What you need',
-    opener: "Hey — glad you're here. What kind of support are you looking for?",
+    opener: 'What kind of support are you looking for?',
     encouragement: "You don't have to have it all figured out. One step at a time is exactly the right pace.",
     chips: ['Outpatient', 'Residential', 'Detox', 'Not sure'],
     placeholder: 'Outpatient, residential, detox…',
@@ -54,10 +62,10 @@ const STEPS = [
   {
     key: 'identity',
     label: 'Connect (optional)',
-    opener: 'Great — what name should we use? Your first name is enough.',
-    encouragement: "Your details stay private and are only used to connect you with care you choose.",
+    opener: 'Great — what’s the best phone number to reach you?',
+    encouragement: 'Your details stay private and are only used to connect you with care you choose.',
     chips: [],
-    placeholder: 'First name is enough',
+    placeholder: 'Phone number',
   },
 ] as const;
 
@@ -144,6 +152,9 @@ export default function MatchPage() {
   // Server-side conversation row id (created on first save). Kept in a ref so the
   // debounced autosave always targets the same row without re-render churn.
   const conversationIdRef = useRef<string | null>(null);
+  // The early lead row (name+email) captured at the start — threaded into the hand-off
+  // so it updates that same vault row instead of creating a duplicate.
+  const contactIdRef = useRef<string | null>(null);
   const savingRef = useRef(false);
   const dirtyRef = useRef(false);
   // Latest snapshot for autosave — refs avoid stale closures inside async saves.
@@ -211,7 +222,7 @@ export default function MatchPage() {
       setShared(!!s.shared);
       setAccountCreated(!!s.accountCreated);
       setSeekerName(s.seekerName);
-      setStepIdx(3);
+      setStepIdx(4);
       setPhase('results');
       setAcknowledged(true);
     } catch {
@@ -287,8 +298,8 @@ export default function MatchPage() {
   }, [messages, matches, matchId, shared, acknowledged, loggedIn]);
 
   // Phase 1 is just the first 3 steps (need, location, coverage) — they produce
-  // matches. Identity (STEPS[3]) is the optional "connect" phase, after results.
-  const MATCH_STEPS = 3;
+  // matches. Identity (STEPS[4]) is the optional "connect" phase, after results.
+  const MATCH_STEPS = 4;
   const step = STEPS[stepIdx];
 
   // A step can ask more than one question (e.g. "need" asks level, then concern), so
@@ -303,8 +314,8 @@ export default function MatchPage() {
       ? 100
       : Math.max(6, Math.min(96, Math.round(((stepIdx + withinStep) / MATCH_STEPS) * 100)));
   const connectAnswers = phase === 'connect' ? messages.filter((m) => m.role === 'user').length : 0;
-  const connectQuestionNumber = Math.min(connectAnswers + 1, 5);
-  const connectProgressPct = (connectQuestionNumber / 5) * 100;
+  const connectQuestionNumber = Math.min(connectAnswers + 1, 3);
+  const connectProgressPct = (connectQuestionNumber / 3) * 100;
 
   // Chips track the question actually on screen: the model's own suggestions for a
   // follow-up if it offered any, otherwise the step opener's curated chips, else none.
@@ -322,6 +333,22 @@ export default function MatchPage() {
   // would mislead, so fall back to a neutral hint until the next step opens.
   const composerHint =
     lastAssistant && lastAssistant.content !== step.opener ? 'Type your answer…' : step.placeholder;
+
+  // Persist the lead (name + email) the moment the first step completes, so the contact
+  // is saved even if they don't finish. Best-effort — never blocks the conversation.
+  async function captureContact(sheet: Record<string, unknown>) {
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name: sheet.full_name, email: sheet.email }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (d.contact_id) contactIdRef.current = d.contact_id as string;
+    } catch {
+      /* best-effort lead capture */
+    }
+  }
 
   // PHASE 1 → results. Match on the de-identified subset only (no identity yet) and
   // show real programs immediately. The handoff (sharing personal details) is a
@@ -373,6 +400,7 @@ export default function MatchPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           match_id: matchId,
+          contact_id: contactIdRef.current ?? undefined,
           facility_ids: matches.map((f) => f.id),
           face_sheet: identitySheet,
           consents: {
@@ -404,9 +432,9 @@ export default function MatchPage() {
 
   // Enter the optional connect (identity + consent) conversation from the results.
   function startConnect() {
-    setStepIdx(3);
+    setStepIdx(4);
     setError(null);
-    setMessages([{ role: 'assistant', content: STEPS[3].opener }]);
+    setMessages([{ role: 'assistant', content: STEPS[4].opener }]);
     setPhase('connect');
   }
 
@@ -519,6 +547,7 @@ export default function MatchPage() {
     if (stepData) {
       const merged = { ...faceSheet, ...stepData };
       setFaceSheet(merged);
+      if (step.key === 'contact') void captureContact(merged);
       if (phase === 'connect') {
         // Identity + consent gathered → share with the matched programs.
         await runHandoff(merged);
@@ -635,9 +664,9 @@ export default function MatchPage() {
         <ol className="space-y-1">
           {STEPS.map((s, i) => {
             const done =
-              i < stepIdx || (phase === 'results' && i < MATCH_STEPS) || (i === 3 && shared);
+              i < stepIdx || (phase === 'results' && i < MATCH_STEPS) || (i === 4 && shared);
             const current =
-              (phase === 'intake' && i === stepIdx) || (phase === 'connect' && i === 3);
+              (phase === 'intake' && i === stepIdx) || (phase === 'connect' && i === 4);
             return (
               <li key={s.key} className="flex items-center gap-3 border-t border-white/10 py-3 first:border-t-0">
                 <span
@@ -716,9 +745,10 @@ export default function MatchPage() {
             </div>
           </div>
           <p className="mt-2 hidden text-sm text-slate-600 sm:block">
-            No account needed to start. Answer three quick questions and we&apos;ll show you real programs near you
-            right away — matched to your coverage and what you&apos;re looking for. Share your details only if you want
-            them to reach out. We connect you to treatment facilities; we don&apos;t provide treatment ourselves.
+            We start with your name and email so a program can follow up, then a few quick questions — and we&apos;ll show
+            you real programs near you right away, matched to your coverage and what you&apos;re looking for. You choose
+            whether to share more for them to reach out. We connect you to treatment facilities; we don&apos;t provide
+            treatment ourselves.
           </p>
 
           {/* Progress — only the 3 de-identified questions before results */}
@@ -741,7 +771,7 @@ export default function MatchPage() {
           {phase === 'connect' && (
             <div className="mt-1 rounded-xl border border-teal-100 bg-teal-50 px-3 py-2.5 sm:mt-5">
               <div className="flex items-center justify-between gap-3 text-xs font-semibold text-teal-800">
-                <span>Question {connectQuestionNumber} of 5</span>
+                <span>Question {connectQuestionNumber} of 3</span>
                 <button onClick={() => setPhase('results')} className="shrink-0 underline hover:text-teal-900">
                   ← Back to matches
                 </button>

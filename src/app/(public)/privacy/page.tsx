@@ -162,7 +162,7 @@ export default function PrivacyPage() {
 
       <Section n={6} title="Your choices and rights">
         <ul className="ml-5 list-disc space-y-1">
-          <li><strong>Browse anonymously</strong> — see matches without an account or your name;</li>
+          <li><strong>Browse anonymously</strong> — explore the directory with no account or name; the guided match asks your name and email so a program can follow up;</li>
           <li><strong>Withdraw consent</strong> to share your details, or decline it in the first place;</li>
           <li><strong>Access, correct, or delete</strong> the personal information we hold about you;</li>
           <li><strong>Unsubscribe</strong> from optional emails at any time.</li>

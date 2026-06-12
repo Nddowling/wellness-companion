@@ -33,6 +33,7 @@ type FaceSheet = Record<string, unknown>;
 type ChatMsg = { role: 'user' | 'assistant'; content: string };
 type Body = {
   match_id?: string;
+  contact_id?: string; // the early lead captured at the start of the conversation
   facility_ids?: string[];
   face_sheet?: FaceSheet;
   consents?: { email?: boolean; share?: boolean };
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
 
   const seekerId = await createSeekerWithInterest({
     matchId,
+    contactId: typeof body.contact_id === 'string' ? body.contact_id : null,
     identity,
     coverageStatus: match?.coverage_status ?? null,
     consents,
