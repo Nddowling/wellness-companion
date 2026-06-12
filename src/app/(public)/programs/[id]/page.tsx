@@ -21,7 +21,7 @@ import {
 } from '@/lib/constants';
 import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from '@/lib/seo';
 import { stateSlug, stateName, slugify } from '@/lib/geo';
-import { addReview } from '../actions';
+import { ReviewForm } from './ReviewForm';
 
 export async function generateMetadata({
   params,
@@ -334,7 +334,9 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             <div className="absolute inset-0 bg-gradient-to-br from-ink/70 to-brand/50" />
             <div className="relative text-center text-white">
               <div className="text-4xl font-semibold">{f.name.charAt(0)}</div>
-              <div className="mt-1 text-xs opacity-90">Photos coming soon</div>
+              {[f.city, f.state].filter(Boolean).length > 0 && (
+                <div className="mt-1 text-xs opacity-90">{[f.city, f.state].filter(Boolean).join(', ')}</div>
+              )}
             </div>
           </div>
         )}
@@ -562,38 +564,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
           ))}
         </div>
 
-        <form action={addReview} className="mt-4 space-y-2 border-t border-slate-100 pt-4">
-          <h3 className="text-sm font-medium text-slate-700">Share your experience</h3>
-          <input type="hidden" name="facility_id" value={f.id} />
-          <div className="flex gap-2">
-            <input
-              name="author_name"
-              placeholder="Name or initials (optional)"
-              className="flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
-            />
-            <select name="rating" defaultValue="" className="rounded border border-slate-300 px-2 py-2 text-sm text-slate-600">
-              <option value="">Rating</option>
-              <option value="5">★★★★★</option>
-              <option value="4">★★★★</option>
-              <option value="3">★★★</option>
-              <option value="2">★★</option>
-              <option value="1">★</option>
-            </select>
-          </div>
-          <textarea
-            name="body"
-            required
-            rows={3}
-            placeholder="What was your experience like? What should others know?"
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm"
-          />
-          <button type="submit" className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">
-            Post comment
-          </button>
-          <p className="text-xs text-slate-400">
-            Please be respectful and don&apos;t include anyone&apos;s private health details.
-          </p>
-        </form>
+        <ReviewForm facilityId={f.id} />
       </section>
 
       {f.state && (

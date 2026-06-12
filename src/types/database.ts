@@ -1,7 +1,7 @@
 /**
  * Project A ("Core") database types — GENERATED, do not hand-edit.
  *
- * Source: Supabase project `uxykrvungmfzmpzrvebh` (Wellness Companion).
+ * Source: Supabase project `uxykrvungmfzmpzrvebh` (Clear Bed Recovery).
  * Includes the de-identified Core tables AND the locked-down vault_* PHI tables
  * (RLS deny-all → reachable only via the service-role client in vault.ts).
  * Regenerate after every migration:

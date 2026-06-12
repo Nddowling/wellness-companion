@@ -449,10 +449,16 @@ export default async function FacilityManage({
       {/* Hero */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
         {images.length > 0 ? (
-          <div className="grid grid-cols-3 gap-1">
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
             {images.slice(0, 3).map((src, i) => (
+              // On phones show one full-width hero; the 3-up row kicks in at sm+.
               // eslint-disable-next-line @next/next/no-img-element
-              <img key={i} src={src} alt={facility.name} className="h-40 w-full object-cover" />
+              <img
+                key={i}
+                src={src}
+                alt={facility.name}
+                className={'w-full object-cover h-48 sm:h-40 ' + (i > 0 ? 'hidden sm:block' : '')}
+              />
             ))}
           </div>
         ) : (
