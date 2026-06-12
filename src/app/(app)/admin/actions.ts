@@ -203,6 +203,30 @@ export async function adminUpdateFacility(formData: FormData) {
   revalidatePath(`/programs/${facilityId}`);
 }
 
+const PLANS = ['free', 'starter', 'growth', 'anchor'] as const;
+const PLAN_STATUSES = ['active', 'lifetime', 'canceled'] as const;
+
+/**
+ * Manually set a facility's subscription tier + status. Every feature gate reads
+ * facilities.plan, so this grants/revokes access immediately. It does NOT bill —
+ * it's for comped or offline-paid accounts; self-serve billed upgrades go through
+ * Stripe checkout. `lifetime` is honored by the webhook (never auto-downgraded).
+ */
+export async function adminSetPlan(formData: FormData) {
+  await requireAdmin();
+  const supabase = await createClient();
+  const facilityId = String(formData.get('facility_id'));
+  const plan = String(formData.get('plan'));
+  const planStatus = String(formData.get('plan_status') || 'active');
+  if (!PLANS.includes(plan as (typeof PLANS)[number])) throw new Error('Invalid plan');
+  if (!PLAN_STATUSES.includes(planStatus as (typeof PLAN_STATUSES)[number])) throw new Error('Invalid plan status');
+
+  await supabase.from('facilities').update({ plan, plan_status: planStatus }).eq('id', facilityId);
+  revalidatePath(`/admin/facilities/${facilityId}`);
+  revalidatePath('/admin/facilities');
+  revalidatePath(`/programs/${facilityId}`); // unlock/lock the public profile at once
+}
+
 // ── facility members + claims ─────────────────────────────────────────────────
 /** Add a person as a facility member by email; create their login if new + email it. */
 export async function addFacilityMember(formData: FormData) {

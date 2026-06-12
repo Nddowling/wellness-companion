@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase/server';
 import { freshnessTone, LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
+import { normalizePlan, PLAN_LABEL, type Plan } from '@/lib/facility/plan';
 import { togglePublish } from '../actions';
 
 const TONE_STYLES = {
@@ -9,6 +10,13 @@ const TONE_STYLES = {
   amber: 'bg-amber-100 text-amber-800',
   red: 'bg-red-100 text-red-800',
 } as const;
+
+const PLAN_BADGE: Record<Plan, string> = {
+  free: 'bg-slate-100 text-slate-500',
+  starter: 'bg-teal-100 text-teal-800',
+  growth: 'bg-indigo-100 text-indigo-800',
+  anchor: 'bg-amber-100 text-amber-800',
+};
 
 type CapacityRow = { level_of_care: string; beds_available: number; last_updated: string };
 type FacilityRow = {
@@ -18,6 +26,7 @@ type FacilityRow = {
   state: string | null;
   operator_type: string | null;
   priority_tier: string | null;
+  plan: string | null;
   is_published: boolean;
   verified_at: string | null;
   facility_capacity: CapacityRow[];
@@ -33,7 +42,7 @@ export default async function AdminFacilities() {
   const { data, error } = await supabase
     .from('facilities')
     .select(
-      'id, name, city, state, operator_type, priority_tier, is_published, verified_at, facility_capacity(level_of_care, beds_available, last_updated)'
+      'id, name, city, state, operator_type, priority_tier, plan, is_published, verified_at, facility_capacity(level_of_care, beds_available, last_updated)'
     )
     .order('is_published', { ascending: false })
     .order('name');
@@ -76,13 +85,11 @@ export default async function AdminFacilities() {
               }
             >
               <Link href={`/admin/facilities/${f.id}`} className="min-w-0 flex-1 pr-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-slate-800">{f.name}</span>
-                  {f.priority_tier && (
-                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
-                      {f.priority_tier}
-                    </span>
-                  )}
+                  <span className={'rounded px-1.5 py-0.5 text-xs font-medium ' + PLAN_BADGE[normalizePlan(f.plan)]}>
+                    {PLAN_LABEL[normalizePlan(f.plan)]}
+                  </span>
                   {f.verified_at && (
                     <span className="rounded bg-teal-50 px-1.5 py-0.5 text-xs text-teal-700">verified</span>
                   )}

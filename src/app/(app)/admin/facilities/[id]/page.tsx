@@ -3,8 +3,10 @@ import { notFound } from 'next/navigation';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_TYPES, PAYER_LABELS } from '@/lib/constants';
+import { normalizePlan, PLAN_LABEL, type Plan } from '@/lib/facility/plan';
 import {
   adminUpdateFacility,
+  adminSetPlan,
   updateCapacity,
   togglePublish,
   verifyFacility,
@@ -17,6 +19,12 @@ type Cap = { level_of_care: string; beds_available: number; last_updated: string
 type Member = { id: string; user_id: string; role: string };
 
 const field = 'rounded border border-slate-300 px-3 py-2 text-sm';
+const PLAN_BADGE: Record<Plan, string> = {
+  free: 'bg-slate-100 text-slate-600',
+  starter: 'bg-teal-100 text-teal-800',
+  growth: 'bg-indigo-100 text-indigo-800',
+  anchor: 'bg-amber-100 text-amber-800',
+};
 
 export default async function AdminFacilityEdit({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -39,6 +47,8 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
   const facLevels = (f.levels_of_care ?? []) as string[];
   const facPayers = ((f.facility_payers ?? []) as { payer_type: string }[]).map((p) => p.payer_type);
   const contact = (f.referral_contact ?? {}) as { name?: string; email?: string; phone?: string };
+  const currentPlan = normalizePlan(f.plan);
+  const currentStatus = (f.plan_status as string | null) ?? 'active';
 
   return (
     <div className="space-y-8">
@@ -68,6 +78,49 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
           </form>
         </div>
       </div>
+
+      {/* Plan & access — manual tier control (grants access immediately) */}
+      <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-slate-700">Plan &amp; access</h2>
+          <span className="flex items-center gap-2 text-xs">
+            <span className={'rounded-full px-2 py-0.5 font-medium ' + PLAN_BADGE[currentPlan]}>
+              {PLAN_LABEL[currentPlan]}
+            </span>
+            <span className="text-slate-400">{currentStatus}</span>
+          </span>
+        </div>
+        <form action={adminSetPlan} className="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="facility_id" value={id} />
+          <label className="text-xs text-slate-500">
+            Tier
+            <select name="plan" defaultValue={currentPlan} className={`${field} mt-1 block w-full`}>
+              <option value="free">Free</option>
+              <option value="starter">Starter — $499/mo</option>
+              <option value="growth">Growth — $999/mo</option>
+              <option value="anchor">Anchor — $1,999/mo</option>
+            </select>
+          </label>
+          <label className="text-xs text-slate-500">
+            Status
+            <select name="plan_status" defaultValue={currentStatus} className={`${field} mt-1 block w-full`}>
+              <option value="active">Active</option>
+              <option value="lifetime">Lifetime (comp — never auto-downgrades)</option>
+              <option value="canceled">Canceled</option>
+            </select>
+          </label>
+          <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Apply</button>
+        </form>
+        <p className="text-xs text-slate-500">
+          <strong>Starter</strong> unlocks photos, description, website, the call-intake button &amp; review replies ·{' '}
+          <strong>Growth</strong> adds analytics, in-app seeker contacts, video &amp; featured placement ·{' '}
+          <strong>Anchor</strong> adds full analytics, API bed board &amp; multi-location.
+        </p>
+        <p className="text-xs text-amber-700">
+          Grants access immediately — does <strong>not</strong> bill. Use for comped or offline-paid accounts;
+          self-serve billed upgrades go through Stripe checkout.
+        </p>
+      </section>
 
       {/* Profile editor */}
       <form action={adminUpdateFacility} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
