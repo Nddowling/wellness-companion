@@ -26,6 +26,10 @@ type MatchedFacility = {
 // The four guided steps. Each is AI-backed: a tap or free text is sent to
 // /api/intake for that step, which either asks one gentle follow-up or records
 // the step's fields and advances. Keys match STEP_ORDER in lib/intake/prompt.
+// Bump when the acknowledgment-gate / Terms consent text changes — anyone who
+// accepted an older version is re-prompted so they see (and agree to) the current one.
+const TERMS_VERSION = '2026-06-12';
+
 const STEPS = [
   {
     key: 'contact',
@@ -187,7 +191,9 @@ export default function MatchPage() {
       setLoggedIn(!!data.user);
       const accepted = (data.user?.user_metadata as { terms_accepted_at?: string } | undefined)
         ?.terms_accepted_at;
-      if (accepted) setAcknowledged(true);
+      // Only skip the gate if they accepted the CURRENT terms — a prior acceptance
+      // from before the consent changed re-prompts (ISO timestamps compare lexically).
+      if (accepted && accepted >= TERMS_VERSION) setAcknowledged(true);
     });
     return () => {
       active = false;

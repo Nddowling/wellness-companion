@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'June 7, 2026';
+const LAST_UPDATED = 'June 12, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
