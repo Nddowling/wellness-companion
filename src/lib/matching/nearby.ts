@@ -34,15 +34,18 @@ export type LocationInput = { zip?: string; city?: string; state?: string };
 
 // zip_centroids isn't in the generated Database types — narrow cast for its reads.
 function zipCentroidQuery(admin: ReturnType<typeof createAdminClient>) {
-  return (
-    admin.from as unknown as (t: string) => {
+  // Cast the CLIENT (not the extracted method) so `from` keeps its receiver —
+  // extracting admin.from and calling it loses `this` and crashes on this.rest.
+  const client = admin as unknown as {
+    from: (t: string) => {
       select: (cols: string) => {
         eq: (col: string, val: string) => {
           maybeSingle: () => Promise<{ data: { lat: number; lng: number } | null }>;
         };
       };
-    }
-  )('zip_centroids');
+    };
+  };
+  return client.from('zip_centroids');
 }
 
 /** Geocode "City, ST" → coordinates via Google (server-side key, unrestricted). */
@@ -102,12 +105,11 @@ async function facilitiesNearPoint(
   limit: number
 ): Promise<NearbyFacility[]> {
   const admin = createAdminClient();
-  // The RPC isn't in the generated types — call it through a narrow cast.
-  const rpc = admin.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>
-  ) => Promise<{ data: NearbyFacility[] | null }>;
-  const { data } = await rpc('facilities_near_point', {
+  // Cast the client (receiver intact); the RPC isn't in the generated types.
+  const client = admin as unknown as {
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: NearbyFacility[] | null }>;
+  };
+  const { data } = await client.rpc('facilities_near_point', {
     p_lat: origin.lat,
     p_lng: origin.lng,
     p_radius_mi: radiusMi,
