@@ -355,6 +355,26 @@ export async function rejectClaim(formData: FormData) {
   revalidatePath('/admin/claims');
 }
 
+// ── review moderation ─────────────────────────────────────────────────────────
+/** Approve a pending public review → it becomes visible on the facility profile. */
+export async function approveReview(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const id = String(formData.get('review_id'));
+  const facilityId = String(formData.get('facility_id') || '');
+  await admin.from('facility_reviews').update({ status: 'approved' }).eq('id', id);
+  revalidatePath('/admin/reviews');
+  if (facilityId) revalidatePath(`/programs/${facilityId}`);
+}
+
+/** Reject a pending review → it never appears publicly. */
+export async function rejectReview(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminClient();
+  await admin.from('facility_reviews').update({ status: 'rejected' }).eq('id', String(formData.get('review_id')));
+  revalidatePath('/admin/reviews');
+}
+
 // ── seekers (PHI vault — service role) ─────────────────────────────────────────
 export async function adminCreateSeeker(formData: FormData) {
   await requireAdmin();

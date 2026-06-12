@@ -8,8 +8,9 @@ export type ReviewResult = { ok: boolean; error?: string } | null;
 
 // Public review submission. Seekers have no account, so this runs server-side with
 // the service-role client. Reviews are public content (not PHI). Stored as
-// 'approved' for now so they appear immediately — add moderation before launch.
-// useActionState signature so the form can show pending + success feedback.
+// 'pending' — a Global Admin approves them in /admin/reviews before they go public
+// (moderation guard for this YMYL site). useActionState signature so the form can
+// show pending + success feedback.
 export async function addReview(_prev: ReviewResult, formData: FormData): Promise<ReviewResult> {
   const facilityId = String(formData.get('facility_id') || '');
   const body = String(formData.get('body') || '').trim().slice(0, 4000);
@@ -25,10 +26,9 @@ export async function addReview(_prev: ReviewResult, formData: FormData): Promis
     author_name: author || null,
     rating,
     body,
-    status: 'approved',
+    status: 'pending',
   });
   if (error) return { ok: false, error: 'Sorry — that didn’t post. Please try again.' };
 
-  revalidatePath(`/programs/${facilityId}`);
   return { ok: true };
 }

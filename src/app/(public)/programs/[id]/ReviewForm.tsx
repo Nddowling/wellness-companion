@@ -46,7 +46,9 @@ export function ReviewForm({ facilityId }: { facilityId: string }) {
       >
         {pending ? 'Posting…' : 'Post comment'}
       </button>
-      {state?.ok && <p className="text-xs font-medium text-emerald-700">Thanks — your comment is posted.</p>}
+      {state?.ok && (
+        <p className="text-xs font-medium text-emerald-700">Thanks — your comment will appear after a quick review.</p>
+      )}
       {state && !state.ok && <p className="text-xs text-red-600">{state.error}</p>}
       <p className="text-xs text-slate-400">
         Please be respectful and don&apos;t include anyone&apos;s private health details.
