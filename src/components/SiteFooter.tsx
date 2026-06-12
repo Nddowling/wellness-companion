@@ -20,6 +20,7 @@ export default function SiteFooter() {
               <li><Link href="/treatment" className="hover:text-teal-700 hover:underline">Treatment by state</Link></li>
               <li><Link href="/insurance" className="hover:text-teal-700 hover:underline">Treatment by insurance</Link></li>
               <li><Link href="/guides" className="hover:text-teal-700 hover:underline">Guides &amp; resources</Link></li>
+              <li><Link href="/resources" className="hover:text-teal-700 hover:underline">Recovery books &amp; tools</Link></li>
             </ul>
           </nav>
 
@@ -41,6 +42,7 @@ export default function SiteFooter() {
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               <li><Link href="/about" className="hover:text-teal-700 hover:underline">About &amp; how we vet</Link></li>
               <li><Link href="/how-we-make-money" className="hover:text-teal-700 hover:underline">How we make money</Link></li>
+              <li><Link href="/data" className="hover:text-teal-700 hover:underline">Treatment access data</Link></li>
               <li><a href="mailto:nick.dowling@clearbedrecovery.com" className="hover:text-teal-700 hover:underline">Contact us</a></li>
               <li><Link href="/terms" className="hover:text-teal-700 hover:underline">Terms of Service</Link></li>
               <li><Link href="/privacy" className="hover:text-teal-700 hover:underline">Privacy Policy</Link></li>
