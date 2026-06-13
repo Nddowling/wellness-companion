@@ -37,6 +37,17 @@ export function codeFromStateSlug(slug: string): string | null {
   return null;
 }
 
+/** "Georgia", "georgia", or "GA" → "GA" (null if not a known state). */
+export function toStateCode(input?: string | null): string | null {
+  const value = input?.trim();
+  if (!value) return null;
+
+  const code = value.toUpperCase();
+  if (US_STATES[code]) return code;
+
+  return codeFromStateSlug(slugify(value));
+}
+
 export function stateName(code: string): string {
   return US_STATES[code.toUpperCase()] ?? code;
 }

@@ -1,0 +1,24 @@
+ClearBedRecovery SAMHSA Import Steps
+
+This package includes:
+- clearbed_import_samhsa_excel.mjs
+- run_clearbed_import.sh
+- clearbed_recovery_samhsa_2025_enriched.xlsx
+- verify_clearbed_import.sql
+
+Run from Terminal:
+
+cd /Users/nicholasdowling/Projects/wellness-companion
+unzip -o ~/Downloads/clearbed_import_READY_TO_RUN.zip -d .
+chmod +x ./run_clearbed_import.sh
+./run_clearbed_import.sh
+
+When prompted, paste the ClearBed Supabase service_role key.
+The script already uses:
+SUPABASE_URL=https://uxykrvungmfzmpzrvebh.supabase.co
+
+Important:
+- Do not use the publishable key.
+- Do not use the anon key.
+- Use service_role only.
+- Since the key was pasted into chat/notes, rotate the service_role key in Supabase after this import.

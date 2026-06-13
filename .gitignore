@@ -40,3 +40,24 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+.env.clearbed
+_cbr_enrich.mjs
+clearbed_enrichment_cache.json
+
+# Clearbed data tooling (local only)
+.env.clearbed
+clearbed_enrich_websites_and_payers.mjs
+clearbed_import_samhsa_excel*
+clearbed_recovery_samhsa_2025_enriched.xlsx
+run_clearbed_enrichment.sh
+setup_enrichment_schema.sql
+verify_enrichment_progress.sql
+README_CLEARBED_ENRICHMENT.md
+clearbed_gitignore_addition.txt
+clearbed_enrichment_cache.json
+enrich_websites.mjs
+lead_finder.mjs
+leads*.csv
+leads*.xlsx
+scripts/.invite-sent.json
+docs/marketing/mined-hooks.*

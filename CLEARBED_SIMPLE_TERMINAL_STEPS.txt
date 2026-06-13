@@ -1,0 +1,16 @@
+ClearBedRecovery Simple Import
+
+Download clearbed_import_SIMPLE_READY.zip, then in Terminal run:
+
+cd /Users/nicholasdowling/Projects/wellness-companion
+unzip -o ~/Downloads/clearbed_import_SIMPLE_READY.zip -d .
+chmod +x ./run_clearbed_import.sh
+./run_clearbed_import.sh
+
+When prompted, paste the ClearBed Supabase service_role key.
+
+The package hardcodes the safe values:
+- NEXT_PUBLIC_SUPABASE_URL / SUPABASE_URL
+- NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+The package does NOT hardcode the service_role key because that key can bypass RLS and should not be stored in source files.

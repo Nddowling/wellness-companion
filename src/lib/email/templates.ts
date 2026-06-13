@@ -179,6 +179,70 @@ function facilityBlockText(f: FacilitySummary): string {
   return `• ${f.name} — ${loc} (${levels}); ${f.beds} beds; reach intake: ${contact}`;
 }
 
+// 0) Facility claim invite — cold outreach to a listed-but-unclaimed program.
+// Founder-voice: we already listed them free; claiming unlocks free performance
+// updates; it stays free (optional paid profile upgrades are revealed on-site).
+// CAN-SPAM: pass a real mailing address + working unsubscribe URL.
+export function facilityClaimInviteEmail(p: {
+  facilityName: string;
+  city?: string | null;
+  state?: string | null;
+  listingUrl: string;
+  firstName?: string | null;
+  fromName: string;
+  unsubscribeUrl: string;
+  mailingAddress: string;
+  short?: boolean;
+}): { subject: string; html: string; text: string } {
+  const loc = [p.city, p.state].filter(Boolean).join(', ');
+  const where = loc ? ` in ${loc}` : '';
+  const hi = p.firstName ? `Hi ${p.firstName},` : `Hi,`;
+  const subject = p.short
+    ? `I built ${p.facilityName} a free page — come claim it`
+    : `${p.facilityName} is already listed on Clear Bed Recovery — it's yours, free`;
+
+  const canSpam = `<div style="margin-top:22px;border-top:1px solid ${BRAND.line};padding-top:12px;font-size:11px;color:${BRAND.muted};line-height:1.5">
+    You're receiving this once because ${esc(p.facilityName)} appears in our public treatment directory.
+    <a href="${esc(p.unsubscribeUrl)}" style="color:${BRAND.muted};text-decoration:underline">Unsubscribe / don't contact me</a> · ${esc(p.mailingAddress)}
+  </div>`;
+
+  const cta = `<div style="margin:20px 0">${button(p.listingUrl, 'View & claim your free listing →')}</div>`;
+
+  const innerFull = `
+    <p>${esc(hi)}</p>
+    <p>I'll be straight with you, because you deserve that: I'm a person in long-term recovery, and I'm also a software developer. <strong>Clear Bed Recovery is what I built to give back</strong> to the people still sick and suffering — so the next person searching at 2&nbsp;a.m. finds hope, and finds <em>you</em>.</p>
+    <p>We're a free directory that connects people looking for treatment to real programs near them — matched by level of care, insurance, and location. We're a <strong>connector, not a provider</strong>, and the person seeking help <strong>never pays a cent</strong>.</p>
+    <p>Here's why I'm writing: <strong>I've already listed ${esc(p.facilityName)}${esc(where)} — completely free.</strong> Your page is live right now.</p>
+    ${cta}
+    <p>If you take two minutes to <strong>claim and verify your listing</strong>, I'll start sending you <strong>free monthly updates on how it's performing</strong> — how many people viewed your program, searched your area, and clicked through. Those updates only start once you've claimed it, so it's worth doing today.</p>
+    <p>After that, it stays <strong>100% free.</strong> No card, no contract, no catch — just me trying to do one good thing with the skill I have.</p>
+    <p style="margin-top:16px">In your corner,<br/><strong>${esc(p.fromName)}</strong><br/>Founder, Clear Bed Recovery</p>
+    ${canSpam}`;
+
+  const innerShort = `
+    <p>${esc(hi)}</p>
+    <p>I'm in recovery and a developer — I built <strong>Clear Bed Recovery</strong>, a free directory that connects people to treatment near them, to give back. We're a connector, not a provider, and people seeking help never pay.</p>
+    <p><strong>I've already listed ${esc(p.facilityName)}${esc(where)}, free.</strong> Claim it (2 min) and I'll send you <strong>free monthly updates</strong> on how your listing performs. It stays 100% free — no catch.</p>
+    ${cta}
+    <p style="margin-top:8px">In your corner,<br/><strong>${esc(p.fromName)}</strong> · Founder, Clear Bed Recovery</p>
+    ${canSpam}`;
+
+  const businessFooter = `${p.fromName}, Founder · Clear Bed Recovery — a connector, not a treatment provider.`;
+  const html = wrap(
+    p.short ? `${p.facilityName} — your free listing is live` : `${p.facilityName} is already on Clear Bed Recovery`,
+    p.short ? innerShort : innerFull,
+    businessFooter
+  );
+
+  const text = (
+    p.short
+      ? `${hi}\n\nI'm in recovery and a developer — I built Clear Bed Recovery, a free directory that connects people to treatment near them. We're a connector, not a provider, and people seeking help never pay.\n\nI've already listed ${p.facilityName}${where}, free. Claim it (2 min) and I'll send you free monthly updates on how your listing performs. It stays 100% free — no catch.\n\nView & claim: ${p.listingUrl}\n\nIn your corner,\n${p.fromName} · Founder, Clear Bed Recovery`
+      : `${hi}\n\nI'll be straight with you: I'm a person in long-term recovery, and a software developer. Clear Bed Recovery is what I built to give back — a free directory that connects people looking for treatment to real programs near them, matched by level of care, insurance, and location. We're a connector, not a provider, and the person seeking help never pays a cent.\n\nI've already listed ${p.facilityName}${where} — completely free. Your page is live right now:\n${p.listingUrl}\n\nClaim and verify your listing (2 minutes) and I'll send you free monthly updates on how it's performing — views, searches in your area, and click-throughs. Those only start once you've claimed it. After that it stays 100% free. No card, no contract, no catch.\n\nIn your corner,\n${p.fromName}\nFounder, Clear Bed Recovery`
+  ) + `\n\n—\nYou're receiving this once because ${p.facilityName} appears in our public directory. Unsubscribe: ${p.unsubscribeUrl} · ${p.mailingAddress}`;
+
+  return { subject, html, text };
+}
+
 // 1) Welcome — sent when a seeker shares contact info + consents to email.
 export function welcomeEmail(name?: string): { subject: string; html: string; text: string } {
   const hi = name ? `Hi ${name},` : 'Hi,';
