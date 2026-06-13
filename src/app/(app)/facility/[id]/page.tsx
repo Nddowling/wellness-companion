@@ -15,6 +15,7 @@ import {
 import { updateCapacity, setLeadStatus, updateContact, updateProfile, uploadPhoto, removePhoto, uploadVideo, removeVideo } from '../actions';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { ShareProfile } from '@/components/ShareProfile';
+import { FreeProfileUpgradePreview } from '@/components/FreeProfileUpgradePreview';
 import { absoluteUrl } from '@/lib/seo';
 import { normalizePlan, PLAN_LABEL, planAllows } from '@/lib/facility/plan';
 
@@ -162,7 +163,7 @@ export default async function FacilityManage({
           <UpgradePrompt
             variant="banner"
             title="You're on the Free plan"
-            body="Free listings show only your name, location, and phone. Upgrade to add photos, your website, a full description, and the live bed board."
+            body="Your public listing shows basic facility and contact details. Upgrade to add photos, your website, a full description, reviews, and more."
             cta="See plans →"
           />
         )}
@@ -403,8 +404,8 @@ export default async function FacilityManage({
       {isFree && (
         <UpgradePrompt
           variant="banner"
-          title={`You're on the Free plan — your listing is bare`}
-          body="Seekers see only your name, location, and phone. Upgrade to add photos, a full profile, your website, reviews, and the live bed board that ranks you higher."
+          title="You're on the Free plan"
+          body="Your public listing stays basic. The greyed-out previews below are visible only to your facility team and show what an upgraded listing can include."
           cta="Upgrade your listing →"
         />
       )}
@@ -448,7 +449,7 @@ export default async function FacilityManage({
 
       {/* Hero */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        {images.length > 0 ? (
+        {!isFree && images.length > 0 ? (
           <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
             {images.slice(0, 3).map((src, i) => (
               // On phones show one full-width hero; the 3-up row kicks in at sm+.
@@ -554,42 +555,39 @@ export default async function FacilityManage({
 
       {facility.is_published && <ShareProfile profileUrl={absoluteUrl(`/programs/${id}`)} facilityName={facility.name} />}
 
+      {isFree && <FreeProfileUpgradePreview facilityName={facility.name} location={location} />}
+
       {/* About */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700">About</h2>
-        {isFree ? (
-          <UpgradePrompt
-            variant="card"
-            title="Your About section is hidden on Free"
-            body="Describe what makes your program a good place to heal — shown to every seeker on Starter and up."
-            cta="Upgrade to add an About →"
-          />
-        ) : facility.description ? (
-          <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{facility.description}</p>
-        ) : (
-          <p className="text-sm text-slate-400">
-            No description yet.{' '}
-            <Link href={`/facility/${id}?edit=1`} className="text-teal-700">
-              Add one
-            </Link>{' '}
-            so seekers know what makes your program a good place to heal.
-          </p>
-        )}
-        {specialties.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {specialties.map((s) => (
-              <span key={s} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
-                {s}
-              </span>
-            ))}
-          </div>
-        )}
-        {facility.website && (
-          <a href={facility.website} target="_blank" rel="noreferrer" className="inline-block text-sm text-teal-700 hover:underline">
-            {facility.website.replace(/^https?:\/\//, '')} ↗
-          </a>
-        )}
-      </section>
+      {!isFree && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">About</h2>
+          {facility.description ? (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{facility.description}</p>
+          ) : (
+            <p className="text-sm text-slate-400">
+              No description yet.{' '}
+              <Link href={`/facility/${id}?edit=1`} className="text-teal-700">
+                Add one
+              </Link>{' '}
+              so seekers know what makes your program a good place to heal.
+            </p>
+          )}
+          {specialties.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {specialties.map((s) => (
+                <span key={s} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+          {facility.website && (
+            <a href={facility.website} target="_blank" rel="noreferrer" className="inline-block text-sm text-teal-700 hover:underline">
+              {facility.website.replace(/^https?:\/\//, '')} ↗
+            </a>
+          )}
+        </section>
+      )}
 
       {/* Bed availability (read-only summary) */}
       <section className="space-y-3">
