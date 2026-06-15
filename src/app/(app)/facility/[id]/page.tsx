@@ -71,7 +71,7 @@ export default async function FacilityManage({
   const { data: facility } = await supabase
     .from('facilities')
     .select(
-      'id, name, city, state, verified_at, is_published, plan, referral_credits_earned, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, facility_capacity(level_of_care, beds_available, last_updated)'
+      'id, name, city, state, verified_at, is_published, plan, referral_credits_earned, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, accreditations, main_phone, intake_line, facility_capacity(level_of_care, beds_available, last_updated)'
     )
     .eq('id', id)
     .maybeSingle();
@@ -532,6 +532,18 @@ export default async function FacilityManage({
         </div>
       </div>
 
+      {isFree && (
+        <FreeProfileUpgradePreview
+          facilityName={facility.name}
+          location={location}
+          treatmentTypes={levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(' · ')}
+          accreditations={facility.accreditations ?? []}
+          phone={contact.phone || facility.main_phone || facility.intake_line}
+          email={contact.email}
+          engagement30={perfTotal}
+        />
+      )}
+
       {/* Profile performance — de-identified engagement a facility shows leadership */}
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between">
@@ -554,8 +566,6 @@ export default async function FacilityManage({
       </section>
 
       {facility.is_published && <ShareProfile profileUrl={absoluteUrl(`/programs/${id}`)} facilityName={facility.name} />}
-
-      {isFree && <FreeProfileUpgradePreview facilityName={facility.name} location={location} />}
 
       {/* About */}
       {!isFree && (
