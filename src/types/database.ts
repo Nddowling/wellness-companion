@@ -86,28 +86,129 @@ export type Database = {
         Row: {
           created_at: string
           employer: string | null
+          partner_type: string | null
           phone: string | null
           territory: string | null
+          title: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           employer?: string | null
+          partner_type?: string | null
           phone?: string | null
           territory?: string | null
+          title?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           employer?: string | null
+          partner_type?: string | null
           phone?: string | null
           territory?: string | null
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
+      }
+      partner_lists: {
+        Row: {
+          created_at: string
+          id: string
+          intro: string | null
+          owner_id: string
+          share_token: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intro?: string | null
+          owner_id: string
+          share_token?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intro?: string | null
+          owner_id?: string
+          share_token?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      partner_list_items: {
+        Row: {
+          created_at: string
+          facility_id: string
+          list_id: string
+          note: string | null
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          facility_id: string
+          list_id: string
+          note?: string | null
+          position?: number
+        }
+        Update: {
+          created_at?: string
+          facility_id?: string
+          list_id?: string
+          note?: string | null
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_list_items_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "partner_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_view_history: {
+        Row: {
+          facility_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          facility_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          facility_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_view_history_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       facilities: {
         Row: {

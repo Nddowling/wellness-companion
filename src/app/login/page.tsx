@@ -145,6 +145,16 @@ function LoginForm() {
             </p>
           )}
 
+          {/* Partner door — referrers self-signup (unlike verified facilities). */}
+          {!isSeeker && (
+            <p className="mt-2 text-xs text-slate-500">
+              Refer people into care?{' '}
+              <Link href="/for-partners" className="font-medium text-teal-700 underline-offset-2 hover:underline">
+                Join as a Partner →
+              </Link>
+            </p>
+          )}
+
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
             <div>
               <Label htmlFor="email">Email</Label>

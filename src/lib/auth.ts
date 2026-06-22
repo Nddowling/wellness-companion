@@ -41,18 +41,20 @@ export type Roles = {
   user: { id: string; email?: string } | null;
   isAdmin: boolean;
   facilityIds: string[];
+  isPartner: boolean;
   isBd: boolean;
   isSeeker: boolean;
 };
 
 /**
- * Provider-side = a signed-in facility member or BD/referrer who is NOT a Global
- * Admin. These users manage programs/referrals and never use the seeker AI intake,
- * so the seeker "Find care" / match entry points are hidden from them. Global
- * Admins (platform_admins) are intentionally excluded — they can access everything.
+ * Provider-side = a signed-in facility member or Partner (referrer) who is NOT a
+ * Global Admin. These users work the directory to place people and never use the
+ * seeker AI intake for themselves, so the consumer "Find care" / match entry points
+ * are hidden from them. Global Admins (platform_admins) are intentionally excluded —
+ * they can access everything.
  */
 export function isProviderSide(r: Roles): boolean {
-  return !!r.user && !r.isAdmin && (r.facilityIds.length > 0 || r.isBd);
+  return !!r.user && !r.isAdmin && (r.facilityIds.length > 0 || r.isPartner);
 }
 
 /** Resolve every role the current user holds in one pass (for nav + routing). */
@@ -61,10 +63,12 @@ export async function getRoles(): Promise<Roles> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { user: null, isAdmin: false, facilityIds: [], isBd: false, isSeeker: false };
+  if (!user)
+    return { user: null, isAdmin: false, facilityIds: [], isPartner: false, isBd: false, isSeeker: false };
 
-  // Seekers are tagged at account creation; no extra query needed.
-  const isSeeker = (user.user_metadata as { role?: string } | null)?.role === 'seeker';
+  // Lanes tagged at account creation carry a role in user_metadata; no extra query.
+  const metaRole = (user.user_metadata as { role?: string } | null)?.role;
+  const isSeeker = metaRole === 'seeker';
 
   const [adminRes, memberRes, bdRes] = await Promise.all([
     supabase.from('platform_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
@@ -72,28 +76,34 @@ export async function getRoles(): Promise<Roles> {
     supabase.from('bd_users').select('user_id').eq('user_id', user.id).maybeSingle(),
   ]);
 
+  // Partner (referrer) lane: canonical membership is a bd_users row; the metadata
+  // tag is a fast-path so routing works the instant after signup (before the row
+  // read settles).
+  const isPartner = !!bdRes.data || metaRole === 'partner';
   return {
     user: { id: user.id, email: user.email },
     isAdmin: !!adminRes.data,
     facilityIds: (memberRes.data ?? []).map((m) => m.facility_id),
+    isPartner,
     isBd: !!bdRes.data,
     isSeeker,
   };
 }
 
 /**
- * The single canonical profile a signed-in user belongs to. The app is a strict
- * three-lane model — Admin, Facility Admin, Seeker — and every routing/nav decision
- * derives from this. Admin wins (global oversight); then facility membership; then
- * the seeker tag. The legacy BD/referrer role is intentionally NOT a profile here:
- * it's kept dormant in the DB but has no lane in the UI.
+ * The single canonical profile a signed-in user belongs to. Every routing/nav
+ * decision derives from this. Admin wins (global oversight); then facility
+ * membership; then the Partner (referrer) lane; then the seeker tag. "Partner"
+ * is the white-glove referral directory for people who place others into care
+ * (discharge planners, coaches, clergy…) — a bd_users row is its membership.
  */
-export type ProfileType = 'admin' | 'facility' | 'seeker' | 'none';
+export type ProfileType = 'admin' | 'facility' | 'partner' | 'seeker' | 'none';
 
 export function profileType(r: Roles): ProfileType {
   if (!r.user) return 'none';
   if (r.isAdmin) return 'admin';
   if (r.facilityIds.length > 0) return 'facility';
+  if (r.isPartner) return 'partner';
   if (r.isSeeker) return 'seeker';
   return 'none';
 }
@@ -105,10 +115,12 @@ export function homePathFor(r: Roles): string {
       return '/admin';
     case 'facility':
       return r.facilityIds.length === 1 ? `/facility/${r.facilityIds[0]}` : '/facility';
+    case 'partner':
+      return '/partners';
     case 'seeker':
       return '/me';
     default:
-      return '/get-started'; // no lane yet (or a dormant BD-only account)
+      return '/get-started'; // no lane yet
   }
 }
 
@@ -130,4 +142,15 @@ export async function requireFacilityMember(): Promise<{ userId: string; facilit
   // Out-of-lane (seeker/admin/none) → their own home base, never another profile's page.
   if (roles.facilityIds.length === 0) redirect(homePathFor(roles));
   return { userId: roles.user.id, facilityIds: roles.facilityIds };
+}
+
+/**
+ * Gate a route to Partners (referrers). A signed-in user in another lane is sent to
+ * THEIR home base (not an error) so nobody can cross profiles via a typed URL.
+ */
+export async function requirePartner() {
+  const roles = await getRoles();
+  if (!roles.user) redirect('/login');
+  if (profileType(roles) !== 'partner') redirect(homePathFor(roles));
+  return roles.user;
 }

@@ -41,6 +41,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     links.push({ href: '/pricing', label: 'Upgrade' });
     tabs.push({ href: '/facility', label: 'Facility', icon: 'facility' });
     tabs.push({ href: '/pricing', label: 'Upgrade', icon: 'home' });
+  } else if (profile === 'partner') {
+    links.push({ href: '/partners', label: 'Dashboard' });
+    links.push({ href: '/partners/search', label: 'Search' });
+    links.push({ href: '/partners/saved', label: 'Saved' });
+    links.push({ href: '/partners/lists', label: 'Lists' });
+    tabs.push({ href: '/partners', label: 'Home', icon: 'home' });
+    tabs.push({ href: '/partners/search', label: 'Search', icon: 'facility' });
+    tabs.push({ href: '/partners/saved', label: 'Saved', icon: 'care' });
+    tabs.push({ href: '/partners/lists', label: 'Lists', icon: 'referrer' });
   } else if (profile === 'admin') {
     links.push({ href: '/admin', label: 'Admin' });
     links.push({ href: '/match', label: 'AI chat (test)' }); // admin-only test of the seeker AI
@@ -89,7 +98,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
                       { href: '/admin/seekers', label: 'Seeker contacts' },
                       { href: '/admin', label: 'Admin dashboard' },
                     ]
-                  : []
+                  : profile === 'partner'
+                    ? [{ href: '/partners/settings', label: 'Profile & settings' }]
+                    : []
               }
             />
           </div>
