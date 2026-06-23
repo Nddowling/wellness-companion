@@ -4,9 +4,9 @@ import { useActionState } from 'react';
 
 import { approveClaim, type ApproveResult } from '../actions';
 
-// Approve a facility claim, then show the result inline. Because the credentials
-// email can fail to deliver (Resend sandbox / unverified domain), we surface the
-// temp password here so the admin can always hand it off directly.
+// Approve a facility claim, then show the result inline. Because the email can fail
+// to deliver (no SMTP / unverified domain), we surface the single-use set-password
+// link here so the admin can always hand it off directly.
 export function ApproveClaim({ claimId }: { claimId: string }) {
   const [state, action, pending] = useActionState<ApproveResult, FormData>(approveClaim, null);
 
@@ -14,22 +14,29 @@ export function ApproveClaim({ claimId }: { claimId: string }) {
     return (
       <div className="rounded-md border border-emerald-200 bg-emerald-50 p-2.5 text-xs text-emerald-900">
         <div className="font-semibold">Approved{state.email ? ` — ${state.email}` : ''}</div>
-        {state.tempPassword ? (
+        {state.setPasswordUrl ? (
           <div className="mt-1">
-            Temp password:{' '}
-            <code className="select-all rounded bg-white px-1 py-0.5 font-mono text-[11px] text-slate-800">
-              {state.tempPassword}
-            </code>{' '}
-            · they sign in at <span className="font-mono">/login</span> and set a new one.
+            Set-password link (single-use):{' '}
+            <a
+              href={state.setPasswordUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all font-mono text-[11px] text-teal-700 underline"
+            >
+              {state.setPasswordUrl}
+            </a>
+            <div className="mt-0.5 text-[11px] text-slate-600">
+              They click it, choose a password, and they&apos;re in. Share it directly if the email doesn&apos;t arrive.
+            </div>
           </div>
         ) : (
-          <div className="mt-1">
-            This email already had an account — they sign in with their existing password (or use “Forgot password”).
+          <div className="mt-1 text-amber-700">
+            ⚠ Couldn’t generate a set-password link — check the Supabase Site URL / redirect settings.
           </div>
         )}
         {state.email && !state.mailSent && (
           <div className="mt-1 font-medium text-amber-700">
-            ⚠ The credentials email didn’t send — share the details above with them directly.
+            ⚠ The email didn’t send — share the link above with them directly.
           </div>
         )}
         {!state.facilityLinked && (

@@ -279,11 +279,11 @@ export async function removeFacilityMember(formData: FormData) {
   revalidatePath(`/admin/facilities/${facilityId}`);
 }
 
-// Returned to the admin UI so approval is usable even when the credentials email
-// can't be delivered (e.g. Resend sandbox / unverified domain) — the admin can then
-// relay the temp password by hand.
+// Returned to the admin UI so approval is usable even when the email can't be
+// delivered (no SMTP / unverified domain) — the admin can then hand off the
+// set-password link directly.
 export type ApproveResult =
-  | { ok: true; email: string | null; tempPassword: string | null; mailSent: boolean; facilityLinked: boolean }
+  | { ok: true; email: string | null; setPasswordUrl: string | null; mailSent: boolean; facilityLinked: boolean }
   | { ok: false; error: string }
   | null;
 
@@ -298,22 +298,21 @@ export async function approveClaim(_prev: ApproveResult, formData: FormData): Pr
     .single();
   if (!claim) return { ok: false, error: 'Claim not found.' };
 
-  // Resolve the provider's account. Public claims arrive with NO user_id — create
-  // their login now (temp password + must-reset), so verification is the only gate
-  // to a provider account existing at all.
-  let userId = claim.user_id as string | null;
-  let tempPw: string | null = null;
   const email = (claim.claimant_email as string | null)?.trim().toLowerCase() || null;
-  if (!userId && email) {
-    tempPw = tempPassword();
+  if (!email) return { ok: false, error: 'This claim has no email to set up an account.' };
+
+  // The account is created ONLY now — verification is the gate to a provider account
+  // existing at all. We seed a throwaway password; the provider sets their own via the
+  // emailed set-password link (so there's never a temp password to relay).
+  let userId = claim.user_id as string | null;
+  if (!userId) {
     const { data: created } = await admin.auth.admin.createUser({
       email,
-      password: tempPw,
+      password: crypto.randomUUID(),
       email_confirm: true,
       user_metadata: { role: 'facility', must_reset_password: true, name: claim.claimant_name ?? null },
     });
     userId = created?.user?.id ?? (await findUserIdByEmail(admin, email));
-    if (!created?.user) tempPw = null; // account already existed — no new temp password to send
   }
 
   // Membership requires a known facility (a "not listed" claim has none — the admin
@@ -328,24 +327,30 @@ export async function approveClaim(_prev: ApproveResult, formData: FormData): Pr
   }
   await admin.from('facility_claims').update({ status: 'approved' }).eq('id', claimId);
 
-  // Tell them they're verified + how to sign in. The send can fail (sandbox / no
-  // verified domain) — we report that back so the admin can hand off credentials.
+  // Single-use set-password link → /reset. Emailed (branded) AND returned to the admin
+  // UI as a fallback, so an email-delivery failure never blocks the provider getting in.
+  const { data: linkData } = await admin.auth.admin.generateLink({
+    type: 'recovery',
+    email,
+    options: { redirectTo: `${SITE_URL}/reset` },
+  });
+  const setPasswordUrl = linkData?.properties?.action_link ?? null;
+
   let mailSent = false;
-  if (email) {
+  if (setPasswordUrl) {
     const { data: facility } = claim.facility_id
       ? await admin.from('facilities').select('name').eq('id', claim.facility_id).maybeSingle()
       : { data: null };
     const mail = providerClaimApprovedEmail({
       facilityName: facility?.name ?? 'your facility',
-      loginUrl: `${SITE_URL}/login`,
+      setPasswordUrl,
       email,
-      password: tempPw ?? undefined,
     });
     const res = await sendEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text });
     mailSent = res.ok;
   }
   revalidatePath('/admin/claims');
-  return { ok: true, email, tempPassword: tempPw, mailSent, facilityLinked: !!(userId && claim.facility_id) };
+  return { ok: true, email, setPasswordUrl, mailSent, facilityLinked: !!(userId && claim.facility_id) };
 }
 
 export async function rejectClaim(formData: FormData) {

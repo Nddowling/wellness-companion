@@ -445,11 +445,10 @@ export function staffInviteEmail(params: {
 // forced to set their own password).
 export function providerClaimApprovedEmail(params: {
   facilityName: string;
-  loginUrl: string;
+  setPasswordUrl: string; // single-use link to /reset where they choose a password
   email: string;
-  password?: string; // present only when a brand-new login was created
 }): { subject: string; html: string; text: string } {
-  const subject = `You're verified — manage ${params.facilityName} on Clear Bed Recovery`;
+  const subject = `You're verified — set your password for ${params.facilityName}`;
   const footer =
     'You received this because you requested to claim a facility on Clear Bed Recovery, the addiction-treatment referral directory.';
 
@@ -457,13 +456,14 @@ export function providerClaimApprovedEmail(params: {
     `You're verified — welcome aboard`,
     `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">Good news — we've verified your claim for <strong>${esc(
       params.facilityName
-    )}</strong>. Your account is ready, and you can start managing your program right away.</p>
-     ${credsCard(params.email, params.password)}
-     <div style="margin:16px 0">${button(params.loginUrl, 'Sign in & set your password')}</div>
+    )}</strong>. Set your password to finish setting up your account and start managing your program.</p>
+     <div style="margin:16px 0">${button(params.setPasswordUrl, 'Set your password & sign in')}</div>
+     <p style="margin:0 0 12px;font-size:13px;color:${BRAND.slate};line-height:1.6">You'll sign in with <strong>${esc(
+       params.email
+     )}</strong> and the password you choose. This link is single-use and expires — if it stops working, use “Forgot password” on the sign-in page.</p>
      <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:${BRAND.ink}">Getting set up:</p>
      ${steps([
-       'Sign in with the email and temporary password above.',
-       'Choose your own password when prompted.',
+       'Click the button above and choose your password.',
        'Complete your profile and keep your bed availability current.',
        'Upgrade any time to unlock photos, video, analytics, and featured placement.',
      ])}
@@ -472,11 +472,7 @@ export function providerClaimApprovedEmail(params: {
     footer
   );
 
-  const text = `You're verified — welcome to Clear Bed Recovery.\n\nYour account for ${
-    params.facilityName
-  } is ready.\n\nGet set up:\n1) Sign in: ${params.loginUrl}\n2) Email: ${params.email}${
-    params.password ? `\n3) Temporary password: ${params.password}\n4) Choose your own password when prompted.` : ''
-  }\n\nThen complete your profile and keep your bed availability current — that's what gets you matched to the right referrals first.\n\n${footer}`;
+  const text = `You're verified — welcome to Clear Bed Recovery.\n\nYour claim for ${params.facilityName} is approved.\n\nSet your password to finish: ${params.setPasswordUrl}\n\nYou'll sign in with ${params.email} and the password you choose. The link is single-use and expires; if it stops working, use "Forgot password" on the sign-in page.\n\nThen complete your profile and keep your bed availability current — that's what gets you matched to the right referrals first.\n\n${footer}`;
 
   return { subject, html, text };
 }

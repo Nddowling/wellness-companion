@@ -27,7 +27,7 @@ export type InviteContext = { facilityId: string; facilityName: string; inviterI
 export function RepSignupForm({ invite }: { invite?: InviteContext }) {
   const router = useRouter();
   const supabase = createClient();
-  const [form, setForm] = useState({ name: '', email: '', password: '', headline: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', headline: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [check, setCheck] = useState(false);
@@ -42,7 +42,7 @@ export function RepSignupForm({ invite }: { invite?: InviteContext }) {
     const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: { data: { role: 'rep', full_name: form.name.trim() } },
+      options: { data: { role: 'rep', full_name: form.name.trim(), phone: form.phone.trim() || null } },
     });
     if (error) {
       setBusy(false);
@@ -96,6 +96,10 @@ export function RepSignupForm({ invite }: { invite?: InviteContext }) {
           <Label htmlFor="r-email">Work email</Label>
           <Input id="r-email" type="email" required autoComplete="email" value={form.email} onChange={set('email')} placeholder="you@facility.com" />
         </div>
+      </div>
+      <div>
+        <Label htmlFor="r-phone">Phone</Label>
+        <Input id="r-phone" type="tel" autoComplete="tel" value={form.phone} onChange={set('phone')} placeholder="(555) 123-4567" />
       </div>
       <div>
         <Label htmlFor="r-headline">Headline</Label>
