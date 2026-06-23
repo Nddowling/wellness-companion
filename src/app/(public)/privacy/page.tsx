@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'June 9, 2026';
+const LAST_UPDATED = 'June 23, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -132,12 +132,23 @@ export default function PrivacyPage() {
       </Section>
 
       <Section n={5} title="When we share information">
-        <p className="font-medium text-slate-700">With treatment programs — only with your consent.</p>
+        <p className="font-medium text-slate-700">How matching works — de-identified by default.</p>
         <p>
-          We send your contact details and referral summary to a specific Provider <strong>only after you
-          explicitly consent</strong> to share them with that Provider, so their intake team can reach out. We log
-          each consent decision (granted or declined) with a timestamp. If you do not consent, we do not send your
-          details, and you can still contact programs yourself.
+          When you&rsquo;re matched, we share a <strong>de-identified</strong> summary with the matched programs so
+          their teams can flag whether they have availability: your <strong>general region</strong> (a partial ZIP,
+          e.g. &ldquo;787xx&rdquo;), the <strong>level of care</strong>, the <strong>payer type</strong>, and a{' '}
+          <strong>coarse concern category</strong>. This summary contains <strong>nothing that identifies you</strong>{' '}
+          — no name, contact details, date of birth, or street address. Your identity is shared only as described next.
+        </p>
+        <p className="font-medium text-slate-700">With treatment programs — your identity, only with your consent.</p>
+        <p>
+          We send your <strong>contact details and referral summary to a specific Provider only after you explicitly
+          consent</strong> to share them with that Provider, so their intake team can reach out. That consent is{' '}
+          <strong>specific to the program(s) you choose</strong>, is <strong>limited to the purpose</strong> of
+          connecting you with care, and you may <strong>revoke it at any time</strong> for future sharing. Choosing to
+          share your details and allowing a program to contact you are <strong>separate choices</strong> — you can do
+          one without the other. We log each consent decision (granted or declined) with a timestamp. If you do not
+          consent, we do not send your details, and you can still contact programs yourself.
         </p>
         <p className="font-medium text-slate-700">With service providers (subprocessors).</p>
         <p>
