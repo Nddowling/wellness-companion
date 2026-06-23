@@ -155,6 +155,16 @@ function LoginForm() {
             </p>
           )}
 
+          {/* Rep door — facility-side staff build a profile + join their team. */}
+          {!isSeeker && (
+            <p className="mt-1 text-xs text-slate-500">
+              Work at a facility?{' '}
+              <Link href="/for-reps" className="font-medium text-teal-700 underline-offset-2 hover:underline">
+                Create your team profile →
+              </Link>
+            </p>
+          )}
+
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
             <div>
               <Label htmlFor="email">Email</Label>

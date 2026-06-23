@@ -210,6 +210,127 @@ export type Database = {
           },
         ]
       }
+      rep_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string
+          display_name: string
+          headline: string | null
+          is_public: boolean
+          linkedin_url: string | null
+          location: string | null
+          photo_url: string | null
+          slug: string
+          specialties: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          display_name: string
+          headline?: string | null
+          is_public?: boolean
+          linkedin_url?: string | null
+          location?: string | null
+          photo_url?: string | null
+          slug: string
+          specialties?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          display_name?: string
+          headline?: string | null
+          is_public?: boolean
+          linkedin_url?: string | null
+          location?: string | null
+          photo_url?: string | null
+          slug?: string
+          specialties?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      facility_affiliations: {
+        Row: {
+          created_at: string
+          facility_id: string
+          id: string
+          invited_by: string | null
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          facility_id: string
+          id?: string
+          invited_by?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          facility_id?: string
+          id?: string
+          invited_by?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "facility_affiliations_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rep_invites: {
+        Row: {
+          created_at: string
+          email: string | null
+          facility_id: string | null
+          id: string
+          inviter_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          facility_id?: string | null
+          id?: string
+          inviter_id: string
+          token: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          facility_id?: string | null
+          id?: string
+          inviter_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rep_invites_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facilities: {
         Row: {
           accepts_court_ordered: string | null

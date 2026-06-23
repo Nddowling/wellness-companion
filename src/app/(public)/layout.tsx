@@ -10,7 +10,7 @@ export default async function PublicLayout({ children }: { children: React.React
   // Facility/admin get a dashboard shortcut; seekers already have "My care" inline;
   // a roleless signed-in user is sent to onboarding.
   const dashboardHref =
-    profile === 'facility' || profile === 'admin' || profile === 'partner'
+    profile === 'facility' || profile === 'admin' || profile === 'partner' || profile === 'rep'
       ? homePathFor(roles)
       : profile === 'none' && roles.user
         ? '/get-started'

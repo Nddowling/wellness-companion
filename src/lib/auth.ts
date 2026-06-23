@@ -42,6 +42,7 @@ export type Roles = {
   isAdmin: boolean;
   facilityIds: string[];
   isPartner: boolean;
+  isRep: boolean;
   isBd: boolean;
   isSeeker: boolean;
 };
@@ -54,7 +55,7 @@ export type Roles = {
  * they can access everything.
  */
 export function isProviderSide(r: Roles): boolean {
-  return !!r.user && !r.isAdmin && (r.facilityIds.length > 0 || r.isPartner);
+  return !!r.user && !r.isAdmin && (r.facilityIds.length > 0 || r.isPartner || r.isRep);
 }
 
 /** Resolve every role the current user holds in one pass (for nav + routing). */
@@ -64,27 +65,38 @@ export async function getRoles(): Promise<Roles> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user)
-    return { user: null, isAdmin: false, facilityIds: [], isPartner: false, isBd: false, isSeeker: false };
+    return {
+      user: null,
+      isAdmin: false,
+      facilityIds: [],
+      isPartner: false,
+      isRep: false,
+      isBd: false,
+      isSeeker: false,
+    };
 
   // Lanes tagged at account creation carry a role in user_metadata; no extra query.
   const metaRole = (user.user_metadata as { role?: string } | null)?.role;
   const isSeeker = metaRole === 'seeker';
 
-  const [adminRes, memberRes, bdRes] = await Promise.all([
+  const [adminRes, memberRes, bdRes, repRes] = await Promise.all([
     supabase.from('platform_admins').select('user_id').eq('user_id', user.id).maybeSingle(),
     supabase.from('facility_members').select('facility_id').eq('user_id', user.id),
     supabase.from('bd_users').select('user_id').eq('user_id', user.id).maybeSingle(),
+    supabase.from('rep_profiles').select('user_id').eq('user_id', user.id).maybeSingle(),
   ]);
 
-  // Partner (referrer) lane: canonical membership is a bd_users row; the metadata
-  // tag is a fast-path so routing works the instant after signup (before the row
-  // read settles).
+  // Partner (referrer) + Rep (facility-side) lanes: canonical membership is a row
+  // (bd_users / rep_profiles); the metadata tag is a fast-path so routing works the
+  // instant after signup (before the row read settles).
   const isPartner = !!bdRes.data || metaRole === 'partner';
+  const isRep = !!repRes.data || metaRole === 'rep';
   return {
     user: { id: user.id, email: user.email },
     isAdmin: !!adminRes.data,
     facilityIds: (memberRes.data ?? []).map((m) => m.facility_id),
     isPartner,
+    isRep,
     isBd: !!bdRes.data,
     isSeeker,
   };
@@ -97,13 +109,14 @@ export async function getRoles(): Promise<Roles> {
  * is the white-glove referral directory for people who place others into care
  * (discharge planners, coaches, clergy…) — a bd_users row is its membership.
  */
-export type ProfileType = 'admin' | 'facility' | 'partner' | 'seeker' | 'none';
+export type ProfileType = 'admin' | 'facility' | 'partner' | 'rep' | 'seeker' | 'none';
 
 export function profileType(r: Roles): ProfileType {
   if (!r.user) return 'none';
   if (r.isAdmin) return 'admin';
   if (r.facilityIds.length > 0) return 'facility';
   if (r.isPartner) return 'partner';
+  if (r.isRep) return 'rep';
   if (r.isSeeker) return 'seeker';
   return 'none';
 }
@@ -117,6 +130,8 @@ export function homePathFor(r: Roles): string {
       return r.facilityIds.length === 1 ? `/facility/${r.facilityIds[0]}` : '/facility';
     case 'partner':
       return '/partners';
+    case 'rep':
+      return '/rep';
     case 'seeker':
       return '/me';
     default:
@@ -152,5 +167,17 @@ export async function requirePartner() {
   const roles = await getRoles();
   if (!roles.user) redirect('/login');
   if (profileType(roles) !== 'partner') redirect(homePathFor(roles));
+  return roles.user;
+}
+
+/**
+ * Gate a route to Reps (facility-side professionals). Out-of-lane users go to
+ * their own home base. NOTE: a Rep affiliation is display-only — it never grants
+ * facility management; that still requires a verified director claim.
+ */
+export async function requireRep() {
+  const roles = await getRoles();
+  if (!roles.user) redirect('/login');
+  if (profileType(roles) !== 'rep') redirect(homePathFor(roles));
   return roles.user;
 }

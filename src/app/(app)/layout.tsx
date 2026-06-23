@@ -50,6 +50,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     tabs.push({ href: '/partners/search', label: 'Search', icon: 'facility' });
     tabs.push({ href: '/partners/saved', label: 'Saved', icon: 'care' });
     tabs.push({ href: '/partners/lists', label: 'Lists', icon: 'referrer' });
+  } else if (profile === 'rep') {
+    links.push({ href: '/rep', label: 'My profile' });
+    tabs.push({ href: '/rep', label: 'Profile', icon: 'referrer' });
   } else if (profile === 'admin') {
     links.push({ href: '/admin', label: 'Admin' });
     links.push({ href: '/match', label: 'AI chat (test)' }); // admin-only test of the seeker AI

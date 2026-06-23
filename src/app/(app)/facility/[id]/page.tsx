@@ -15,6 +15,7 @@ import {
 import { updateCapacity, setLeadStatus, updateContact, updateProfile, uploadPhoto, removePhoto, uploadVideo, removeVideo } from '../actions';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { ShareProfile } from '@/components/ShareProfile';
+import { FacilityTeamManager } from '@/components/rep/FacilityTeamManager';
 import { FreeProfileUpgradePreview } from '@/components/FreeProfileUpgradePreview';
 import { absoluteUrl } from '@/lib/seo';
 import { normalizePlan, PLAN_LABEL, planAllows } from '@/lib/facility/plan';
@@ -566,6 +567,11 @@ export default async function FacilityManage({
       </section>
 
       {facility.is_published && <ShareProfile profileUrl={absoluteUrl(`/programs/${id}`)} facilityName={facility.name} />}
+
+      {/* Team — reps who added themselves to this listing */}
+      <div className="mt-5">
+        <FacilityTeamManager facilityId={id} />
+      </div>
 
       {/* About */}
       {!isFree && (

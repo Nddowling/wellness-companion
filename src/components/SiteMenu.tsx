@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 type NavLink = { href: string; label: string };
-type Profile = 'admin' | 'facility' | 'partner' | 'seeker' | 'none';
+type Profile = 'admin' | 'facility' | 'partner' | 'rep' | 'seeker' | 'none';
 
 // Subtitle is audience-aware — seekers don't "manage an account", so the old
 // one-size line confused them.
@@ -12,6 +12,7 @@ const SUBTITLE: Record<Profile, string> = {
   seeker: 'Find care, browse programs, and your saved info.',
   facility: 'Manage your listing and account.',
   partner: 'Find programs, save favorites, and share shortlists.',
+  rep: 'Your profile, your facilities, and your team.',
   admin: 'Admin tools — plus the seeker AI to test.',
   none: 'Find care or explore treatment programs.',
 };
@@ -33,6 +34,9 @@ function buildLinks(profile: Profile, dashboardHref: string | null): NavLink[] {
   if (profile === 'seeker') links.push({ href: '/me', label: 'My care' });
   if (profile !== 'facility' && profile !== 'partner') {
     links.push({ href: '/for-partners', label: 'For partners' });
+  }
+  if (profile !== 'facility' && profile !== 'rep') {
+    links.push({ href: '/for-reps', label: 'For facility teams' });
   }
   if (profile !== 'seeker') {
     links.push({ href: '/for-providers', label: 'For providers' });

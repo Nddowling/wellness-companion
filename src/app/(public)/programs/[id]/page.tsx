@@ -7,6 +7,7 @@ import { GoToWebsiteButton } from '@/components/GoToWebsiteButton';
 import { TrackedContactLink } from '@/components/TrackedContactLink';
 import { MatchBackLink } from '@/components/MatchBackLink';
 import { Gallery } from '@/components/Gallery';
+import { FacilityTeam } from '@/components/rep/FacilityTeam';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizePlan, planAllows } from '@/lib/facility/plan';
 import { getRoles, isProviderSide } from '@/lib/auth';
@@ -297,11 +298,19 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
           </dl>
         </div>
 
+        <div className="mt-6">
+          <FacilityTeam facilityId={f.id} />
+        </div>
+
         {!providerSide && (
           <p className="mt-6 text-center text-xs text-slate-400">
             Work at {f.name}?{' '}
             <Link href="/for-providers" className="font-medium text-teal-600 hover:underline">
               Claim this listing →
+            </Link>{' '}
+            or{' '}
+            <Link href="/for-reps" className="font-medium text-teal-600 hover:underline">
+              add yourself to the team →
             </Link>
           </p>
         )}
@@ -540,6 +549,11 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             ))}
         </div>
       </section>
+
+      {/* Their team (verified reps) */}
+      <div className="mt-5">
+        <FacilityTeam facilityId={f.id} />
+      </div>
 
       {/* Reviews */}
       <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
