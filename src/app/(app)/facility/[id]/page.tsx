@@ -646,12 +646,15 @@ export default async function FacilityManage({
         {routes.map((r) => (
           <div key={r.id} className="rounded-md border border-slate-200 bg-white p-3">
             <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-800">
+              <Link
+                href={`/facility/${id}/contacts#${r.id}`}
+                className="text-sm font-medium text-slate-800 hover:text-teal-700"
+              >
                 {r.matches?.care_level_needed
                   ? LEVEL_LABELS[r.matches.care_level_needed as LevelOfCare]
                   : 'Care'}{' '}
                 · region {r.matches?.region_zip3 ?? '—'}xx
-              </div>
+              </Link>
               <span
                 className={
                   'rounded-full px-2 py-0.5 text-xs ' +
@@ -672,7 +675,7 @@ export default async function FacilityManage({
                 : 'Concern —'}{' '}
               · de-identified
             </div>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex items-center gap-2">
               {(['viewed', 'accepted', 'declined'] as const).map((s) => (
                 <form key={s} action={setLeadStatus}>
                   <input type="hidden" name="route_id" value={r.id} />
@@ -687,6 +690,12 @@ export default async function FacilityManage({
                   </button>
                 </form>
               ))}
+              <Link
+                href={`/facility/${id}/contacts#${r.id}`}
+                className="ml-auto text-xs font-medium text-teal-700 hover:underline"
+              >
+                View details →
+              </Link>
             </div>
           </div>
         ))}

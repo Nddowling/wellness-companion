@@ -68,7 +68,7 @@ function ContactCard({ c, canSeeIdentity }: { c: MatchedContact; canSeeIdentity:
     : [];
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div id={c.routeId} className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="font-medium text-slate-800">
