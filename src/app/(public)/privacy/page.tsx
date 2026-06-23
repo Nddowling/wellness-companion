@@ -125,6 +125,14 @@ export default function PrivacyPage() {
           explicit, recorded consent</strong>.
         </p>
         <p>
+          Where 42 CFR Part 2 applies, additional federal protections follow your records: a program that receives
+          them with your consent <strong>may not re-disclose them</strong> without your further consent except as the
+          law allows, and your substance-use records <strong>may not be used to investigate or prosecute you</strong>{' '}
+          without your written consent or a court order. Your consent to share is specific to the program(s) you
+          choose, limited to the purpose of connecting you with care, and you may revoke it at any time for future
+          sharing.
+        </p>
+        <p>
           Identifying records you provide to connect with care are held in a restricted, access-controlled
           environment separate from our general directory data, and are reachable only by authorized server-side
           processes — never exposed publicly.
@@ -175,14 +183,18 @@ export default function PrivacyPage() {
         <ul className="ml-5 list-disc space-y-1">
           <li><strong>Browse anonymously</strong> — explore the directory with no account or name; the guided match asks your name and email so a program can follow up;</li>
           <li><strong>Withdraw consent</strong> to share your details, or decline it in the first place;</li>
-          <li><strong>Access, correct, or delete</strong> the personal information we hold about you;</li>
+          <li><strong>Access, correct, delete, or receive a copy</strong> (portability) of the personal information we hold about you;</li>
+          <li><strong>Opt out of any sale or targeted advertising</strong> — though we do not sell your personal information or use your health information for targeted advertising;</li>
+          <li><strong>Appeal</strong> a decision we make about a privacy request;</li>
           <li><strong>Unsubscribe</strong> from optional emails at any time.</li>
         </ul>
         <p>
           Depending on where you live, you may have additional rights under laws such as the California Consumer
-          Privacy Act or other state privacy laws — including rights to know, delete, correct, and not be
-          discriminated against for exercising them. To make any request, contact us using Section 10. We will not
-          require you to create an account to exercise these rights.
+          Privacy Act, other state comprehensive privacy laws, or <strong>consumer-health-data laws</strong> (such as
+          Washington&rsquo;s My Health My Data Act) — including rights to know, access, correct, delete, port, and opt
+          out, to <strong>withdraw consent for the collection or sharing of your health data</strong>, and not to be
+          discriminated against for exercising them. To make any request, contact us using the Contact section below.
+          We will not require you to create an account to exercise these rights.
         </p>
       </Section>
 
@@ -204,7 +216,18 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section n={9} title="Children&rsquo;s privacy">
+      <Section n={9} title="Data breach notification">
+        <p>
+          If we discover a breach of unsecured personal or health information, we will notify affected individuals
+          <strong> without unreasonable delay</strong>, and we will notify regulators as required by law. Where
+          applicable, this includes the U.S. Federal Trade Commission under the{' '}
+          <strong>Health Breach Notification Rule</strong>, and state authorities under laws such as Georgia&rsquo;s
+          breach-notification law (O.C.G.A. §§ 10-1-910 et seq.). Our notice will describe what happened, the types of
+          information involved, any third parties that acquired it, and steps you can take to protect yourself.
+        </p>
+      </Section>
+
+      <Section n={10} title="Children&rsquo;s privacy">
         <p>
           The Service is intended for adults (18 and older) and is not directed to children. We do not knowingly
           collect personal information from anyone under 18. If you believe a minor has provided us information,
@@ -212,14 +235,14 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section n={10} title="Third-party links">
+      <Section n={11} title="Third-party links">
         <p>
           The Service links to Provider websites and other third-party resources. Their privacy practices are their
           own, and this Policy does not cover them. Please review the privacy policies of any site you visit.
         </p>
       </Section>
 
-      <Section n={11} title="Changes to this Policy">
+      <Section n={12} title="Changes to this Policy">
         <p>
           We may update this Policy from time to time. When we make material changes, we will update the
           &ldquo;Last updated&rdquo; date above and, where appropriate, provide additional notice. Your continued
@@ -227,7 +250,7 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section n={12} title="Contact us">
+      <Section n={13} title="Contact us">
         <p>
           Questions, requests, or privacy concerns? Reach us at{' '}
           <a href="mailto:hello@clearbedrecovery.com" className="text-teal-700 hover:underline">

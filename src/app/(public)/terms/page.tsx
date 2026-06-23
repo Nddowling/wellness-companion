@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'June 12, 2026';
+const LAST_UPDATED = 'June 23, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -77,17 +77,23 @@ export default function TermsPage() {
         <p>
           To match you with programs, we ask for a few details during intake. <strong>We only share your
           identifying information with a treatment program when you explicitly consent to it</strong>, and we
-          record when you grant or decline that consent. You can decline to share and still see matches. Sensitive
-          health information is handled under applicable law, which for substance-use treatment records may include
-          HIPAA and 42 CFR Part 2.
+          record when you grant or decline that consent. You can decline to share and still see matches. Your consent
+          is <strong>specific to the program(s) you choose</strong>, is limited to connecting you with care, and you
+          may <strong>revoke it at any time</strong> for future sharing. Sensitive health information is handled under
+          applicable law, which for substance-use treatment records may include HIPAA and 42 CFR Part 2; where Part 2
+          applies, a program that receives your records <strong>may not re-disclose them</strong> without your consent,
+          and your substance-use records <strong>may not be used to investigate or prosecute you</strong> without your
+          written consent or a court order.
         </p>
         <p>
           <strong>Communications and marketing.</strong> When you provide your email address or phone number, you
           consent to receive communications from Clear Bed Recovery — including treatment options, recovery resources,
           product offers, newsletters, and other informational or promotional messages — by email, text, or phone.
-          Message and data rates may apply. You can opt out of marketing messages at any time using the unsubscribe link
-          or by contacting us, though we may still send you essential service-related messages. We use your information
-          consistent with our Privacy Policy and do not sell your personal information to third-party advertisers.
+          Message and data rates may apply, and message frequency varies. <strong>Reply STOP to any text to opt out</strong>{' '}
+          (or HELP for help); you can opt out of marketing email anytime via the unsubscribe link or by contacting us,
+          though we may still send essential service-related messages. <strong>Consent to receive calls or texts is not a
+          condition</strong> of using the Service or of being matched with care. We use your information consistent with
+          our Privacy Policy and do not sell your personal information to third-party advertisers.
         </p>
         <p>
           Our handling of your information is further described in our Privacy Policy. By using the Service, you
