@@ -88,15 +88,6 @@ const BRAND = {
 // a PNG; the wordmark beside it is live text for crispness.
 const LOGO_URL = 'https://clearbedrecovery.com/images/email-logo-mark.png';
 
-// Referral teaser — providers earn 50% off their next month per paid facility they
-// refer, so two paid referrals = a free month. Shown in provider onboarding emails.
-function referralTeaser(): string {
-  return `<div style="background:#fdf3ea;border:1px solid #f0d9c6;border-radius:10px;padding:14px 16px;margin:16px 0">
-    <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:${BRAND.terracottaDark};margin-bottom:4px">Refer &amp; earn — free months</div>
-    <div style="font-size:14px;color:${BRAND.ink};line-height:1.55">Know other programs that belong here? For every paid facility you refer, you get <strong>50% off your next month</strong> — so <strong>two paid referrals = a free month</strong>, up to <strong>3 free months</strong> (6 paid referrals).</div>
-  </div>`;
-}
-
 /** A primary call-to-action button (teal for contrast with white text). */
 function button(href: string, label: string, color: string = BRAND.teal): string {
   return `<a href="${esc(href)}" style="display:inline-block;background:${color};color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;line-height:1">${esc(
@@ -467,7 +458,6 @@ export function providerClaimApprovedEmail(params: {
        'Complete your profile and keep your bed availability current.',
        'Upgrade any time to unlock photos, video, analytics, and featured placement.',
      ])}
-     ${referralTeaser()}
      <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:12px 0 0">Keeping your bed availability current is what gets your program matched to the right referrals first. Flat monthly pricing — never per-lead or per-admission.</p>`,
     footer
   );

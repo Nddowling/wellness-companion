@@ -7,7 +7,6 @@ import { normalizePlan } from '@/lib/facility/plan';
 import { Logo } from '@/components/Logo';
 import { AccountMenu } from '@/components/AccountMenu';
 import { MobileTabBar, type Tab } from '@/components/MobileTabBar';
-import { ReferFacilityButton } from '@/components/ReferFacilityButton';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const roles = await getRoles();
@@ -81,8 +80,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            {/* Referral CTA — provider (facility) accounts only; never shown to seekers. */}
-            {isFacility && <ReferFacilityButton />}
             {facilityOnFree && (
               <Link
                 href="/pricing"

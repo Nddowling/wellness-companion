@@ -365,7 +365,6 @@ export type Database = {
           extra_seats: number
           plan: string
           plan_status: string
-          referral_credits_earned: number
           populations_served: string[]
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -413,7 +412,6 @@ export type Database = {
           name: string
           npi?: string | null
           extra_seats?: number
-          referral_credits_earned?: number
           plan?: string
           plan_status?: string
           populations_served?: string[]
@@ -463,7 +461,6 @@ export type Database = {
           name?: string
           npi?: string | null
           extra_seats?: number
-          referral_credits_earned?: number
           plan?: string
           plan_status?: string
           populations_served?: string[]
@@ -483,56 +480,6 @@ export type Database = {
           zip3?: string | null
         }
         Relationships: []
-      }
-      facility_referrals: {
-        Row: {
-          converted_at: string | null
-          converted_facility_id: string | null
-          created_at: string
-          credit_applied: boolean
-          id: string
-          referred_email: string | null
-          referred_name: string
-          referred_note: string | null
-          referred_phone: string | null
-          referrer_facility_id: string
-          status: string
-        }
-        Insert: {
-          converted_at?: string | null
-          converted_facility_id?: string | null
-          created_at?: string
-          credit_applied?: boolean
-          id?: string
-          referred_email?: string | null
-          referred_name: string
-          referred_note?: string | null
-          referred_phone?: string | null
-          referrer_facility_id: string
-          status?: string
-        }
-        Update: {
-          converted_at?: string | null
-          converted_facility_id?: string | null
-          created_at?: string
-          credit_applied?: boolean
-          id?: string
-          referred_email?: string | null
-          referred_name?: string
-          referred_note?: string | null
-          referred_phone?: string | null
-          referrer_facility_id?: string
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "facility_referrals_referrer_facility_id_fkey"
-            columns: ["referrer_facility_id"]
-            isOneToOne: false
-            referencedRelation: "facilities"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       facility_capacity: {
         Row: {

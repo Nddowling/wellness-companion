@@ -208,34 +208,6 @@ export default function ForProvidersPage() {
         </div>
       </section>
 
-      {/* ── REFERRAL PROGRAM ─────────────────────────────────── */}
-      <section className="bg-white py-12">
-        <Reveal className="mx-auto max-w-3xl px-6">
-          <div className="rounded-2xl border border-terracotta/40 bg-terracotta/10 p-6 text-center sm:p-8">
-            <span className="text-xs font-semibold uppercase tracking-wide text-terracotta-dark">
-              Refer &amp; earn — free months
-            </span>
-            <h2 className="mt-2 text-2xl font-semibold text-slate-800">
-              Two paid facility sign-ups = a free month
-            </h2>
-            <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600">
-              Know other programs that belong here? For every paid facility you refer, you get{' '}
-              <strong>50% off your next month</strong> — so just two paid referrals add up to a{' '}
-              <strong>free month of service</strong> — up to <strong>3 free months</strong> (6 paid referrals).
-            </p>
-            <Link
-              href="/claim"
-              className="mt-5 inline-block rounded-md bg-terracotta px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
-            >
-              Claim your facility to start referring →
-            </Link>
-            <p className="mt-2 text-xs text-slate-500">
-              Your referral link and credits appear in your dashboard once you&apos;re verified.
-            </p>
-          </div>
-        </Reveal>
-      </section>
-
       {/* ── CLOSING CTA ──────────────────────────────────────── */}
       <section className="relative isolate overflow-hidden py-20">
         <div className="absolute inset-0 -z-10 bg-brand/90" />
