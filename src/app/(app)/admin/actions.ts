@@ -334,7 +334,12 @@ export async function approveClaim(_prev: ApproveResult, formData: FormData): Pr
     email,
     options: { redirectTo: `${SITE_URL}/reset` },
   });
-  const setPasswordUrl = linkData?.properties?.action_link ?? null;
+  // Send the token_hash through our /auth/callback (server-side verifyOtp) instead
+  // of the raw action_link, so the session is established reliably on click.
+  const hashed = linkData?.properties?.hashed_token ?? null;
+  const setPasswordUrl = hashed
+    ? `${SITE_URL}/auth/callback?token_hash=${hashed}&type=recovery&next=/reset`
+    : (linkData?.properties?.action_link ?? null);
 
   let mailSent = false;
   if (setPasswordUrl) {

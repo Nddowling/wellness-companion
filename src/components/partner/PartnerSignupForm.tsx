@@ -37,7 +37,10 @@ export function PartnerSignupForm() {
     const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: { data: { role: 'partner', full_name: form.name.trim() } },
+      options: {
+        data: { role: 'partner', full_name: form.name.trim() },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/home`,
+      },
     });
     if (error) {
       setBusy(false);

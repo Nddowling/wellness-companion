@@ -56,7 +56,14 @@ function LoginForm() {
       mode === 'signin'
         ? supabase.auth.signInWithPassword({ email, password })
         : // Only seekers reach signup here — tag them so getRoles() routes them to care.
-          supabase.auth.signUp({ email, password, options: { data: { role: 'seeker' } } });
+          supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { role: 'seeker' },
+              emailRedirectTo: `${window.location.origin}/auth/callback?next=/home`,
+            },
+          });
     const { data, error } = await fn;
     setBusy(false);
     if (error) {
@@ -80,7 +87,7 @@ function LoginForm() {
     setBusy(true);
     setError(null);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset`,
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset`,
     });
     setBusy(false);
     if (error) {

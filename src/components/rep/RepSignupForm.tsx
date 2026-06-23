@@ -42,7 +42,10 @@ export function RepSignupForm({ invite }: { invite?: InviteContext }) {
     const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
-      options: { data: { role: 'rep', full_name: form.name.trim(), phone: form.phone.trim() || null } },
+      options: {
+        data: { role: 'rep', full_name: form.name.trim(), phone: form.phone.trim() || null },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/home`,
+      },
     });
     if (error) {
       setBusy(false);
