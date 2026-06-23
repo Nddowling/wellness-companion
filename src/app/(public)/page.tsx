@@ -6,6 +6,7 @@ import Reveal from '@/components/Reveal';
 import { Logo } from '@/components/Logo';
 import { getRoles, isProviderSide } from '@/lib/auth';
 import SiteFooter from '@/components/SiteFooter';
+import { FindTreatmentSearch } from '@/components/search/FindTreatmentSearch';
 
 export const metadata: Metadata = {
   // Home inherits the layout's default (brand) title + OG; just pin the canonical.
@@ -54,36 +55,28 @@ export default async function LandingPage() {
               A warm, judgment-free guide that listens for a few key things and connects you with treatment that
               actually fits — your situation, your coverage, your needs. Free and private — no account required to start.
             </p>
-            <div className="mt-7 flex flex-wrap items-center gap-3">
+            <div className="mt-7">
               {providerSide ? (
                 <Link
                   href="/home"
-                  className="rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+                  className="inline-block rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
                 >
                   Go to your dashboard →
                 </Link>
               ) : (
-                <>
-                  <Link
-                    href="/match"
-                    className="rounded-md bg-terracotta px-6 py-3 text-base font-semibold text-white shadow-lg shadow-terracotta/30 transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
-                  >
-                    Seeking Information on Treatment →
-                  </Link>
-                  <Link
-                    href="/for-providers"
-                    className="rounded-md border border-white/40 bg-white/10 px-5 py-3 text-base font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
-                  >
-                    I run a treatment program →
-                  </Link>
-                </>
+                <div className="max-w-xl">
+                  {/* Recovery.com-style search: opens locations / conditions / insurance /
+                      natural-language AI search, all in your palette. */}
+                  <FindTreatmentSearch />
+                  <div className="mt-3 flex flex-wrap items-center gap-4">
+                    <span className="text-xs text-white/70">Free · Private · No account required</span>
+                    <Link href="/for-providers" className="text-sm font-medium text-white/90 underline-offset-2 hover:text-white hover:underline">
+                      I run a treatment program →
+                    </Link>
+                  </div>
+                </div>
               )}
             </div>
-            {!providerSide && (
-              <div className="mt-4 flex flex-wrap items-center gap-4">
-                <span className="text-xs text-white/70">Free · Private · Takes about 2 minutes</span>
-              </div>
-            )}
             <p className="mt-4 text-xs text-white/70">
               In an emergency call <strong>911</strong>. In crisis, call or text <strong>988</strong> — anytime.
             </p>

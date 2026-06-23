@@ -28,10 +28,21 @@ type Row = {
   city: string | null;
   state: string | null;
   levels_of_care: string[];
+  specialties: string[];
+  populations_served: string[];
   carriers_named: string[];
   facility_payers: { payer_type: string }[];
   facility_capacity: CapacityRow[];
 };
+
+// Case-insensitive "contains as a left-bounded token". The SAMHSA arrays mix short
+// slugs (men, trauma, co_occurring) with verbose phrases, so we match on a left
+// boundary — this keeps "men" from matching "women".
+function arrHas(arr: string[] | null | undefined, needle: string): boolean {
+  const esc = needle.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp('(^|[^a-z])' + esc, 'i');
+  return (arr ?? []).some((v) => re.test(v));
+}
 
 function acceptedSummary(r: Row): string {
   const gov = (r.facility_payers ?? [])
@@ -45,15 +56,15 @@ function acceptedSummary(r: Row): string {
 export default async function ProgramsDirectory({
   searchParams,
 }: {
-  searchParams: Promise<{ level?: string; q?: string; region?: string; pay?: string; open?: string }>;
+  searchParams: Promise<{ level?: string; q?: string; region?: string; pay?: string; open?: string; spec?: string; pop?: string }>;
 }) {
-  const { level, q, region, pay, open } = await searchParams;
+  const { level, q, region, pay, open, spec, pop } = await searchParams;
   const providerSide = isProviderSide(await getRoles());
   const supabase = createAdminClient();
 
   const { data } = await supabase
     .from('facilities')
-    .select('id, name, city, state, levels_of_care, carriers_named, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
+    .select('id, name, city, state, levels_of_care, specialties, populations_served, carriers_named, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
     .eq('is_published', true)
     .order('name');
 
@@ -79,6 +90,9 @@ export default async function ProgramsDirectory({
   if (pay && (PAYER_TYPES as readonly string[]).includes(pay)) {
     rows = rows.filter((r) => (r.facility_payers ?? []).some((p) => p.payer_type === pay));
   }
+  // Condition (specialty) and clientele (population) chips from the search overlay.
+  if (spec) rows = rows.filter((r) => arrHas(r.specialties, spec));
+  if (pop) rows = rows.filter((r) => arrHas(r.populations_served, pop));
   if (open) {
     rows = rows.filter((r) => {
       const openBeds = (r.facility_capacity ?? []).some((c) => isBedBased(c.level_of_care) && c.beds_available > 0);
@@ -94,6 +108,8 @@ export default async function ProgramsDirectory({
     if (region) p.set('region', region);
     if (q) p.set('q', q);
     if (pay) p.set('pay', pay);
+    if (spec) p.set('spec', spec);
+    if (pop) p.set('pop', pop);
     if (open) p.set('open', open);
     const s = p.toString();
     return s ? `/programs?${s}` : '/programs';
@@ -180,7 +196,7 @@ export default async function ProgramsDirectory({
           Search
         </button>
       </form>
-      {(level || region || q || pay || open) && (
+      {(level || region || q || pay || open || spec || pop) && (
         <Link href="/programs" className="mt-2 inline-block text-xs text-slate-500 underline hover:text-teal-700">
           Clear filters
         </Link>
