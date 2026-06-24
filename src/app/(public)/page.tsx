@@ -70,6 +70,12 @@ export default async function LandingPage() {
                   <FindTreatmentSearch />
                   <div className="mt-3 flex flex-wrap items-center gap-4">
                     <span className="text-xs text-white/70">Free · Private · No account required</span>
+                    <Link
+                      href="/library"
+                      className="rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
+                    >
+                      📚 Free recovery library →
+                    </Link>
                     <Link href="/for-providers" className="text-sm font-medium text-white/90 underline-offset-2 hover:text-white hover:underline">
                       I run a treatment program →
                     </Link>

@@ -32,6 +32,7 @@ function LoginForm() {
   const resumingCheckout = !!safeNext && safeNext.startsWith('/api/checkout');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   // Providers NEVER self-sign-up: claiming + admin verification is the only door in
   // (see claim/actions.ts). Only seekers may create an account from this page.
   const [mode, setMode] = useState<'signin' | 'signup'>(isSeeker ? 'signup' : 'signin');
@@ -60,7 +61,7 @@ function LoginForm() {
             email,
             password,
             options: {
-              data: { role: 'seeker' },
+              data: { role: 'seeker', full_name: name.trim() || undefined },
               emailRedirectTo: `${window.location.origin}/auth/callback?next=/home`,
             },
           });
@@ -173,6 +174,20 @@ function LoginForm() {
           )}
 
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
+            {mode === 'signup' && (
+              <div>
+                <Label htmlFor="name">Your name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  required
+                  autoComplete="name"
+                  placeholder="First name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+            )}
             <div>
               <Label htmlFor="email">Email</Label>
               <Input
