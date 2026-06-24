@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, isBedBased, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
+import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
 import { US_STATES } from '@/lib/geo';
 import { BedChip } from '@/components/FacilityCard';
 import { absoluteUrl } from '@/lib/seo';
@@ -16,12 +16,10 @@ export const metadata: Metadata = {
   title: PROGRAMS_TITLE,
   description: PROGRAMS_DESCRIPTION,
   alternates: { canonical: '/programs' },
-  openGraph: {
-    title: PROGRAMS_TITLE,
-    description: PROGRAMS_DESCRIPTION,
-    url: absoluteUrl('/programs'),
-  },
+  openGraph: { title: PROGRAMS_TITLE, description: PROGRAMS_DESCRIPTION, url: absoluteUrl('/programs') },
 };
+
+const PAGE_SIZE = 24;
 
 type Row = {
   id: string;
@@ -29,21 +27,10 @@ type Row = {
   city: string | null;
   state: string | null;
   levels_of_care: string[];
-  specialties: string[];
-  populations_served: string[];
-  carriers_named: string[];
-  facility_payers: { payer_type: string }[];
-  facility_capacity: CapacityRow[];
+  carriers_named: string[] | null;
+  facility_payers: { payer_type: string }[] | null;
+  facility_capacity: CapacityRow[] | null;
 };
-
-// Case-insensitive "contains as a left-bounded token". The SAMHSA arrays mix short
-// slugs (men, trauma, co_occurring) with verbose phrases, so we match on a left
-// boundary — this keeps "men" from matching "women".
-function arrHas(arr: string[] | null | undefined, needle: string): boolean {
-  const esc = needle.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp('(^|[^a-z])' + esc, 'i');
-  return (arr ?? []).some((v) => re.test(v));
-}
 
 function acceptedSummary(r: Row): string {
   const gov = (r.facility_payers ?? [])
@@ -57,83 +44,75 @@ function acceptedSummary(r: Row): string {
 export default async function ProgramsDirectory({
   searchParams,
 }: {
-  searchParams: Promise<{ level?: string; q?: string; region?: string; pay?: string; open?: string; spec?: string; pop?: string }>;
+  searchParams: Promise<{ level?: string; q?: string; region?: string; pay?: string; open?: string; spec?: string; pop?: string; page?: string }>;
 }) {
-  const { level, q, region, pay, open, spec, pop } = await searchParams;
+  const { level, q, region, pay, open, spec, pop, page: pageParam } = await searchParams;
   const providerSide = isProviderSide(await getRoles());
-  const supabase = createAdminClient();
 
-  const { data } = await supabase
-    .from('facilities')
-    .select('id, name, city, state, levels_of_care, specialties, populations_served, carriers_named, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
-    .eq('is_published', true)
-    .order('name');
+  const validLevel = level && (LEVELS_OF_CARE as readonly string[]).includes(level) ? level : null;
+  const validPay = pay && (PAYER_TYPES as readonly string[]).includes(pay) ? pay : null;
+  const page = Math.max(1, Number(pageParam) || 1);
 
-  const all = (data ?? []) as Row[];
-  // Region options come from the states actually present in the directory.
-  const states = [...new Set(all.map((r) => r.state).filter((s): s is string => !!s))].sort();
+  // All filtering/counting/paging runs in Postgres (no 1,000-row PostgREST cap), so
+  // the directory searches the WHOLE table and returns just this page + true totals.
+  const filters = {
+    p_region: region || null,
+    p_level: validLevel,
+    p_pay: validPay,
+    p_spec: spec?.trim() || null,
+    p_pop: pop?.trim() || null,
+    p_q: q?.trim() || null,
+    p_open: !!open,
+  };
 
-  let rows = all;
-  if (region) rows = rows.filter((r) => r.state === region);
-  if (level && LEVELS_OF_CARE.includes(level as LevelOfCare)) {
-    rows = rows.filter((r) => (r.levels_of_care ?? []).includes(level));
-  }
-  if (q) {
-    // Smart search across name, place, level, condition (specialty) and clientele
-    // (population) — so typed / natural-language queries ("medicaid detox georgia",
-    // "veterans residential") actually filter, not just facility names.
-    const needle = q.toLowerCase().trim();
-    const tokens = needle.split(/\s+/).filter((t) => t.length > 2);
-    rows = rows.filter((r) => {
-      const hay = [
-        r.name,
-        r.city,
-        r.state,
-        US_STATES[(r.state ?? '').toUpperCase()] ?? '',
-        ...(r.levels_of_care ?? []).map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l),
-        ...(r.levels_of_care ?? []),
-        ...(r.specialties ?? []),
-        ...(r.populations_served ?? []),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(needle) || (tokens.length > 0 && tokens.every((t) => hay.includes(t)));
-    });
-  }
-  // Referrer axes: payment accepted, and "available now" (open overnight beds, or
-  // outpatient — which is always accepting).
-  if (pay && (PAYER_TYPES as readonly string[]).includes(pay)) {
-    rows = rows.filter((r) => (r.facility_payers ?? []).some((p) => p.payer_type === pay));
-  }
-  // Condition (specialty) and clientele (population) chips from the search overlay.
-  if (spec) rows = rows.filter((r) => arrHas(r.specialties, spec));
-  if (pop) rows = rows.filter((r) => arrHas(r.populations_served, pop));
-  if (open) {
-    rows = rows.filter((r) => {
-      const openBeds = (r.facility_capacity ?? []).some((c) => isBedBased(c.level_of_care) && c.beds_available > 0);
-      const hasBedLevel = (r.levels_of_care ?? []).some(isBedBased);
-      return openBeds || !hasBedLevel;
-    });
-  }
+  const admin = createAdminClient();
+  // RPCs aren't in the generated types — cast the client (receiver intact).
+  const client = admin as unknown as {
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
+  };
+  const [rowsRes, countRes, statesRes] = await Promise.all([
+    client.rpc('facilities_search', { ...filters, p_limit: PAGE_SIZE, p_offset: (page - 1) * PAGE_SIZE }),
+    client.rpc('facilities_search_count', filters),
+    client.rpc('facilities_state_counts', {}),
+  ]);
 
-  // Build a /programs href that keeps the other filters intact.
-  const hrefFor = (l?: string) => {
+  const rows = (rowsRes.data as Row[]) ?? [];
+  const total = Number(countRes.data ?? 0);
+  const states = ((statesRes.data as { state: string }[]) ?? []).map((s) => s.state);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const hasFilters = !!(validLevel || region || q || validPay || open || spec || pop);
+
+  // Build hrefs that keep the active filters. Changing a filter resets to page 1.
+  const params = (overrides: Record<string, string | undefined>) => {
+    const cur: Record<string, string | undefined> = {
+      level: validLevel ?? undefined,
+      region,
+      q,
+      pay: validPay ?? undefined,
+      spec,
+      pop,
+      open,
+      ...overrides,
+    };
     const p = new URLSearchParams();
-    if (l) p.set('level', l);
-    if (region) p.set('region', region);
-    if (q) p.set('q', q);
-    if (pay) p.set('pay', pay);
-    if (spec) p.set('spec', spec);
-    if (pop) p.set('pop', pop);
-    if (open) p.set('open', open);
-    const s = p.toString();
+    for (const [k, v] of Object.entries(cur)) if (v) p.set(k, v);
+    return p;
+  };
+  const hrefFor = (l?: string) => {
+    const s = params({ level: l, page: undefined }).toString();
+    return s ? `/programs?${s}` : '/programs';
+  };
+  const pageHref = (n: number) => {
+    const s = params({ page: n > 1 ? String(n) : undefined }).toString();
     return s ? `/programs?${s}` : '/programs';
   };
 
   const tabClass = (active: boolean) =>
     'rounded-full px-3 py-1 text-xs font-medium ' +
     (active ? 'bg-teal-700 text-white' : 'border border-slate-300 text-slate-600 hover:border-teal-400');
+
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
@@ -153,38 +132,32 @@ export default async function ProgramsDirectory({
         </Link>
       </div>
 
-      {/* Treatment-type filter (always available) */}
+      {/* Treatment-type filter */}
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link href={hrefFor(undefined)} className={tabClass(!level)}>
+        <Link href={hrefFor(undefined)} className={tabClass(!validLevel)}>
           All
         </Link>
         {LEVELS_OF_CARE.map((l) => (
-          <Link key={l} href={hrefFor(l)} className={tabClass(level === l)}>
+          <Link key={l} href={hrefFor(l)} className={tabClass(validLevel === l)}>
             {LEVEL_LABELS[l]}
           </Link>
         ))}
       </div>
 
-      {/* Region + search (always available). One GET form so all three filters compose. */}
+      {/* Region + insurance + search. One GET form so the filters compose (resets to page 1). */}
       <form className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap" action="/programs">
-        {level && <input type="hidden" name="level" value={level} />}
-        <select
-          name="region"
-          defaultValue={region ?? ''}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700"
-        >
+        {validLevel && <input type="hidden" name="level" value={validLevel} />}
+        {spec && <input type="hidden" name="spec" value={spec} />}
+        {pop && <input type="hidden" name="pop" value={pop} />}
+        <select name="region" defaultValue={region ?? ''} className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700">
           <option value="">All regions</option>
           {states.map((s) => (
             <option key={s} value={s}>
-              {s}
+              {US_STATES[s] ?? s}
             </option>
           ))}
         </select>
-        <select
-          name="pay"
-          defaultValue={pay ?? ''}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700"
-        >
+        <select name="pay" defaultValue={validPay ?? ''} className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700">
           <option value="">Any insurance</option>
           {PAYER_TYPES.map((pt) => (
             <option key={pt} value={pt}>
@@ -195,30 +168,25 @@ export default async function ProgramsDirectory({
         <input
           name="q"
           defaultValue={q ?? ''}
-          placeholder="Search by name or city…"
+          placeholder="Name, city, condition…"
           className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm sm:min-w-[10rem]"
         />
         <label className="flex items-center gap-2 whitespace-nowrap text-sm text-slate-600">
-          <input
-            type="checkbox"
-            name="open"
-            value="1"
-            defaultChecked={!!open}
-            className="h-4 w-4 rounded border-slate-300"
-          />
+          <input type="checkbox" name="open" value="1" defaultChecked={!!open} className="h-4 w-4 rounded border-slate-300" />
           Available now
         </label>
-        <button className="w-full rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white sm:w-auto">
-          Search
-        </button>
+        <button className="w-full rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white sm:w-auto">Search</button>
       </form>
-      {(level || region || q || pay || open || spec || pop) && (
+      {hasFilters && (
         <Link href="/programs" className="mt-2 inline-block text-xs text-slate-500 underline hover:text-teal-700">
           Clear filters
         </Link>
       )}
 
-      <p className="mt-4 text-xs text-slate-400">{rows.length} programs</p>
+      <p className="mt-4 text-xs text-slate-400">
+        {total.toLocaleString()} program{total === 1 ? '' : 's'}
+        {total > PAGE_SIZE && ` · showing ${from.toLocaleString()}–${to.toLocaleString()}`}
+      </p>
 
       {rows.length === 0 ? (
         <p className="mt-2 rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
@@ -259,6 +227,29 @@ export default async function ProgramsDirectory({
               </Link>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex items-center justify-between gap-3 text-sm">
+          {page > 1 ? (
+            <Link href={pageHref(page - 1)} className="rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:border-teal-400 hover:text-teal-700">
+              ← Previous
+            </Link>
+          ) : (
+            <span className="rounded-md border border-slate-200 px-4 py-2 text-slate-300">← Previous</span>
+          )}
+          <span className="text-slate-500">
+            Page {page} of {totalPages.toLocaleString()}
+          </span>
+          {page < totalPages ? (
+            <Link href={pageHref(page + 1)} className="rounded-md border border-slate-300 px-4 py-2 font-medium text-slate-700 hover:border-teal-400 hover:text-teal-700">
+              Next →
+            </Link>
+          ) : (
+            <span className="rounded-md border border-slate-200 px-4 py-2 text-slate-300">Next →</span>
+          )}
         </div>
       )}
     </main>

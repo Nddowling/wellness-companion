@@ -21,16 +21,16 @@ export const metadata: Metadata = {
 };
 
 export default async function TreatmentIndex() {
-  const supabase = createAdminClient();
-  const { data } = await supabase.from('facilities').select('state').eq('is_published', true);
-
-  const counts = new Map<string, number>();
-  for (const row of data ?? []) {
-    const code = (row.state ?? '').toUpperCase();
-    if (code) counts.set(code, (counts.get(code) ?? 0) + 1);
-  }
-  const states = [...counts.entries()]
-    .map(([code, n]) => ({ code, n, name: stateName(code), slug: stateSlug(code) }))
+  const admin = createAdminClient();
+  // True per-state counts via a SQL aggregate — not subject to PostgREST's 1,000-row cap
+  // (a plain select would only see the first 1,000 of ~13.5k and undercount every state).
+  const client = admin as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }> };
+  const { data } = await client.rpc('facilities_state_counts', {});
+  const states = ((data as { state: string; n: number }[]) ?? [])
+    .map(({ state, n }) => {
+      const code = (state ?? '').toUpperCase();
+      return { code, n: Number(n), name: stateName(code), slug: stateSlug(code) };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const jsonLd = {
