@@ -218,7 +218,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
       ...(intakePhone ? { telephone: intakePhone } : {}),
     };
     return (
-      <main className="mx-auto max-w-2xl px-4 py-8">
+      <main className="mx-auto max-w-3xl px-4 py-8">
         <JsonLd data={minimalLd} />
         <div className="flex gap-4 text-sm text-teal-700">
           <MatchBackLink className="hover:underline" />
@@ -233,6 +233,19 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             {[f.city, f.state].filter(Boolean).join(', ') || 'Location on file'}
             {f.operator_type ? ` · ${f.operator_type}` : ''}
           </p>
+
+          {!f.verified_at && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-amber-800">
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                <path
+                  fillRule="evenodd"
+                  d="M8.49 2.94c.67-1.16 2.35-1.16 3.02 0l6.28 10.87c.67 1.17-.17 2.63-1.51 2.63H3.72c-1.34 0-2.18-1.46-1.51-2.63L8.49 2.94zM10 7a1 1 0 0 0-1 1v3a1 1 0 1 0 2 0V8a1 1 0 0 0-1-1zm0 7.5a1.1 1.1 0 1 0 0-2.2 1.1 1.1 0 0 0 0 2.2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Unverified listing — details not yet confirmed
+            </div>
+          )}
 
           {((f.accreditations ?? []).length > 0 || f.is_faith_based || f.verified_at) && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -303,16 +316,48 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
         </div>
 
         {!providerSide && (
-          <p className="mt-6 text-center text-xs text-slate-400">
-            Work at {f.name}?{' '}
-            <Link href="/for-providers" className="font-medium text-teal-600 hover:underline">
-              Claim this listing →
-            </Link>{' '}
-            or{' '}
-            <Link href="/for-reps" className="font-medium text-teal-600 hover:underline">
-              add yourself to the team →
-            </Link>
-          </p>
+          <div className="mt-6 overflow-hidden rounded-2xl border border-terracotta/40 bg-gradient-to-br from-terracotta/5 to-sage/10">
+            <div className="border-b border-terracotta/20 px-5 py-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-terracotta-dark">Is this your program?</div>
+              <h2 className="mt-1 font-serif text-xl text-ink">Claim this profile — free — to add:</h2>
+            </div>
+            <ul className="grid gap-x-5 gap-y-2.5 px-5 py-4 sm:grid-cols-2">
+              {[
+                'Website & online presence',
+                'Admissions email',
+                'Photos & your logo',
+                'Named insurance plans',
+                'Medicaid MCO names',
+                'License & accreditation proof',
+                'Current availability notes',
+                'Cash / self-pay pricing',
+                'Fast-response intake links',
+              ].map((label) => (
+                <li key={label} className="flex items-start gap-2 text-sm text-slate-700">
+                  <svg className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+                    <path
+                      fillRule="evenodd"
+                      d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.1 3.1 6.8-6.8a1 1 0 0 1 1.4 0z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>{label}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-center gap-3 border-t border-terracotta/20 px-5 py-4">
+              <Link
+                href="/for-providers"
+                className="rounded-md bg-terracotta px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
+              >
+                Claim this profile →
+              </Link>
+              <Link href="/for-reps" className="text-sm font-medium text-teal-700 hover:underline">
+                Or add yourself to the team →
+              </Link>
+              <span className="text-xs text-slate-500">Free · verified by our team</span>
+            </div>
+          </div>
         )}
       </main>
     );
