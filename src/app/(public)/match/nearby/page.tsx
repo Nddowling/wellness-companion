@@ -16,11 +16,16 @@ const RADIUS_MI = 25;
 export default async function NearbyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ zip?: string; city?: string; state?: string }>;
+  searchParams: Promise<{ zip?: string; city?: string; state?: string; lat?: string; lng?: string }>;
 }) {
-  const { zip, city, state } = await searchParams;
-  const { origin, facilities } = await getNearby({ zip, city, state }, RADIUS_MI, 20);
-  const where = (String(zip ?? '').match(/\d{5}/) || [])[0] || [city, state].filter(Boolean).join(', ');
+  const { zip, city, state, lat, lng } = await searchParams;
+  const latN = lat ? Number(lat) : undefined;
+  const lngN = lng ? Number(lng) : undefined;
+  const { origin, facilities } = await getNearby({ zip, city, state, lat: latN, lng: lngN }, RADIUS_MI, 20);
+  const where =
+    Number.isFinite(latN) && Number.isFinite(lngN)
+      ? 'your location'
+      : (String(zip ?? '').match(/\d{5}/) || [])[0] || [city, state].filter(Boolean).join(', ');
   const hasMapKey = !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   return (

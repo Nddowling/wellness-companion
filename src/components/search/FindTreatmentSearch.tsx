@@ -75,42 +75,56 @@ export function FindTreatmentSearch({ className = '' }: { className?: string }) 
     router.push(href);
   };
 
-  // Free-text → directory search by name/city.
-  const submitDirectory = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Free text → smart directory search (name, city, condition, population, level, state).
+  const submitSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
     const q = text.trim();
     go(q ? `/programs?q=${encodeURIComponent(q)}` : '/programs');
   };
 
-  // "Search the way you speak" → the AI guide, seeded with whatever they've typed.
-  const askAI = () => {
+  // "Search the way you speak": apply whatever they typed; empty → open the guide.
+  const naturalSearch = () => {
     const q = text.trim();
-    go(q ? `/match?q=${encodeURIComponent(q)}` : '/match');
+    go(q ? `/programs?q=${encodeURIComponent(q)}` : '/match');
   };
 
-  // Current Location tile → IP geolocation, then jump to that state's results.
-  const useMyLocation = async () => {
+  // Current Location → browser Geolocation API (accurate, permission-based, VPN-proof),
+  // falling back to coarse IP geo only if the user denies or it's unavailable.
+  const useMyLocation = () => {
     setLocating(true);
-    try {
-      const res = await fetch('/api/geo', { cache: 'no-store' });
-      const geo = (await res.json()) as { state?: string };
-      go(geo.state && US_STATES[geo.state] ? `/programs?region=${geo.state}` : '/programs');
-    } catch {
-      go('/programs');
+    const ipFallback = async () => {
+      try {
+        const res = await fetch('/api/geo', { cache: 'no-store' });
+        const geo = (await res.json()) as { state?: string };
+        go(geo.state && US_STATES[geo.state] ? `/programs?region=${geo.state}` : '/programs');
+      } catch {
+        go('/programs');
+      }
+    };
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      ipFallback();
+      return;
     }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => go(`/match/nearby?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`),
+      () => ipFallback(),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 600_000 }
+    );
   };
 
   return (
     <div className={className}>
-      {/* Trigger — a search bar that opens the overlay (recovery.com pattern) */}
+      {/* Trigger — a large, prominent search bar that opens the overlay */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-3 rounded-full bg-white px-5 py-4 text-left shadow-xl shadow-ink/20 ring-1 ring-black/5 transition hover:shadow-2xl"
+        className="flex w-full items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left shadow-2xl shadow-ink/30 ring-1 ring-black/5 transition hover:-translate-y-0.5 sm:px-6 sm:py-5"
       >
-        <SearchIcon className="h-5 w-5 shrink-0 text-teal-700" />
-        <span className="truncate text-base text-slate-400">Locations, conditions, insurance, programs…</span>
-        <span className="ml-auto hidden rounded-full bg-teal-700 px-4 py-1.5 text-sm font-semibold text-white sm:inline">
+        <SearchIcon className="h-6 w-6 shrink-0 text-teal-700" />
+        <span className="min-w-0 flex-1 truncate text-base text-slate-500 sm:text-lg">
+          Search treatment — place, condition, insurance, or just describe it
+        </span>
+        <span className="ml-auto hidden shrink-0 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white sm:inline">
           Search
         </span>
       </button>
@@ -122,7 +136,7 @@ export function FindTreatmentSearch({ className = '' }: { className?: string }) 
 
           <div className="relative w-full max-w-2xl overflow-hidden rounded-3xl bg-white shadow-2xl">
             {/* search field */}
-            <form onSubmit={submitDirectory} className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+            <form onSubmit={submitSearch} className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
               <SearchIcon className="h-5 w-5 shrink-0 text-slate-400" />
               <input
                 ref={inputRef}
@@ -139,7 +153,7 @@ export function FindTreatmentSearch({ className = '' }: { className?: string }) 
             <div className="max-h-[70vh] overflow-y-auto px-5 pb-6 pt-4">
               {/* Search the way you speak → AI guide */}
               <button
-                onClick={askAI}
+                onClick={naturalSearch}
                 className="group flex w-full items-center justify-between gap-3 rounded-2xl bg-gradient-to-br from-teal-50 to-sage/20 p-4 text-left ring-1 ring-teal-100 transition hover:ring-teal-300"
               >
                 <span>

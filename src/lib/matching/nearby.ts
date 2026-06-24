@@ -30,7 +30,7 @@ export type NearbyFacility = {
   miles: number;
 };
 
-export type LocationInput = { zip?: string; city?: string; state?: string };
+export type LocationInput = { zip?: string; city?: string; state?: string; lat?: number; lng?: number };
 
 // zip_centroids isn't in the generated Database types — narrow cast for its reads.
 function zipCentroidQuery(admin: ReturnType<typeof createAdminClient>) {
@@ -69,6 +69,12 @@ async function geocodeCity(city: string, state: string): Promise<{ lat: number; 
 /** Resolve a seeker location to coordinates: ZIP centroid first, then geocoded
  *  city/state, then (if geocoding is unavailable) a facility's ZIP in that city. */
 export async function resolveOrigin(loc: LocationInput): Promise<{ lat: number; lng: number } | null> {
+  // Precise device coordinates (browser Geolocation API) win when present — accurate
+  // and not fooled by VPN/IP. This is the industry-standard "use my location" path.
+  if (Number.isFinite(loc.lat) && Number.isFinite(loc.lng)) {
+    return { lat: Number(loc.lat), lng: Number(loc.lng) };
+  }
+
   const admin = createAdminClient();
 
   const z = (String(loc.zip ?? '').match(/\d{5}/) || [])[0];

@@ -64,7 +64,7 @@ export default async function LandingPage() {
                   Go to your dashboard →
                 </Link>
               ) : (
-                <div className="max-w-xl">
+                <div className="max-w-2xl">
                   {/* Recovery.com-style search: opens locations / conditions / insurance /
                       natural-language AI search, all in your palette. */}
                   <FindTreatmentSearch />

@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, isBedBased, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
+import { US_STATES } from '@/lib/geo';
 import { BedChip } from '@/components/FacilityCard';
 import { absoluteUrl } from '@/lib/seo';
 import { getRoles, isProviderSide } from '@/lib/auth';
@@ -78,12 +79,27 @@ export default async function ProgramsDirectory({
     rows = rows.filter((r) => (r.levels_of_care ?? []).includes(level));
   }
   if (q) {
-    const needle = q.toLowerCase();
-    rows = rows.filter(
-      (r) =>
-        r.name.toLowerCase().includes(needle) ||
-        [r.city, r.state].filter(Boolean).join(', ').toLowerCase().includes(needle)
-    );
+    // Smart search across name, place, level, condition (specialty) and clientele
+    // (population) — so typed / natural-language queries ("medicaid detox georgia",
+    // "veterans residential") actually filter, not just facility names.
+    const needle = q.toLowerCase().trim();
+    const tokens = needle.split(/\s+/).filter((t) => t.length > 2);
+    rows = rows.filter((r) => {
+      const hay = [
+        r.name,
+        r.city,
+        r.state,
+        US_STATES[(r.state ?? '').toUpperCase()] ?? '',
+        ...(r.levels_of_care ?? []).map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l),
+        ...(r.levels_of_care ?? []),
+        ...(r.specialties ?? []),
+        ...(r.populations_served ?? []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(needle) || (tokens.length > 0 && tokens.every((t) => hay.includes(t)));
+    });
   }
   // Referrer axes: payment accepted, and "available now" (open overnight beds, or
   // outpatient — which is always accepting).
@@ -120,7 +136,7 @@ export default async function ProgramsDirectory({
     (active ? 'bg-teal-700 text-white' : 'border border-slate-300 text-slate-600 hover:border-teal-400');
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
+    <main className="mx-auto max-w-5xl px-4 py-6">
       {!providerSide && (
         <Link href="/match" className="text-sm text-teal-700">
           ← Back to your matches
@@ -204,30 +220,47 @@ export default async function ProgramsDirectory({
 
       <p className="mt-4 text-xs text-slate-400">{rows.length} programs</p>
 
-      <div className="mt-2 space-y-2">
-        {rows.length === 0 && (
-          <p className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-            No programs match that filter. Try a different level or clear the search.
-          </p>
-        )}
-        {rows.map((r) => (
-          <Link
-            key={r.id}
-            href={`/programs/${r.id}`}
-            className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-teal-300"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="font-medium text-slate-800">{r.name}</div>
-              <BedChip caps={r.facility_capacity} levels={r.levels_of_care} />
-            </div>
-            <div className="text-xs text-slate-500">
-              {[r.city, r.state].filter(Boolean).join(', ') || 'Location on file'} ·{' '}
-              {(r.levels_of_care ?? []).map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(', ') || 'Programs vary'}
-            </div>
-            <div className="mt-1 text-xs text-slate-500">Accepts: {acceptedSummary(r)}</div>
-          </Link>
-        ))}
-      </div>
+      {rows.length === 0 ? (
+        <p className="mt-2 rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
+          No programs match that filter. Try a different level or clear the search.
+        </p>
+      ) : (
+        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+          {rows.map((r) => {
+            const loc = [r.city, r.state].filter(Boolean).join(', ') || 'Location on file';
+            const levelChips = (r.levels_of_care ?? []).map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l);
+            return (
+              <Link
+                key={r.id}
+                href={`/programs/${r.id}`}
+                className="group flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-2 border-b border-slate-100 bg-gradient-to-r from-teal-50 to-sage/10 px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold text-slate-800 group-hover:text-teal-800">{r.name}</div>
+                    <div className="mt-0.5 truncate text-xs text-slate-500">{loc}</div>
+                  </div>
+                  <BedChip caps={r.facility_capacity} levels={r.levels_of_care} />
+                </div>
+                <div className="flex flex-1 flex-col gap-2 p-4">
+                  {levelChips.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {levelChips.slice(0, 4).map((l) => (
+                        <span key={l} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                          {l}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-auto text-xs text-slate-500">
+                    <span className="font-medium text-slate-600">Accepts:</span> {acceptedSummary(r)}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
