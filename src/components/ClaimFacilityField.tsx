@@ -22,6 +22,8 @@ export function ClaimFacilityField({ initial }: { initial?: Hit }) {
   const [loading, setLoading] = useState(false);
   const [notListed, setNotListed] = useState(false);
   const [freetext, setFreetext] = useState('');
+  const [addLoc, setAddLoc] = useState('');
+  const [addWeb, setAddWeb] = useState('');
 
   useEffect(() => {
     if (selected || notListed) return; // locked in — stop searching
@@ -54,26 +56,38 @@ export function ClaimFacilityField({ initial }: { initial?: Hit }) {
     <div>
       <label className="text-sm font-medium text-slate-700">Your facility</label>
 
-      {/* The values submitPublicClaim reads. */}
+      {/* The values submitPublicClaim reads. For a manual add we fold name + location +
+          website into the freetext so an admin has enough to create the listing. */}
       <input type="hidden" name="facility_id" value={selected?.id ?? ''} />
-      <input type="hidden" name="facility_name_freetext" value={notListed ? freetext : ''} />
+      <input
+        type="hidden"
+        name="facility_name_freetext"
+        value={notListed ? [freetext, addLoc, addWeb].filter((v) => v.trim()).join(' — ') : ''}
+      />
 
       {notListed ? (
-        <div className="mt-1">
+        <div className="mt-1 space-y-2">
           <input
             value={freetext}
             onChange={(e) => setFreetext(e.target.value)}
-            placeholder="Your facility name + city"
+            placeholder="Facility / program name"
             className={field}
             autoFocus
           />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <input value={addLoc} onChange={(e) => setAddLoc(e.target.value)} placeholder="City, State" className={field} />
+            <input value={addWeb} onChange={(e) => setAddWeb(e.target.value)} placeholder="Website (optional)" className={field} />
+          </div>
+          <p className="text-xs text-slate-500">New to us? We&apos;ll review and add your program before granting access.</p>
           <button
             type="button"
             onClick={() => {
               setNotListed(false);
               setFreetext('');
+              setAddLoc('');
+              setAddWeb('');
             }}
-            className="mt-1 text-xs font-medium text-teal-700 underline"
+            className="text-xs font-medium text-teal-700 underline"
           >
             ← Search the directory instead
           </button>
@@ -135,8 +149,12 @@ export function ClaimFacilityField({ initial }: { initial?: Hit }) {
             </div>
           )}
 
-          <button type="button" onClick={() => setNotListed(true)} className="text-xs font-medium text-teal-700 underline">
-            Not listed? Add it manually
+          <button
+            type="button"
+            onClick={() => setNotListed(true)}
+            className="rounded-md border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-800 hover:bg-teal-100"
+          >
+            ＋ Don&apos;t see your program? Add it for review →
           </button>
         </div>
       )}
