@@ -390,14 +390,13 @@ export async function createListingFromClaim(formData: FormData) {
 
   const { data: fac } = await admin
     .from('facilities')
+    // verification_status ('unverified') + needs_review (true) come from column defaults.
     .insert({
       name,
       city: cityRaw || null,
       state: stateRaw ? stateRaw.toUpperCase().slice(0, 2) : null,
       website,
       is_published: true,
-      verification_status: 'unverified',
-      needs_review: true,
     })
     .select('id')
     .single();
