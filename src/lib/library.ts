@@ -35,7 +35,8 @@ export const LIBRARY: LibraryResource[] = [
     description:
       "You've decided something has to change. A calm, step-by-step guide for the first day — what to do, who to call, and how to get through tonight.",
     category: 'Start Here',
-    format: 'Pocket guide (PDF)',
+    format: '10-page pocket guide (PDF)',
+    file: 'first-24-hours.pdf',
   },
   {
     slug: 'what-to-expect-in-treatment',
