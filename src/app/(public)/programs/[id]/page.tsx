@@ -345,7 +345,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
               </div>
               <div className="absolute inset-0 flex items-center justify-center bg-white/45">
                 <Link
-                  href="/for-providers"
+                  href={`/claim?facility=${f.id}`}
                   className="rounded-full bg-ink/85 px-4 py-2 text-xs font-semibold text-white shadow-lg transition hover:bg-ink"
                 >
                   🔒 Claim for free to unlock
@@ -391,7 +391,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
             </ul>
             <div className="flex flex-wrap items-center gap-3 border-t border-terracotta/20 px-5 py-4">
               <Link
-                href="/for-providers"
+                href={`/claim?facility=${f.id}`}
                 className="rounded-md bg-terracotta px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
               >
                 Claim this profile for free →

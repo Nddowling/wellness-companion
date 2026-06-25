@@ -12,11 +12,13 @@ const field = 'w-full rounded border border-slate-300 px-3 py-2 text-sm';
 // /api/facilities/search (so it scales past any list size) and sets the hidden
 // facility_id — or a freetext fallback — that submitPublicClaim reads. Renders NO
 // <form> of its own: it lives inside the claim page's server-action form.
-export function ClaimFacilityField() {
+export function ClaimFacilityField({ initial }: { initial?: Hit }) {
   const [q, setQ] = useState('');
   const [state, setState] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
-  const [selected, setSelected] = useState<Hit | null>(null);
+  // Pre-selected when the visitor deep-linked from their own listing (/claim?facility=…),
+  // so they never have to search for their own program.
+  const [selected, setSelected] = useState<Hit | null>(initial ?? null);
   const [loading, setLoading] = useState(false);
   const [notListed, setNotListed] = useState(false);
   const [freetext, setFreetext] = useState('');

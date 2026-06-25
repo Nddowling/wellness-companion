@@ -5,6 +5,7 @@ import { Logo } from '@/components/Logo';
 import { ClaimFacilityField } from '@/components/ClaimFacilityField';
 import { submitPublicClaim } from './actions';
 import SiteFooter from '@/components/SiteFooter';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export const metadata: Metadata = {
   title: 'Claim your facility — Clear Bed Recovery',
@@ -17,9 +18,23 @@ const field = 'w-full rounded border border-slate-300 px-3 py-2 text-sm';
 export default async function ClaimPage({
   searchParams,
 }: {
-  searchParams: Promise<{ submitted?: string; error?: string }>;
+  searchParams: Promise<{ submitted?: string; error?: string; facility?: string }>;
 }) {
-  const { submitted, error } = await searchParams;
+  const { submitted, error, facility } = await searchParams;
+
+  // Deep-linked from a listing (/claim?facility=<id>) → pre-select their program so
+  // they don't search for it again. Biggest friction-killer for inbound campaign traffic.
+  let initial: { id: string; name: string; city: string | null; state: string | null } | undefined;
+  if (facility) {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('facilities')
+      .select('id, name, city, state')
+      .eq('id', facility)
+      .eq('is_published', true)
+      .maybeSingle();
+    if (data) initial = data;
+  }
 
   return (
     <>
@@ -28,7 +43,9 @@ export default async function ClaimPage({
         <Logo className="text-xl" />
       </Link>
 
-      <h1 className="mt-8 font-serif text-3xl text-ink">Claim your facility — free</h1>
+      <h1 className="mt-8 font-serif text-3xl text-ink">
+        {initial ? `Claim ${initial.name} — free` : 'Claim your facility — free'}
+      </h1>
       <p className="mt-2 text-sm text-slate-600">
         Manage your program&apos;s profile, keep bed availability current, and receive referrals. Tell us
         a little about you and your program — we verify every claim and reach out before granting access.
@@ -50,7 +67,7 @@ export default async function ClaimPage({
 
       {!submitted && (
         <form action={submitPublicClaim} className="mt-6 space-y-4">
-          <ClaimFacilityField />
+          <ClaimFacilityField initial={initial} />
 
           <div className="grid gap-3 sm:grid-cols-2">
             <input name="claimant_name" required placeholder="Your name" className={field} />
