@@ -11,10 +11,16 @@ export async function GET(request: Request) {
   const state = (searchParams.get('state') ?? '').replace(/[^a-zA-Z]/g, '').trim();
   if (!q && !state) return Response.json({ facilities: [] });
 
+  // Match word-by-word: every typed word must appear in the name or city. This finds
+  // "Coastal Harbor Treatment Center" from "coastal harbor" or "harbor treatment",
+  // instead of needing the exact full-name substring.
+  const tokens = q.split(/\s+/).filter((t) => t.length >= 2).slice(0, 6);
+  if (!tokens.length && !state) return Response.json({ facilities: [] });
+
   const supabase = createAdminClient();
   let query = supabase.from('facilities').select('id, name, city, state').order('name').limit(25);
   if (state) query = query.ilike('state', state);
-  if (q) query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%`);
+  for (const tok of tokens) query = query.or(`name.ilike.%${tok}%,city.ilike.%${tok}%`);
 
   const { data, error } = await query;
   if (error) return Response.json({ facilities: [], error: 'search failed' }, { status: 500 });
