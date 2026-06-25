@@ -114,7 +114,7 @@ export default function ForProvidersPage() {
                 href="/claim"
                 className="rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
               >
-                Claim your facility →
+                Claim your facility for free →
               </Link>
               <Link
                 href="/login"
@@ -222,7 +222,7 @@ export default function ForProvidersPage() {
               href="/claim"
               className="inline-block rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
             >
-              Claim your facility →
+              Claim your facility for free →
             </Link>
             <Link
               href="/login"

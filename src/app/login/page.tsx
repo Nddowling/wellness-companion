@@ -255,7 +255,7 @@ function LoginForm() {
             <p className="mt-6 text-center text-sm text-slate-500">
               Run a treatment program?{' '}
               <Link href="/claim" className="font-medium text-teal-700 underline-offset-2 hover:underline">
-                Claim your facility →
+                Claim your facility for free →
               </Link>
               <span className="mt-1 block text-xs text-slate-400">
                 We verify every program and set up your account once you&apos;re approved.

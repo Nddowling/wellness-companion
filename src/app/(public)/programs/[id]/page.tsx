@@ -311,6 +311,50 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
           </dl>
         </div>
 
+        {/* Locked previews — show everything a claimed profile gets, greyed out, so the
+            facility sees exactly what they're missing. Unlocks on a free claim. */}
+        {(['Photos & video tour', 'Location & directions', 'Insurance, Medicaid MCOs & cash pricing'] as const).map((title) => (
+          <section key={title} className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+              <span className="text-sm font-semibold text-slate-700">{title}</span>
+              <span className="text-xs font-medium text-slate-400">🔒 Locked</span>
+            </div>
+            <div className="relative">
+              <div className="pointer-events-none select-none opacity-60 blur-[2px] grayscale">
+                {title.startsWith('Photos') ? (
+                  <div className="grid grid-cols-3 gap-1 p-1">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="h-28 bg-gradient-to-br from-slate-200 to-slate-300" />
+                    ))}
+                  </div>
+                ) : title.startsWith('Location') ? (
+                  <div className="relative h-56 bg-[linear-gradient(135deg,#dbe4e0,#c3d2cc)]">
+                    <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:28px_28px]" />
+                    <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-3xl">📍</span>
+                  </div>
+                ) : (
+                  <div className="space-y-3 p-5 text-sm text-slate-600">
+                    {['Named insurance plans', 'Medicaid MCO names', 'Cash / self-pay rate', 'License & accreditation proof'].map((r) => (
+                      <div key={r} className="flex items-center justify-between gap-4">
+                        <span>{r}</span>
+                        <span className="h-3 w-40 rounded bg-slate-200" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-white/45">
+                <Link
+                  href="/for-providers"
+                  className="rounded-full bg-ink/85 px-4 py-2 text-xs font-semibold text-white shadow-lg transition hover:bg-ink"
+                >
+                  🔒 Claim for free to unlock
+                </Link>
+              </div>
+            </div>
+          </section>
+        ))}
+
         <div className="mt-6">
           <FacilityTeam facilityId={f.id} />
         </div>
@@ -350,7 +394,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
                 href="/for-providers"
                 className="rounded-md bg-terracotta px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
               >
-                Claim this profile →
+                Claim this profile for free →
               </Link>
               <Link href="/for-reps" className="text-sm font-medium text-teal-700 hover:underline">
                 Or add yourself to the team →

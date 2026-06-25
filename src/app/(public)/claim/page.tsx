@@ -28,7 +28,7 @@ export default async function ClaimPage({
         <Logo className="text-xl" />
       </Link>
 
-      <h1 className="mt-8 font-serif text-3xl text-ink">Claim your facility</h1>
+      <h1 className="mt-8 font-serif text-3xl text-ink">Claim your facility — free</h1>
       <p className="mt-2 text-sm text-slate-600">
         Manage your program&apos;s profile, keep bed availability current, and receive referrals. Tell us
         a little about you and your program — we verify every claim and reach out before granting access.
