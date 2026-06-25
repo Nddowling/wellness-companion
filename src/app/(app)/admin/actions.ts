@@ -358,6 +358,56 @@ export async function approveClaim(_prev: ApproveResult, formData: FormData): Pr
   return { ok: true, email, setPasswordUrl, mailSent, facilityLinked: !!(userId && claim.facility_id) };
 }
 
+// One-click "create listing from this submission" for a NOT-LISTED claim. The public
+// claim form folds a manual add into facility_name_freetext as "Name — City, State —
+// Website"; we parse that, create a published facility, and link the claim to it — so
+// the admin can then Approve normally (which grants access). No DB work by hand.
+export async function createListingFromClaim(formData: FormData) {
+  await requireAdmin();
+  const admin = createAdminClient();
+  const claimId = String(formData.get('claim_id'));
+  const { data: claim } = await admin
+    .from('facility_claims')
+    .select('facility_id, facility_name_freetext')
+    .eq('id', claimId)
+    .single();
+  if (!claim || claim.facility_id) {
+    revalidatePath('/admin/claims');
+    return; // already linked to a real facility — nothing to create
+  }
+
+  const raw = String(claim.facility_name_freetext ?? '').trim();
+  if (!raw) {
+    revalidatePath('/admin/claims');
+    return;
+  }
+  const parts = raw.split('—').map((s) => s.trim()).filter(Boolean);
+  const name = parts[0] || raw;
+  const loc = parts.find((p) => p.includes(',')) ?? '';
+  const webRaw = parts.find((p) => /\.[a-z]{2,}/i.test(p) && !p.includes(',')) ?? '';
+  const [cityRaw, stateRaw] = loc.split(',').map((s) => s.trim());
+  const website = webRaw ? (/^https?:\/\//i.test(webRaw) ? webRaw : `https://${webRaw}`) : null;
+
+  const { data: fac } = await admin
+    .from('facilities')
+    .insert({
+      name,
+      city: cityRaw || null,
+      state: stateRaw ? stateRaw.toUpperCase().slice(0, 2) : null,
+      website,
+      is_published: true,
+      verification_status: 'unverified',
+      needs_review: true,
+    })
+    .select('id')
+    .single();
+
+  if (fac?.id) {
+    await admin.from('facility_claims').update({ facility_id: fac.id }).eq('id', claimId);
+  }
+  revalidatePath('/admin/claims');
+}
+
 export async function rejectClaim(formData: FormData) {
   await requireAdmin();
   const admin = createAdminClient();

@@ -1,6 +1,6 @@
 import { requireAdmin } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { rejectClaim } from '../actions';
+import { rejectClaim, createListingFromClaim } from '../actions';
 import { ApproveClaim } from './ApproveClaim';
 
 type Claim = {
@@ -66,12 +66,20 @@ export default async function AdminClaims() {
               {c.claimant_phone && <div>{c.claimant_phone}</div>}
               {!c.facilities && c.facility_name_freetext && (
                 <div className="text-amber-700">
-                  ⚠ Not in the directory yet — create/link the facility before approving to grant access.
+                  ⚠ Not in the directory yet — click <strong>Create listing</strong> to add it, then Approve to grant access.
                 </div>
               )}
               {c.note && <div className="text-slate-600">“{c.note}”</div>}
             </div>
             <div className="mt-2 flex items-start gap-2">
+              {!c.facilities && c.facility_name_freetext && (
+                <form action={createListingFromClaim}>
+                  <input type="hidden" name="claim_id" value={c.id} />
+                  <button className="rounded-md bg-teal-700 px-3 py-1 text-xs font-medium text-white hover:bg-teal-800">
+                    ＋ Create listing
+                  </button>
+                </form>
+              )}
               <ApproveClaim claimId={c.id} />
               <form action={rejectClaim}>
                 <input type="hidden" name="claim_id" value={c.id} />
