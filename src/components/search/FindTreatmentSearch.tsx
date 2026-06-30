@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 import { PAYER_TYPES, PAYER_LABELS } from '@/lib/constants';
@@ -129,7 +130,10 @@ export function FindTreatmentSearch({ className = '' }: { className?: string }) 
         </span>
       </button>
 
-      {!open ? null : (
+      {open && typeof document !== 'undefined' && createPortal(
+        // Portal to <body>: the hero ancestor has a CSS transform (animate-fade-up),
+        // which would otherwise make this `fixed` overlay anchor to that element
+        // instead of the viewport — shoving it off-screen on mobile.
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/55 px-3 py-6 backdrop-blur-sm sm:py-12" role="dialog" aria-modal="true" aria-label="Find treatment">
           {/* click-away */}
           <button className="absolute inset-0 cursor-default" aria-label="Close search" onClick={() => setOpen(false)} />
@@ -208,7 +212,8 @@ export function FindTreatmentSearch({ className = '' }: { className?: string }) 
               <ChipRow items={CLIENTELE} onPick={go} />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
