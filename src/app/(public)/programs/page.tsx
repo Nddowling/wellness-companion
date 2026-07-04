@@ -3,10 +3,10 @@ import Link from 'next/link';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
-import { US_STATES } from '@/lib/geo';
 import { BedChip } from '@/components/FacilityCard';
+import { FilterBar, type Facets } from '@/components/FilterBar';
+import { Breadcrumb, breadcrumbJsonLd, DisclosurePanel } from '@/components/ui';
 import { absoluteUrl } from '@/lib/seo';
-import { getRoles, isProviderSide } from '@/lib/auth';
 
 const PROGRAMS_TITLE = 'Browse Treatment Programs — Rehab & Recovery Directory';
 const PROGRAMS_DESCRIPTION =
@@ -47,7 +47,6 @@ export default async function ProgramsDirectory({
   searchParams: Promise<{ level?: string; q?: string; region?: string; pay?: string; open?: string; spec?: string; pop?: string; page?: string }>;
 }) {
   const { level, q, region, pay, open, spec, pop, page: pageParam } = await searchParams;
-  const providerSide = isProviderSide(await getRoles());
 
   const validLevel = level && (LEVELS_OF_CARE as readonly string[]).includes(level) ? level : null;
   const validPay = pay && (PAYER_TYPES as readonly string[]).includes(pay) ? pay : null;
@@ -70,130 +69,74 @@ export default async function ProgramsDirectory({
   const client = admin as unknown as {
     rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
   };
-  const [rowsRes, countRes, statesRes] = await Promise.all([
+  const [rowsRes, countRes, facetRes] = await Promise.all([
     client.rpc('facilities_search', { ...filters, p_limit: PAGE_SIZE, p_offset: (page - 1) * PAGE_SIZE }),
     client.rpc('facilities_search_count', filters),
-    client.rpc('facilities_state_counts', {}),
+    client.rpc('facilities_facet_counts', filters),
   ]);
 
   const rows = (rowsRes.data as Row[]) ?? [];
   const total = Number(countRes.data ?? 0);
-  const states = ((statesRes.data as { state: string }[]) ?? []).map((s) => s.state);
+  const facets = (facetRes.data as Facets) ?? { levels: {}, payers: {}, regions: {} };
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const hasFilters = !!(validLevel || region || q || validPay || open || spec || pop);
 
-  // Build hrefs that keep the active filters. Changing a filter resets to page 1.
-  const params = (overrides: Record<string, string | undefined>) => {
-    const cur: Record<string, string | undefined> = {
-      level: validLevel ?? undefined,
-      region,
-      q,
-      pay: validPay ?? undefined,
-      spec,
-      pop,
-      open,
-      ...overrides,
-    };
-    const p = new URLSearchParams();
-    for (const [k, v] of Object.entries(cur)) if (v) p.set(k, v);
-    return p;
-  };
-  const hrefFor = (l?: string) => {
-    const s = params({ level: l, page: undefined }).toString();
-    return s ? `/programs?${s}` : '/programs';
-  };
+  // Pagination hrefs keep the active filters (changing a filter is handled by FilterBar).
   const pageHref = (n: number) => {
-    const s = params({ page: n > 1 ? String(n) : undefined }).toString();
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries({ level: validLevel ?? undefined, region, q, pay: validPay ?? undefined, spec, pop, open })) if (v) p.set(k, v);
+    if (n > 1) p.set('page', String(n));
+    const s = p.toString();
     return s ? `/programs?${s}` : '/programs';
   };
-
-  const tabClass = (active: boolean) =>
-    'rounded-full px-3 py-1 text-xs font-medium ' +
-    (active ? 'bg-teal-700 text-white' : 'border border-slate-300 text-slate-600 hover:border-teal-400');
 
   const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, total);
+  const crumbs = [{ label: 'All Centers', href: '/' }, { label: 'Browse programs' }];
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
-      {!providerSide && (
-        <Link href="/match" className="text-sm text-teal-700">
-          ← Back to your matches
-        </Link>
-      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(crumbs)) }}
+      />
+      <Breadcrumb items={crumbs} />
 
       <div className="mt-3">
-        <h1 className="text-2xl font-semibold text-slate-800">Browse treatment programs</h1>
-        <p className="text-sm text-slate-500">
-          Every program in our directory. Explore on your own — there&apos;s no wrong way to look.
+        <h1 className="h1 text-ink">Browse treatment programs</h1>
+        <p className="lead mt-1 max-w-2xl">
+          Every program in our directory — filter by care, insurance, and location. There&apos;s no wrong way to look.
         </p>
         <Link href="/treatment" className="mt-2 inline-block text-sm font-medium text-teal-700 hover:underline">
           Browse by state &amp; city →
         </Link>
       </div>
 
-      {/* Treatment-type filter */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link href={hrefFor(undefined)} className={tabClass(!validLevel)}>
-          All
-        </Link>
-        {LEVELS_OF_CARE.map((l) => (
-          <Link key={l} href={hrefFor(l)} className={tabClass(validLevel === l)}>
-            {LEVEL_LABELS[l]}
-          </Link>
-        ))}
+      <div className="mt-5">
+        <FilterBar facets={facets} />
       </div>
 
-      {/* Region + insurance + search. One GET form so the filters compose (resets to page 1). */}
-      <form className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap" action="/programs">
-        {validLevel && <input type="hidden" name="level" value={validLevel} />}
-        {spec && <input type="hidden" name="spec" value={spec} />}
-        {pop && <input type="hidden" name="pop" value={pop} />}
-        <select name="region" defaultValue={region ?? ''} className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700">
-          <option value="">All regions</option>
-          {states.map((s) => (
-            <option key={s} value={s}>
-              {US_STATES[s] ?? s}
-            </option>
-          ))}
-        </select>
-        <select name="pay" defaultValue={validPay ?? ''} className="rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700">
-          <option value="">Any insurance</option>
-          {PAYER_TYPES.map((pt) => (
-            <option key={pt} value={pt}>
-              {PAYER_LABELS[pt]}
-            </option>
-          ))}
-        </select>
-        <input
-          name="q"
-          defaultValue={q ?? ''}
-          placeholder="Name, city, condition…"
-          className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm sm:min-w-[10rem]"
-        />
-        <label className="flex items-center gap-2 whitespace-nowrap text-sm text-slate-600">
-          <input type="checkbox" name="open" value="1" defaultChecked={!!open} className="h-4 w-4 rounded border-slate-300" />
-          Available now
-        </label>
-        <button className="w-full rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white sm:w-auto">Search</button>
-      </form>
-      {hasFilters && (
-        <Link href="/programs" className="mt-2 inline-block text-xs text-slate-500 underline hover:text-teal-700">
-          Clear filters
-        </Link>
-      )}
+      <div className="mt-4">
+        <DisclosurePanel label="How we rank results" tone="trust" icon={<span aria-hidden>⚖️</span>}>
+          We list every licensed program the same way. Sponsors pay a <strong>flat fee</strong> and are clearly
+          labeled — they never outrank a program that better fits your needs, and we never take per-admission or
+          per-call fees.{' '}
+          <Link href="/how-we-make-money" className="font-medium text-teal-700 underline">
+            How we make money →
+          </Link>
+        </DisclosurePanel>
+      </div>
 
-      <p className="mt-4 text-xs text-slate-400">
-        {total.toLocaleString()} program{total === 1 ? '' : 's'}
+      <p className="mt-5 text-sm text-slate-500">
+        <span className="font-semibold text-ink">{total.toLocaleString()}</span> program{total === 1 ? '' : 's'}
         {total > PAGE_SIZE && ` · showing ${from.toLocaleString()}–${to.toLocaleString()}`}
       </p>
 
       {rows.length === 0 ? (
-        <p className="mt-2 rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-          No programs match that filter. Try a different level or clear the search.
+        <p className="mt-3 rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
+          No programs match those filters. Try widening the location or clearing a filter above.
         </p>
       ) : (
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {rows.map((r) => {
             const loc = [r.city, r.state].filter(Boolean).join(', ') || 'Location on file';
             const levelChips = (r.levels_of_care ?? []).map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l);

@@ -1,4 +1,5 @@
 import SiteMenu from '@/components/SiteMenu';
+import PublicChrome from '@/components/PublicChrome';
 import { getRoles, homePathFor, profileType } from '@/lib/auth';
 
 // Public (seeker-facing) pages share a floating hamburger menu for whole-site
@@ -18,7 +19,7 @@ export default async function PublicLayout({ children }: { children: React.React
   return (
     <>
       <SiteMenu profile={profile} dashboardHref={dashboardHref} />
-      {children}
+      <PublicChrome>{children}</PublicChrome>
     </>
   );
 }

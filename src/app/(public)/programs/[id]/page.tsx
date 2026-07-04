@@ -22,6 +22,8 @@ import {
 } from '@/lib/constants';
 import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from '@/lib/seo';
 import { stateSlug, stateName, slugify } from '@/lib/geo';
+import { Breadcrumb, breadcrumbJsonLd, DisclosurePanel, Accordion } from '@/components/ui';
+import { SnapshotBar } from '@/components/SnapshotBar';
 import { ReviewForm } from './ReviewForm';
 
 export async function generateMetadata({
@@ -134,6 +136,33 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
   const ratings = reviews.map((r) => r.rating).filter((r): r is number => typeof r === 'number');
   const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
 
+  // Breadcrumb trail: All Centers → State → City → this program (orientation + SEO).
+  const st = f.state ? f.state.toUpperCase() : null;
+  const crumbs: { label: string; href?: string }[] = [{ label: 'All Centers', href: '/' }];
+  if (st) crumbs.push({ label: stateName(st), href: `/treatment/${stateSlug(st)}` });
+  if (st && f.city) crumbs.push({ label: f.city, href: `/treatment/${stateSlug(st)}/${slugify(f.city)}` });
+  crumbs.push({ label: f.name });
+
+  // FAQs generated from structured fields (zero marginal writing) → also FAQPage JSON-LD.
+  const paymentNames = [
+    ...govPayers.map((p) => PAYER_LABELS[p.payer_type as PayerType] ?? p.payer_type),
+    ...(acceptsCommercial ? ['commercial insurance'] : []),
+  ];
+  const faqs: { q: string; a: string }[] = [];
+  if (levels.length)
+    faqs.push({ q: `What levels of care does ${f.name} offer?`, a: `${f.name} offers ${levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(', ')}.` });
+  faqs.push({
+    q: `Does ${f.name} accept insurance?`,
+    a: paymentNames.length ? `Yes — ${paymentNames.join(', ')}. Always confirm current in-network status with the program.` : `Call the program to verify coverage.`,
+  });
+  faqs.push({
+    q: `Is detox available at ${f.name}?`,
+    a: levels.includes('detox') ? `Yes, ${f.name} offers medically supervised detox.` : `Detox is not listed for this program — ask their intake team about options.`,
+  });
+  if (f.cash_rate)
+    faqs.push({ q: `How much does ${f.name} cost?`, a: `Self-pay is estimated at $${Number(f.cash_rate).toLocaleString()}. Actual cost varies by program and length of stay, and insurance may cover much of it.` });
+  if (f.city || f.state) faqs.push({ q: `Where is ${f.name} located?`, a: `${f.name} is in ${[f.city, f.state].filter(Boolean).join(', ')}.` });
+
   // schema.org MedicalBusiness — drives rich results (rating stars, address, phone).
   const jsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
@@ -220,12 +249,9 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
     return (
       <main className="mx-auto max-w-3xl px-4 py-8">
         <JsonLd data={minimalLd} />
-        <div className="flex gap-4 text-sm text-teal-700">
-          <MatchBackLink className="hover:underline" />
-          <Link href="/programs" className="hover:underline">
-            Browse all programs
-          </Link>
-        </div>
+        <MatchBackLink className="mb-1 inline-block text-sm text-teal-700 hover:underline" />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(crumbs)) }} />
+        <Breadcrumb items={crumbs} />
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
           <h1 className="text-2xl font-semibold text-slate-800">{f.name}</h1>
@@ -488,6 +514,13 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
               <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs text-emerald-700">Verified</span>
             )}
           </div>
+
+          <SnapshotBar
+            focus={f.operator_type}
+            levels={levels}
+            rating={avg !== null ? { avg, count: reviews.length } : null}
+            paymentLabel={paymentNames.slice(0, 3).join(' · ') || null}
+          />
         </div>
       </div>
 
@@ -645,7 +678,7 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
       </div>
 
       {/* Reviews */}
-      <section className="mt-5 rounded-xl border border-slate-200 bg-white p-4">
+      <section id="reviews" className="mt-5 scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-700">
           What people say {avg !== null && <span className="text-amber-500">· {stars(avg)}</span>}
         </h2>
@@ -702,6 +735,47 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
           </div>
         </section>
       )}
+
+      {/* FAQs — generated from structured fields; emits FAQPage JSON-LD for rich results. */}
+      {faqs.length > 0 && (
+        <section id="faqs" className="mt-6 scroll-mt-20">
+          <h2 className="h3 mb-2 text-ink">Frequently asked</h2>
+          <Accordion items={faqs.map((item, i) => ({ id: `faq-${i}`, trigger: item.q, content: item.a }))} />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                '@context': 'https://schema.org',
+                '@type': 'FAQPage',
+                mainEntity: faqs.map((item) => ({
+                  '@type': 'Question',
+                  name: item.q,
+                  acceptedAnswer: { '@type': 'Answer', text: item.a },
+                })),
+              }),
+            }}
+          />
+        </section>
+      )}
+
+      {/* Why-trust disclosures — the "explain-it-right-there" boxes, next to the decision. */}
+      <section className="mt-6 space-y-2">
+        <DisclosurePanel label="How we verify this listing" tone="trust" icon={<span aria-hidden>🛡️</span>}>
+          This profile starts from the federal SAMHSA treatment directory.{' '}
+          {f.verified_at ? 'Our team has confirmed its core details.' : 'It has not yet been claimed or verified by the program.'}{' '}
+          Where a state licensing registry is available, we check the license directly — not just what a facility tells us.{' '}
+          <Link href="/about" className="font-medium text-teal-700 underline">
+            How we vet programs →
+          </Link>
+        </DisclosurePanel>
+        <DisclosurePanel label="How ClearBed makes money" icon={<span aria-hidden>⚖️</span>}>
+          Programs pay a flat listing fee — never per admission or per call. Sponsored programs are clearly labeled and
+          never outrank a better match for you.{' '}
+          <Link href="/how-we-make-money" className="font-medium text-teal-700 underline">
+            The details →
+          </Link>
+        </DisclosurePanel>
+      </section>
 
       {/* Mobile sticky contact bar — claimed/paid profiles only (desktop uses the hero buttons) */}
       {((showCallIntake && intakePhone) || contact.email) && (
