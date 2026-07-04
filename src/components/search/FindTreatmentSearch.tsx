@@ -49,9 +49,22 @@ function tileStyle(l: Loc): React.CSSProperties {
   return { background: `linear-gradient(135deg,hsl(${l.from} 38% 42%),hsl(${l.to} 45% 30%))` };
 }
 
-export function FindTreatmentSearch({ className = '' }: { className?: string }) {
+export function FindTreatmentSearch({
+  className = '',
+  trigger = 'hero',
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  className?: string;
+  /** 'hero' renders the big search bar; 'none' lets a parent (e.g. SiteHeader) supply its own trigger and control open state. */
+  trigger?: 'hero' | 'none';
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setInternalOpen(v));
   const [text, setText] = useState('');
   const [locating, setLocating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -115,20 +128,23 @@ export function FindTreatmentSearch({ className = '' }: { className?: string }) 
 
   return (
     <div className={className}>
-      {/* Trigger — a large, prominent search bar that opens the overlay */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left shadow-2xl shadow-ink/30 ring-1 ring-black/5 transition hover:-translate-y-0.5 sm:px-6 sm:py-5"
-      >
-        <SearchIcon className="h-6 w-6 shrink-0 text-teal-700" />
-        <span className="min-w-0 flex-1 truncate text-base text-slate-500 sm:text-lg">
-          Search treatment — place, condition, insurance, or just describe it
-        </span>
-        <span className="ml-auto hidden shrink-0 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white sm:inline">
-          Search
-        </span>
-      </button>
+      {/* Trigger — a large, prominent search bar that opens the overlay.
+          Omitted when trigger="none" (SiteHeader supplies its own compact trigger). */}
+      {trigger !== 'none' && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left shadow-2xl shadow-ink/30 ring-1 ring-black/5 transition hover:-translate-y-0.5 sm:px-6 sm:py-5"
+        >
+          <SearchIcon className="h-6 w-6 shrink-0 text-teal-700" />
+          <span className="min-w-0 flex-1 truncate text-base text-slate-500 sm:text-lg">
+            Search treatment — place, condition, insurance, or just describe it
+          </span>
+          <span className="ml-auto hidden shrink-0 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white sm:inline">
+            Search
+          </span>
+        </button>
+      )}
 
       {open && typeof document !== 'undefined' && createPortal(
         // Portal to <body>: the hero ancestor has a CSS transform (animate-fade-up),
