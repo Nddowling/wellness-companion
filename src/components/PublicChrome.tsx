@@ -4,10 +4,13 @@ import { usePathname } from 'next/navigation';
 import SiteHeader from '@/components/SiteHeader';
 import { MobileTabBar, type Tab } from '@/components/MobileTabBar';
 
-// Chrome for public interior pages: the persistent search header (top) and a
-// thumb-reachable tab bar (bottom, mobile only). Both are suppressed on the
-// homepage (designed hero) and the full-height /match flow, which stay chrome-
-// free. `children` are Server Components passed through untouched.
+// Chrome for the directory/content pages: the persistent search header (top) and
+// a thumb-reachable tab bar (bottom, mobile only). Scoped to the routes where
+// browsing/searching is the job — the homepage hero, the full-height /match flow,
+// and the marketing/legal/form pages (which have their own designed layouts and
+// sometimes their own logo) stay chrome-free. `children` are Server Components.
+const CHROME_ROUTES = ['/programs', '/treatment', '/insurance', '/guides', '/resources', '/library'];
+
 const PUBLIC_TABS: Tab[] = [
   { href: '/match', label: 'Find care', icon: 'care' },
   { href: '/programs', label: 'Browse', icon: 'facility' },
@@ -17,13 +20,15 @@ const PUBLIC_TABS: Tab[] = [
 
 export default function PublicChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const bare = pathname === '/' || pathname === '/match' || pathname.startsWith('/match/');
+  const showChrome = CHROME_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
+
+  if (!showChrome) return <>{children}</>;
 
   return (
     <>
       <SiteHeader />
-      <div className={bare ? undefined : 'pb-20 lg:pb-0'}>{children}</div>
-      {!bare && <MobileTabBar tabs={PUBLIC_TABS} />}
+      <div className="pb-20 lg:pb-0">{children}</div>
+      <MobileTabBar tabs={PUBLIC_TABS} />
     </>
   );
 }
