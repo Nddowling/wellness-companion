@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   openGraph: { title: `Contact | ${SITE_NAME}`, description: 'How to reach Clear Bed Recovery.', url: absoluteUrl('/contact') },
 };
 
-const EMAIL = 'Nick.dowling@clearbedrecovery.com';
+const EMAIL = 'hello@clearbedrecovery.com';
 const PHONE_DISPLAY = '(904) 548-8047';
 const PHONE_TEL = '+19045488047';
 
