@@ -54,15 +54,21 @@ export function getResultCountBucket(count: number): string {
 export type FacilityAnalytics = {
   id: string;
   name?: string | null;
+  slug?: string | null;
   city?: string | null;
   state?: string | null;
   facilityType?: string | null;
 };
 
 function facilityProps(f: FacilityAnalytics): Props {
+  // `metro` = a single "City, ST" market label so the Vercel dashboard can segment
+  // conversion events by market in one click (e.g. "calls in Savannah, GA").
+  const metro = [f.city, f.state].filter(Boolean).join(', ') || undefined;
   return {
     facilityId: f.id,
     facilityName: f.name ?? undefined,
+    slug: f.slug ?? undefined,
+    metro,
     city: f.city ?? undefined,
     state: f.state ?? undefined,
     facilityType: f.facilityType ?? undefined,

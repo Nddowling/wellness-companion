@@ -15,6 +15,7 @@ export function GoToWebsiteButton({
   className,
   children,
   facilityName,
+  slug,
   city,
   state,
   sourcePage,
@@ -24,13 +25,14 @@ export function GoToWebsiteButton({
   children: React.ReactNode;
   // Optional — existing call sites pass only facilityId.
   facilityName?: string | null;
+  slug?: string | null;
   city?: string | null;
   state?: string | null;
   sourcePage?: string;
 }) {
   function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
     trackFacilityWebsiteClicked(
-      { id: facilityId, name: facilityName, city, state },
+      { id: facilityId, name: facilityName, slug, city, state },
       sourcePage ?? 'facility_profile',
     );
     try {

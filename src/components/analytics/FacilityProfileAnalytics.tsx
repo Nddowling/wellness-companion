@@ -10,6 +10,7 @@ import { trackFacilityDetailViewed } from '@/lib/analytics';
 type Props = {
   facilityId: string;
   facilityName?: string | null;
+  slug?: string | null;
   city?: string | null;
   state?: string | null;
   facilityType?: string | null;
@@ -21,6 +22,7 @@ type Props = {
 export function FacilityProfileAnalytics({
   facilityId,
   facilityName,
+  slug,
   city,
   state,
   facilityType,
@@ -30,7 +32,7 @@ export function FacilityProfileAnalytics({
 }: Props) {
   useEffect(() => {
     trackFacilityDetailViewed(
-      { id: facilityId, name: facilityName, city, state, facilityType },
+      { id: facilityId, name: facilityName, slug, city, state, facilityType },
       sourcePage,
     );
     // Only re-fire when the viewed facility changes.

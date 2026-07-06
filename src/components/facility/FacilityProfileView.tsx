@@ -88,6 +88,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   const facilityMeta = {
     id: f.id as string,
     name: f.name as string,
+    slug: (f.slug ?? null) as string | null,
     city: (f.city ?? null) as string | null,
     state: (f.state ?? null) as string | null,
     facilityType: (f.operator_type ?? null) as string | null,
@@ -219,6 +220,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
         <FacilityProfileAnalytics
           facilityId={f.id}
           facilityName={f.name}
+          slug={f.slug}
           city={f.city}
           state={f.state}
           facilityType={f.operator_type}
@@ -290,6 +292,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
                     eventType="email"
                     href={`mailto:${email}`}
                     facilityName={f.name}
+                    slug={f.slug}
                     city={f.city}
                     state={f.state}
                     sourcePage="facility_profile_free"
@@ -309,6 +312,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
                     eventType="call"
                     href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`}
                     facilityName={f.name}
+                    slug={f.slug}
                     city={f.city}
                     state={f.state}
                     sourcePage="facility_profile_free"
@@ -433,6 +437,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
       <FacilityProfileAnalytics
         facilityId={f.id}
         facilityName={f.name}
+        slug={f.slug}
         city={f.city}
         state={f.state}
         facilityType={f.operator_type}
@@ -483,6 +488,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
                 <GoToWebsiteButton
                   facilityId={f.id}
                   facilityName={f.name}
+                  slug={f.slug}
                   city={f.city}
                   state={f.state}
                   sourcePage="facility_profile_full"
@@ -497,6 +503,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
                   eventType="call"
                   href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`}
                   facilityName={f.name}
+                  slug={f.slug}
                   city={f.city}
                   state={f.state}
                   sourcePage="facility_profile_full"
@@ -560,6 +567,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               target="_blank"
               rel="noopener noreferrer"
               facilityName={f.name}
+              slug={f.slug}
               city={f.city}
               state={f.state}
               sourcePage="facility_profile_full"
@@ -816,6 +824,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               eventType="call"
               href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`}
               facilityName={f.name}
+              slug={f.slug}
               city={f.city}
               state={f.state}
               sourcePage="facility_profile_full"
@@ -830,6 +839,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               eventType="email"
               href={`mailto:${contact.email}`}
               facilityName={f.name}
+              slug={f.slug}
               city={f.city}
               state={f.state}
               sourcePage="facility_profile_full"

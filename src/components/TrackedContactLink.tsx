@@ -22,6 +22,7 @@ export function TrackedContactLink({
   className,
   children,
   facilityName,
+  slug,
   city,
   state,
   sourcePage,
@@ -35,13 +36,14 @@ export function TrackedContactLink({
   children: React.ReactNode;
   // Optional — existing call sites pass only facilityId/eventType/href.
   facilityName?: string | null;
+  slug?: string | null;
   city?: string | null;
   state?: string | null;
   sourcePage?: string;
 }) {
   function onClick() {
     // Vercel custom event (best-effort; helpers already swallow their own errors).
-    const facility = { id: facilityId, name: facilityName, city, state };
+    const facility = { id: facilityId, name: facilityName, slug, city, state };
     const page = sourcePage ?? 'facility_profile';
     if (eventType === 'call') trackFacilityPhoneClicked(facility, page);
     else if (eventType === 'directions') trackFacilityDirectionsClicked(facility, page);
