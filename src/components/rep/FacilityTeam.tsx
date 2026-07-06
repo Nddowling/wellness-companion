@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { unstable_cache } from 'next/cache';
 
 import { getVerifiedTeam } from '@/lib/rep/data';
 
@@ -16,7 +17,12 @@ function initials(name: string): string {
  * there are none, so it's safe to drop into any listing render path (free or paid).
  */
 export async function FacilityTeam({ facilityId }: { facilityId: string }) {
-  const team = await getVerifiedTeam(facilityId);
+  // Cached so this read doesn't force the (otherwise ISR) profile page dynamic.
+  const team = await unstable_cache(
+    () => getVerifiedTeam(facilityId),
+    ['facility-team', facilityId],
+    { revalidate: 3600, tags: [`facility:${facilityId}`] }
+  )();
   if (!team.length) return null;
 
   return (

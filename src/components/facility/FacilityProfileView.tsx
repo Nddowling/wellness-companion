@@ -10,10 +10,9 @@ import { Gallery } from '@/components/Gallery';
 import { FacilityTeam } from '@/components/rep/FacilityTeam';
 import { ReviewForm } from '@/components/facility/ReviewForm';
 import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizePlan, planAllows } from '@/lib/facility/plan';
 import { HideForProviders } from '@/components/facility/HideForProviders';
-import { loadFacilityContext, type FacilityFull } from '@/lib/facility/load';
+import { loadFacilityContext, loadFacilityReviews, type FacilityFull } from '@/lib/facility/load';
 import { facilityContextLines } from '@/lib/facility/context';
 import {
   LEVEL_LABELS,
@@ -36,13 +35,6 @@ import { payerTypeBrand, payerBrandForLabel } from '@/lib/payers';
 
 type Cap = { level_of_care: string; beds_available: number; last_updated: string };
 type Payer = { payer_type: string; in_network: boolean };
-type Review = {
-  id: string;
-  author_name: string | null;
-  rating: number | null;
-  body: string;
-  created_at: string;
-};
 
 function splitList(text: string | null): string[] {
   if (!text) return [];
@@ -64,15 +56,7 @@ function stars(n: number): string {
  */
 export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFull; canonicalPath: string }) {
   const id = f.id;
-  const supabase = createAdminClient();
-
-  const { data: reviewRows } = await supabase
-    .from('facility_reviews')
-    .select('id, author_name, rating, body, created_at')
-    .eq('facility_id', id)
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false });
-  const reviews = (reviewRows ?? []) as Review[];
+  const reviews = await loadFacilityReviews(id);
 
   // Computed-differentiation lines (city → county → state) — unique factual value per
   // page. Rendered on both free and full profiles (free/thin pages need it most).

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { facilityPath } from '@/lib/facility/href';
 import { stateSlug, slugify } from '@/lib/geo';
@@ -28,13 +28,18 @@ export async function POST(req: NextRequest) {
 
   const revalidated: string[] = [];
   if (rec.slug && rec.city && rec.state && rec.id) {
+    const code = String(rec.state).toUpperCase();
+    // Bust the tagged data caches (profile row, reviews/team, city aggregates)…
+    // Next 16 revalidateTag takes a cache-life arg; { expire: 0 } = purge now.
+    revalidateTag(`facility-slug:${rec.slug}`, { expire: 0 });
+    revalidateTag(`facility:${rec.id}`, { expire: 0 });
+    revalidateTag(`facilities:${code}:${rec.city}`, { expire: 0 });
+    // …and the rendered pages.
     const profile = facilityPath({ id: rec.id, slug: rec.slug, city: rec.city, state: rec.state });
+    const cityHub = `/treatment/${stateSlug(code)}/${slugify(String(rec.city))}`;
     revalidatePath(profile);
-    revalidated.push(profile);
-    // The facility's city hub aggregates change too (counts, availability).
-    const cityHub = `/treatment/${stateSlug(String(rec.state).toUpperCase())}/${slugify(String(rec.city))}`;
     revalidatePath(cityHub);
-    revalidated.push(cityHub);
+    revalidated.push(profile, cityHub);
   }
 
   return NextResponse.json({ ok: true, revalidated });
