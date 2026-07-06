@@ -12,6 +12,7 @@ import {
   websiteJsonLd,
 } from "@/lib/seo";
 import { Analytics } from "@vercel/analytics/next";
+import { ToastProvider } from "@/components/ui";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -110,7 +111,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <JsonLd data={[organizationJsonLd, websiteJsonLd]} />
-        {children}
+        {/* Site-wide toast host — any client component can call useToast().toast(…) */}
+        <ToastProvider>{children}</ToastProvider>
         <Analytics />
       </body>
     </html>

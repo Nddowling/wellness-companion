@@ -1,8 +1,9 @@
 'use client';
 
-import { useActionState, useRef, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 
 import { updateRepProfileAction, type RepProfileState } from '@/app/(app)/rep/actions';
+import { useToast } from '@/components/ui';
 import type { RepProfile } from '@/lib/rep/data';
 
 const field =
@@ -12,6 +13,12 @@ export function RepProfileForm({ profile, defaultName }: { profile: RepProfile |
   const [state, formAction, pending] = useActionState<RepProfileState, FormData>(updateRepProfileAction, {
     ok: false,
   });
+  const { toast } = useToast();
+  // Fire the confirmation toast once per successful save (savedAt changes each time).
+  useEffect(() => {
+    if (state.ok && state.savedAt) toast('Profile Successfully Saved');
+    else if (state.error) toast(state.error, 'error');
+  }, [state.savedAt, state.error, state.ok, toast]);
   // Live preview: the currently-saved photo, replaced instantly when a new file is picked.
   const [preview, setPreview] = useState<string | null>(profile?.photo_url ?? null);
   const [removed, setRemoved] = useState(false);
@@ -157,7 +164,6 @@ export function RepProfileForm({ profile, defaultName }: { profile: RepProfile |
         >
           {pending ? 'Saving…' : 'Save profile'}
         </button>
-        {state.ok && !pending && <span className="text-sm font-medium text-emerald-700">Saved ✓</span>}
         {state.error && !pending && <span className="text-sm text-red-600">{state.error}</span>}
       </div>
     </form>
