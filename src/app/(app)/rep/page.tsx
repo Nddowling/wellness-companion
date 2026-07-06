@@ -7,15 +7,13 @@ import { getMyAffiliations, getMyInvites, getRepProfile } from '@/lib/rep/data';
 import { getInboundReferrals, getInboundReferralStats } from '@/lib/referrals/data';
 import { LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
 import { AttachFacility } from '@/components/rep/AttachFacility';
+import { RepProfileForm } from '@/components/rep/RepProfileForm';
 import { CopyLink } from '@/components/partner/CopyLink';
 import {
   createInviteAction,
   deleteInviteAction,
   removeAffiliationAction,
-  updateRepProfileAction,
 } from '@/app/(app)/rep/actions';
-
-const field = 'mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700';
 
 const STATUS_BADGE: Record<string, string> = {
   verified: 'bg-emerald-50 text-emerald-700',
@@ -101,62 +99,8 @@ export default async function RepDashboard() {
         </section>
       )}
 
-      {/* Profile editor */}
-      <form action={updateRepProfileAction} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="display_name" className="text-sm font-medium text-slate-700">
-              Name
-            </label>
-            <input id="display_name" name="display_name" defaultValue={profile?.display_name ?? metaName} className={field} required />
-          </div>
-          <div>
-            <label htmlFor="location" className="text-sm font-medium text-slate-700">
-              Location
-            </label>
-            <input id="location" name="location" defaultValue={profile?.location ?? ''} placeholder="Atlanta, GA" className={field} />
-          </div>
-        </div>
-        <div>
-          <label htmlFor="headline" className="text-sm font-medium text-slate-700">
-            Headline
-          </label>
-          <input id="headline" name="headline" defaultValue={profile?.headline ?? ''} placeholder="Admissions Director · 8 yrs in recovery care" className={field} />
-        </div>
-        <div>
-          <label htmlFor="bio" className="text-sm font-medium text-slate-700">
-            About
-          </label>
-          <textarea id="bio" name="bio" defaultValue={profile?.bio ?? ''} rows={4} placeholder="Your experience, approach, and what you’re proud of." className={field} />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="photo_url" className="text-sm font-medium text-slate-700">
-              Photo URL
-            </label>
-            <input id="photo_url" name="photo_url" defaultValue={profile?.photo_url ?? ''} placeholder="https://…/headshot.jpg" className={field} />
-          </div>
-          <div>
-            <label htmlFor="linkedin_url" className="text-sm font-medium text-slate-700">
-              LinkedIn URL
-            </label>
-            <input id="linkedin_url" name="linkedin_url" defaultValue={profile?.linkedin_url ?? ''} placeholder="https://linkedin.com/in/…" className={field} />
-          </div>
-        </div>
-        <div>
-          <label htmlFor="specialties" className="text-sm font-medium text-slate-700">
-            Specialties <span className="text-xs text-slate-400">(comma-separated)</span>
-          </label>
-          <input id="specialties" name="specialties" defaultValue={(profile?.specialties ?? []).join(', ')} placeholder="Detox intake, Dual diagnosis, Veterans" className={field} />
-        </div>
-        <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" name="is_public" defaultChecked={profile?.is_public ?? true} className="h-4 w-4 rounded border-slate-300" />
-          Profile is public (shareable + can appear on facility listings)
-        </label>
-        <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800">
-          Save profile
-        </button>
-      </form>
+      {/* Profile editor (client form: device photo upload + inline save feedback) */}
+      <RepProfileForm profile={profile} defaultName={metaName} />
 
       {/* Affiliations */}
       <section className="space-y-3">
