@@ -27,7 +27,9 @@ export default function PublicChrome({ children }: { children: React.ReactNode }
   return (
     <>
       <SiteHeader />
-      <div className="pb-20 lg:pb-0">{children}</div>
+      {/* Clear the fixed MobileTabBar (min-h 56px + bottom safe-area inset) so the
+          footer's crisis links + non-provider disclaimer are never hidden under it. */}
+      <div className="pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">{children}</div>
       <MobileTabBar tabs={PUBLIC_TABS} />
     </>
   );

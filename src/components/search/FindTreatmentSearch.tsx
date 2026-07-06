@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
-import { PAYER_TYPES, PAYER_LABELS } from '@/lib/constants';
 import { US_STATES } from '@/lib/geo';
+import { commonPayers } from '@/lib/payers';
+import { PayerMark } from '@/components/PayerLogo';
 
 // Recovery.com-inspired "command palette" search for treatment seekers. A single bar
 // opens a rich overlay: natural-language search (→ the AI guide at /match), location
@@ -43,6 +44,15 @@ const CLIENTELE: { label: string; href: string }[] = [
   { label: 'Seniors', href: '/programs?pop=senior' },
   { label: 'Pregnant / Postpartum', href: '/programs?pop=pregnant' },
 ];
+
+// Insurance options, rendered as micro brand-logo chips. The common payers cover
+// the 4 public/self buckets + the top commercial carriers; each carrier maps to the
+// matchable `commercial` payer_type in the directory filter.
+const INSURANCE = commonPayers().map((p) => ({
+  brand: p.brand,
+  label: p.name,
+  href: `/programs?pay=${p.payerType}`,
+}));
 
 function tileStyle(l: Loc): React.CSSProperties {
   if (l.current) return { background: 'linear-gradient(135deg,#0f3b34,#1f6f60)' };
@@ -96,10 +106,12 @@ export function FindTreatmentSearch({
     go(q ? `/programs?q=${encodeURIComponent(q)}` : '/programs');
   };
 
-  // "Search the way you speak": apply whatever they typed; empty → open the guide.
+  // "Search the way you speak": hand the phrase to the AI guide at /match, which
+  // resolves synonyms and geo ("teen" → adolescent, "near me" → distance) that a raw
+  // directory query can't. Empty input just opens the guide.
   const naturalSearch = () => {
     const q = text.trim();
-    go(q ? `/programs?q=${encodeURIComponent(q)}` : '/match');
+    go(q ? `/match?q=${encodeURIComponent(q)}` : '/match');
   };
 
   // Current Location → browser Geolocation API (accurate, permission-based, VPN-proof),
@@ -219,9 +231,20 @@ export function FindTreatmentSearch({
               <Section title="Common needs" />
               <ChipRow items={CONDITIONS} onPick={go} />
 
-              {/* Insurance */}
+              {/* Insurance — micro brand logos + name */}
               <Section title="By accepted insurance" />
-              <ChipRow items={PAYER_TYPES.map((p) => ({ label: PAYER_LABELS[p], href: `/programs?pay=${p}` }))} onPick={go} />
+              <div className="flex flex-wrap gap-2">
+                {INSURANCE.map((c) => (
+                  <button
+                    key={c.label}
+                    onClick={() => go(c.href)}
+                    className="flex items-center gap-2 rounded-full bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-teal-50 hover:text-teal-800"
+                  >
+                    <PayerMark brand={c.brand} size="md" />
+                    {c.label}
+                  </button>
+                ))}
+              </div>
 
               {/* Clientele */}
               <Section title="Who it's for" />

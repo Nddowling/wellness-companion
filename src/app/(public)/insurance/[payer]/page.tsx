@@ -6,6 +6,7 @@ import JsonLd from '@/components/JsonLd';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 import { getPayer, SELF_PAY_RANGES } from '@/lib/payers';
+import { PayerMark } from '@/components/PayerLogo';
 import { stateName, stateSlug } from '@/lib/geo';
 
 export const revalidate = 3600;
@@ -73,8 +74,9 @@ export default async function PayerPage({ params }: { params: Promise<{ payer: s
         / <span>{p.name}</span>
       </nav>
 
-      <h1 className="mt-2 font-serif text-3xl leading-tight text-ink sm:text-4xl">
-        <span className="italic text-brand">{p.name}</span> &amp; addiction treatment
+      <h1 className="mt-2 flex flex-wrap items-center gap-2.5 font-serif text-3xl leading-tight text-ink sm:text-4xl">
+        <PayerMark brand={p.brand} size="lg" />
+        <span><span className="italic text-brand">{p.name}</span> &amp; addiction treatment</span>
       </h1>
 
       {/* Standard coverage */}

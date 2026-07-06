@@ -24,6 +24,8 @@ import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from '@/lib/seo';
 import { stateSlug, stateName, slugify } from '@/lib/geo';
 import { Breadcrumb, breadcrumbJsonLd, DisclosurePanel, Accordion } from '@/components/ui';
 import { SnapshotBar } from '@/components/SnapshotBar';
+import { PayerMark } from '@/components/PayerLogo';
+import { payerTypeBrand, payerBrandForLabel } from '@/lib/payers';
 import { ReviewForm } from './ReviewForm';
 
 export async function generateMetadata({
@@ -635,20 +637,39 @@ export default async function ProgramProfile({ params }: { params: Promise<{ id:
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Insurance &amp; payment</h2>
-          <ul className="space-y-1 text-sm text-slate-700">
+          <ul className="space-y-1.5 text-sm text-slate-700">
             {govPayers.map((p) => (
-              <li key={p.payer_type}>
-                • {PAYER_LABELS[p.payer_type as PayerType] ?? p.payer_type}
-                {p.in_network ? '' : ' (out-of-network)'}
+              <li key={p.payer_type} className="flex items-center gap-2">
+                <PayerMark brand={payerTypeBrand(p.payer_type as PayerType)} size="md" />
+                <span>
+                  {PAYER_LABELS[p.payer_type as PayerType] ?? p.payer_type}
+                  {p.in_network ? '' : ' (out-of-network)'}
+                </span>
               </li>
             ))}
             {acceptsCommercial &&
               (carriers.length > 0 ? (
-                carriers.map((c, i) => <li key={i}>• {c}</li>)
+                carriers.map((c, i) => {
+                  const brand = payerBrandForLabel(c) ?? payerTypeBrand('commercial');
+                  return (
+                    <li key={i} className="flex items-center gap-2">
+                      <PayerMark brand={brand} size="md" />
+                      <span>{c}</span>
+                    </li>
+                  );
+                })
               ) : (
-                <li>• Most major commercial insurance (call to confirm)</li>
+                <li className="flex items-center gap-2">
+                  <PayerMark brand={payerTypeBrand('commercial')} size="md" />
+                  <span>Most major commercial insurance (call to confirm)</span>
+                </li>
               ))}
-            {f.cash_rate ? <li>• Self-pay rate: ${Number(f.cash_rate).toLocaleString()}</li> : null}
+            {f.cash_rate ? (
+              <li className="flex items-center gap-2">
+                <PayerMark brand={payerTypeBrand('self_pay')} size="md" />
+                <span>Self-pay rate: ${Number(f.cash_rate).toLocaleString()}</span>
+              </li>
+            ) : null}
             {!payers.length && carriers.length === 0 && (
               <li className="text-slate-400">Call to verify coverage</li>
             )}

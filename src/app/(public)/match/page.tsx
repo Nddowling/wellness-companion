@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/Logo';
-import { COMMON_PAYER_CHIPS } from '@/lib/payers';
+import { COMMON_PAYER_CHIPS, payerBrandForLabel } from '@/lib/payers';
+import { PayerMark } from '@/components/PayerLogo';
 
 type Role = 'user' | 'assistant';
 type Message = { role: Role; content: string };
@@ -154,6 +155,11 @@ export default function MatchPage() {
   const supabase = createClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // A phrase handed over from the homepage "search the way you speak" bar
+  // (/match?q=…). We hold it and pre-fill it at the "what you need" step so the AI
+  // can resolve its synonyms/geo — never auto-sent, never treated as the name.
+  const seedRef = useRef<string | null>(null);
+  const seededRef = useRef(false);
 
   // Server-side conversation row id (created on first save). Kept in a ref so the
   // debounced autosave always targets the same row without re-render churn.
@@ -238,6 +244,28 @@ export default function MatchPage() {
     }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
+
+  // Capture the handoff phrase from the URL once, on mount (window read avoids the
+  // useSearchParams Suspense requirement — it's a one-time client-only read).
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search).get('q');
+      if (q) seedRef.current = q.trim().slice(0, 200);
+    } catch {
+      /* no-op */
+    }
+  }, []);
+
+  // When the conversation reaches the "what you need" step (index 1), drop the seed
+  // phrase into the composer so the seeker can review and send it. Guarded so it
+  // fires once and never clobbers text they've already typed.
+  useEffect(() => {
+    if (seededRef.current || !seedRef.current) return;
+    if (acknowledged && stepIdx === 1 && phase === 'intake' && !busy && input === '') {
+      seededRef.current = true;
+      setInput(seedRef.current);
+    }
+  }, [acknowledged, stepIdx, phase, busy, input]);
 
   // Mirror the results state into that tab-scoped session whenever it changes, so a
   // profile round-trip can restore it (see the rehydrate effect above). startOver clears it.
@@ -839,15 +867,19 @@ export default function MatchPage() {
             {/* Quick-reply chips for the question currently on screen */}
             {(phase === 'intake' || phase === 'connect') && !busy && activeChips.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {activeChips.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => send(c)}
-                    className="min-h-11 rounded-full border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm font-medium text-teal-800 transition hover:border-teal-300 hover:bg-teal-100 sm:min-h-0 sm:px-3.5 sm:py-1.5"
-                  >
-                    {c}
-                  </button>
-                ))}
+                {activeChips.map((c) => {
+                  const brand = payerBrandForLabel(c);
+                  return (
+                    <button
+                      key={c}
+                      onClick={() => send(c)}
+                      className="flex min-h-11 items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm font-medium text-teal-800 transition hover:border-teal-300 hover:bg-teal-100 sm:min-h-0 sm:px-3.5 sm:py-1.5"
+                    >
+                      {brand && <PayerMark brand={brand} size="sm" />}
+                      {c}
+                    </button>
+                  );
+                })}
               </div>
             )}
 

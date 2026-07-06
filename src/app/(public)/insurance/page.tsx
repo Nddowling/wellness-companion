@@ -4,6 +4,7 @@ import Link from 'next/link';
 import JsonLd from '@/components/JsonLd';
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 import { PAYERS, SELF_PAY_RANGES, type PayerKind } from '@/lib/payers';
+import { PayerMark } from '@/components/PayerLogo';
 
 export const metadata: Metadata = {
   title: 'Treatment by Insurance: Coverage & Costs (Medicaid, Aetna, BCBS, Cigna & More)',
@@ -56,10 +57,13 @@ export default function InsuranceIndex() {
                 <li key={p.slug}>
                   <Link
                     href={`/insurance/${p.slug}`}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm transition hover:border-teal-300"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm transition hover:border-teal-300"
                   >
-                    <span className="font-medium text-slate-800">{p.name}</span>
-                    <span className="text-xs text-slate-400">Coverage &amp; cost →</span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <PayerMark brand={p.brand} size="lg" />
+                      <span className="truncate font-medium text-slate-800">{p.name}</span>
+                    </span>
+                    <span className="shrink-0 text-xs text-slate-400">Coverage &amp; cost →</span>
                   </Link>
                 </li>
               ))}

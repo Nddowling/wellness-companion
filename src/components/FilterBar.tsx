@@ -3,8 +3,10 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Chip, Dialog } from '@/components/ui';
-import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_TYPES, PAYER_LABELS } from '@/lib/constants';
+import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, type PayerType } from '@/lib/constants';
 import { US_STATES } from '@/lib/geo';
+import { payerTypeBrand, commercialCarriers } from '@/lib/payers';
+import { PayerMark } from '@/components/PayerLogo';
 
 // URL-first faceted filter bar for the directory. Every change writes the
 // querystring (Back undoes one filter; a filtered URL is shareable). Group
@@ -46,11 +48,6 @@ export function FilterBar({ facets }: { facets: Facets }) {
     router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
 
-  const payerOptions: Option[] = PAYER_TYPES.filter((p) => facets.payers[p] != null).map((p) => ({
-    value: p,
-    label: PAYER_LABELS[p],
-    count: facets.payers[p],
-  }));
   const regionOptions: Option[] = Object.entries(facets.regions)
     .map(([value, count]) => ({ value, label: US_STATES[value] ?? value, count }))
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -87,10 +84,9 @@ export function FilterBar({ facets }: { facets: Facets }) {
 
       {/* Secondary facets + free-text search. */}
       <div className="flex flex-wrap items-center gap-2">
-        <FacetSelect
-          label="Insurance"
-          activeLabel={cur.pay ? PAYER_LABELS[cur.pay as keyof typeof PAYER_LABELS] : undefined}
-          options={payerOptions}
+        <InsuranceSelect
+          active={cur.pay as PayerType | ''}
+          counts={facets.payers}
           onSelect={(v) => push({ pay: v })}
         />
         <FacetSelect
@@ -166,12 +162,14 @@ function OptionRow({
   count,
   active,
   muted,
+  brand,
   onClick,
 }: {
   label: string;
   count?: number;
   active?: boolean;
   muted?: boolean;
+  brand?: React.ComponentProps<typeof PayerMark>['brand'];
   onClick: () => void;
 }) {
   return (
@@ -183,9 +181,80 @@ function OptionRow({
         (active ? 'font-semibold text-teal-700' : muted ? 'text-slate-500' : 'text-ink')
       }
     >
-      <span>{label}</span>
+      <span className="flex items-center gap-2">
+        {brand && <PayerMark brand={brand} size="md" />}
+        {label}
+      </span>
       {typeof count === 'number' && <span className="tabular-nums text-xs text-slate-400">{count.toLocaleString()}</span>}
     </button>
+  );
+}
+
+// Insurance picker. The 4 public/military/self buckets filter directly; "Commercial"
+// is expanded into named carrier logos (Aetna, BCBS, Cigna, …) that all map to the
+// single matchable `commercial` payer_type — so people see recognizable brands while
+// the count stays honest (one commercial number, shown once on the group header).
+const PUBLIC_PAYER_TYPES: PayerType[] = ['medicaid', 'medicare', 'tricare', 'self_pay'];
+
+function InsuranceSelect({
+  active,
+  counts,
+  onSelect,
+}: {
+  active: PayerType | '';
+  counts: Record<string, number>;
+  onSelect: (value: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const pick = (v: string | null) => { onSelect(v); setOpen(false); };
+  const activeLabel = active ? PAYER_LABELS[active] : undefined;
+  return (
+    <>
+      <Chip tone={active ? 'brand' : 'neutral'} active={!!active} interactive onClick={() => setOpen(true)}>
+        {active && <PayerMark brand={payerTypeBrand(active)} size="sm" className="mr-1.5 align-[-2px]" />}
+        {activeLabel ?? 'Insurance'} <span aria-hidden className="opacity-60">⌄</span>
+      </Chip>
+      <Dialog open={open} onClose={() => setOpen(false)} title="Insurance">
+        <div className="p-2">
+          <OptionRow label="Any insurance" onClick={() => pick(null)} muted />
+          {PUBLIC_PAYER_TYPES.filter((t) => counts[t] != null).map((t) => (
+            <OptionRow
+              key={t}
+              label={PAYER_LABELS[t]}
+              brand={payerTypeBrand(t)}
+              count={counts[t]}
+              active={active === t}
+              onClick={() => pick(t)}
+            />
+          ))}
+          {counts.commercial != null && (
+            <>
+              <OptionRow
+                label="Commercial insurance"
+                brand={payerTypeBrand('commercial')}
+                count={counts.commercial}
+                active={active === 'commercial'}
+                onClick={() => pick('commercial')}
+              />
+              {/* Named carriers — a friendlier way to pick "commercial". */}
+              <div className="ml-3 flex flex-wrap gap-1.5 border-l border-slate-100 pl-3 pb-1">
+                {commercialCarriers().map((c) => (
+                  <button
+                    key={c.slug}
+                    type="button"
+                    onClick={() => pick('commercial')}
+                    className="flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-teal-50 hover:text-teal-800"
+                  >
+                    <PayerMark brand={c.brand} size="sm" />
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </Dialog>
+    </>
   );
 }
 
