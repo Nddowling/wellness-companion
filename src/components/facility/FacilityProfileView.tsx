@@ -12,9 +12,9 @@ import { ReviewForm } from '@/components/facility/ReviewForm';
 import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizePlan, planAllows } from '@/lib/facility/plan';
+import { HideForProviders } from '@/components/facility/HideForProviders';
 import { loadFacilityContext, type FacilityFull } from '@/lib/facility/load';
 import { facilityContextLines } from '@/lib/facility/context';
-import { getRoles, isProviderSide } from '@/lib/auth';
 import {
   LEVEL_LABELS,
   PAYER_LABELS,
@@ -84,7 +84,6 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   // Plan-gated profile richness (photos, about, website are part of a claimed,
   // Starter+ profile). Matching/availability is NOT gated — it stays need-based.
   const plan = normalizePlan(f.plan);
-  const providerSide = isProviderSide(await getRoles());
   const showCallIntake = planAllows(plan, 'callIntake'); // no "Call intake" on Free profiles
   const images = planAllows(plan, 'photos') ? ((f.images ?? []) as string[]) : [];
   const videos = planAllows(plan, 'video') ? ((f.videos ?? []) as string[]) : [];
@@ -388,7 +387,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           <FacilityTeam facilityId={f.id} />
         </div>
 
-        {!providerSide && (
+        <HideForProviders>
           <div className="mt-6 overflow-hidden rounded-2xl border border-terracotta/40 bg-gradient-to-br from-terracotta/5 to-sage/10">
             <div className="border-b border-terracotta/20 px-5 py-4">
               <div className="text-xs font-semibold uppercase tracking-wide text-terracotta-dark">Is this your program?</div>
@@ -433,7 +432,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               <span className="text-xs text-slate-500">Free · verified by our team</span>
             </div>
           </div>
-        )}
+        </HideForProviders>
       </main>
     );
   }
