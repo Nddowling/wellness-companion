@@ -24,20 +24,26 @@ export function normalizePlan(value: string | null | undefined): Plan {
   return 'free';
 }
 
-// Each gated feature → the minimum plan that unlocks it. Derived from the tier
-// sheet: Starter = the claimed profile (photos, about, website, reviews); Growth =
-// growth tooling (analytics, follow-up, labeled placement, video); Anchor = the
-// heavy data/integration features.
+// Each gated feature → the minimum plan that unlocks it.
+//
+// New model: the FULL PROFILE is free. Claiming a facility (at no cost) unlocks every
+// profile-content feature — description, photos, video, website, maps/directions, call
+// button, review responses — "the whole nine." Paid tiers exist ONLY for growth tooling
+// and lead access (analytics, follow-up, consented seeker contacts, labeled placement,
+// data integrations), never for basic profile richness. Matching stays need-based for
+// every tier (EKRA).
 export const FEATURE_MIN_PLAN = {
-  photos: 'starter',
-  description: 'starter',
-  website: 'starter',
-  callIntake: 'starter',
-  respondReviews: 'starter',
+  // Profile content — free (unlocked by a free claim).
+  photos: 'free',
+  description: 'free',
+  website: 'free',
+  callIntake: 'free',
+  respondReviews: 'free',
+  video: 'free',
+  // Growth tooling + lead access — paid.
   basicAnalytics: 'growth',
   followUpWorkflow: 'growth',
   seekerContacts: 'growth', // see matched seekers' consented contact details in-app
-  video: 'growth',
   featuredPlacement: 'growth',
   fullAnalytics: 'anchor',
   apiBedBoard: 'anchor',
@@ -55,9 +61,9 @@ export function requiredPlan(feature: Feature): Plan {
   return FEATURE_MIN_PLAN[feature];
 }
 
-/** How many photos a plan may publish (Free shows none). */
+/** How many photos a plan may publish. A free claim already includes a full gallery. */
 export function photoLimit(plan: Plan): number {
-  return plan === 'anchor' ? 30 : plan === 'growth' ? 15 : plan === 'starter' ? 8 : 0;
+  return plan === 'anchor' ? 30 : plan === 'growth' ? 20 : 10; // free/starter: 10
 }
 
 // ── Seats ────────────────────────────────────────────────────────────────────

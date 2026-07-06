@@ -16,10 +16,9 @@ import { updateCapacity, setLeadStatus, updateContact, updateProfile, uploadPhot
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { ShareProfile } from '@/components/ShareProfile';
 import { FacilityTeamManager } from '@/components/rep/FacilityTeamManager';
-import { FreeProfileUpgradePreview } from '@/components/FreeProfileUpgradePreview';
 import { absoluteUrl } from '@/lib/seo';
 import { facilityCanonicalPath } from '@/lib/facility/load';
-import { normalizePlan, PLAN_LABEL, planAllows } from '@/lib/facility/plan';
+import { normalizePlan, PLAN_LABEL } from '@/lib/facility/plan';
 
 const CONCERN_LABELS: Record<string, string> = {
   alcohol: 'Alcohol',
@@ -88,7 +87,6 @@ export default async function FacilityManage({
   const contact = (facility.referral_contact ?? {}) as Contact;
   const images = (facility.images ?? []) as string[];
   const videos = (facility.videos ?? []) as string[];
-  const canVideo = planAllows(plan, 'video');
   const specialties = splitList(facility.specialty_programs);
 
   const { data: routeData } = await supabase
@@ -150,26 +148,9 @@ export default async function FacilityManage({
           <p className="text-sm text-slate-500">Changes show on your public profile right away.</p>
         </div>
 
-        {isFree && (
-          <UpgradePrompt
-            variant="banner"
-            title="You're on the Free plan"
-            body="Your public listing shows basic facility and contact details. Upgrade to add photos, your website, a full description, reviews, and more."
-            cta="See plans →"
-          />
-        )}
-
-        {/* Public profile editor */}
+        {/* Public profile editor — the full profile is free once claimed. */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">Public profile</h2>
-          {isFree ? (
-            <UpgradePrompt
-              variant="card"
-              title="A full profile is a Starter feature"
-              body="Add an About section, your specialties, and a clickable website link so seekers see the real you."
-              cta="Upgrade to claim your profile →"
-            />
-          ) : (
           <form action={updateProfile} className="grid gap-2 rounded-md border border-slate-200 bg-white p-3">
             <input type="hidden" name="facility_id" value={id} />
             <label className="text-xs text-slate-500">About your program (shown to seekers)</label>
@@ -199,7 +180,6 @@ export default async function FacilityManage({
               Save profile
             </button>
           </form>
-          )}
         </section>
 
         {/* Photos */}
@@ -230,22 +210,13 @@ export default async function FacilityManage({
               ))}
             </div>
           )}
-          {isFree ? (
-            <UpgradePrompt
-              variant="card"
-              title="Photos are a Starter feature"
-              body="Programs with real photos get far more reach-outs. Upgrade to add up to 8."
-              cta="Upgrade to add photos →"
-            />
-          ) : (
-            <form action={uploadPhoto} className="flex items-center gap-2">
-              <input type="hidden" name="facility_id" value={id} />
-              <input type="file" name="photo" accept="image/*" required className="text-sm" />
-              <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
-                Upload photo
-              </button>
-            </form>
-          )}
+          <form action={uploadPhoto} className="flex items-center gap-2">
+            <input type="hidden" name="facility_id" value={id} />
+            <input type="file" name="photo" accept="image/*" required className="text-sm" />
+            <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
+              Upload photo
+            </button>
+          </form>
         </section>
 
         {/* Videos (Growth+) */}
@@ -274,22 +245,13 @@ export default async function FacilityManage({
               ))}
             </div>
           )}
-          {canVideo ? (
-            <form action={uploadVideo} className="flex items-center gap-2">
-              <input type="hidden" name="facility_id" value={id} />
-              <input type="file" name="video" accept="video/*" required className="text-sm" />
-              <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
-                Upload video
-              </button>
-            </form>
-          ) : (
-            <UpgradePrompt
-              variant="card"
-              title="Video is a Growth feature"
-              body="Add a walkthrough or welcome video — available on Growth and Anchor."
-              cta="Upgrade to add video →"
-            />
-          )}
+          <form action={uploadVideo} className="flex items-center gap-2">
+            <input type="hidden" name="facility_id" value={id} />
+            <input type="file" name="video" accept="video/*" required className="text-sm" />
+            <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
+              Upload video
+            </button>
+          </form>
         </section>
 
         {/* Bed availability — the moat */}
@@ -392,18 +354,9 @@ export default async function FacilityManage({
         </Link>
       )}
 
-      {isFree && (
-        <UpgradePrompt
-          variant="banner"
-          title="You're on the Free plan"
-          body="Your public listing stays basic. The greyed-out previews below are visible only to your facility team and show what an upgraded listing can include."
-          cta="Upgrade your listing →"
-        />
-      )}
-
       {/* Hero */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
-        {!isFree && images.length > 0 ? (
+        {images.length > 0 ? (
           <div className="grid grid-cols-1 gap-1 sm:grid-cols-3">
             {images.slice(0, 3).map((src, i) => (
               // On phones show one full-width hero; the 3-up row kicks in at sm+.
@@ -486,18 +439,6 @@ export default async function FacilityManage({
         </div>
       </div>
 
-      {isFree && (
-        <FreeProfileUpgradePreview
-          facilityName={facility.name}
-          location={location}
-          treatmentTypes={levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(' · ')}
-          accreditations={facility.accreditations ?? []}
-          phone={contact.phone || facility.main_phone || facility.intake_line}
-          email={contact.email}
-          engagement30={perfTotal}
-        />
-      )}
-
       {/* Profile performance — de-identified engagement a facility shows leadership */}
       <section className="rounded-xl border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between">
@@ -527,8 +468,7 @@ export default async function FacilityManage({
       </div>
 
       {/* About */}
-      {!isFree && (
-        <section className="space-y-3">
+      <section className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">About</h2>
           {facility.description ? (
             <p className="whitespace-pre-line text-sm leading-relaxed text-slate-700">{facility.description}</p>
@@ -555,8 +495,7 @@ export default async function FacilityManage({
               {facility.website.replace(/^https?:\/\//, '')} ↗
             </a>
           )}
-        </section>
-      )}
+      </section>
 
       {/* Bed availability (read-only summary) */}
       <section className="space-y-3">

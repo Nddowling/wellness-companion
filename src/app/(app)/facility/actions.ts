@@ -10,7 +10,7 @@ import { markSeekerConnectedByMatch } from '@/lib/vault/seekers';
 import { sendEmail } from '@/lib/email/send';
 import { staffInviteEmail } from '@/lib/email/templates';
 import { SITE_URL } from '@/lib/seo';
-import { normalizePlan, planAllows, photoLimit, seatLimit, EXTRA_SEAT_PRICE_MONTHLY } from '@/lib/facility/plan';
+import { normalizePlan, photoLimit, seatLimit, EXTRA_SEAT_PRICE_MONTHLY } from '@/lib/facility/plan';
 
 /** A logged-in user requests to manage a facility; an admin approves it. */
 export async function requestClaim(formData: FormData) {
@@ -192,12 +192,11 @@ export async function uploadPhoto(formData: FormData) {
   // Service role for storage + the images update (membership already verified).
   const admin = createAdminClient();
 
-  // Plan gate: photos are a Starter+ feature, capped per tier.
+  // Photos are free (a full profile is unlocked by a free claim), capped per tier.
   const { data: planRow } = await admin.from('facilities').select('plan, images').eq('id', facilityId).single();
   const plan = normalizePlan(planRow?.plan);
-  if (!planAllows(plan, 'photos')) throw new Error('Photos are a paid feature — upgrade to Starter to add them.');
   if ((((planRow?.images as string[] | null) ?? []).length) >= photoLimit(plan)) {
-    throw new Error(`Your plan includes up to ${photoLimit(plan)} photos. Upgrade for more.`);
+    throw new Error(`You can publish up to ${photoLimit(plan)} photos.`);
   }
 
   const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -245,9 +244,7 @@ export async function uploadVideo(formData: FormData) {
   if (file.size > 200_000_000) throw new Error('Video must be under 200MB');
 
   const admin = createAdminClient();
-  const { data: planRow } = await admin.from('facilities').select('plan, videos').eq('id', facilityId).single();
-  const plan = normalizePlan(planRow?.plan);
-  if (!planAllows(plan, 'video')) throw new Error('Video is a Growth feature — upgrade to add videos.');
+  const { data: planRow } = await admin.from('facilities').select('videos').eq('id', facilityId).single();
   if ((((planRow?.videos as string[] | null) ?? []).length) >= 5) {
     throw new Error('You can publish up to 5 videos.');
   }
