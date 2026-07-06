@@ -11,11 +11,12 @@ import { PAYERS } from "@/lib/payers";
 export const revalidate = 3600;
 
 // Google & Bing hard limits per sitemap FILE: 50,000 URLs or 50 MB uncompressed.
-// We shard well under the URL cap; at ~100 bytes/URL, 45k URLs ≈ 4.5 MB, so the URL
-// count is the binding constraint (not size). When the total exceeds one shard,
-// `generateSitemaps` makes Next serve /sitemap.xml as a sitemap INDEX that points at
-// the shards /sitemap/[id].xml — so this scales past 50k as we add states.
-const CHUNK = 45000;
+// We're currently ~29k URLs (well under both), so a single /sitemap.xml is correct —
+// and it's what robots.txt points at. If the directory grows past ~50k (adding
+// states), split into a sitemap index THEN. Note: Next's `generateSitemaps` on the
+// ROOT sitemap emits /sitemap/[id].xml shards but does NOT create a /sitemap.xml
+// index, so a future split needs a nested sitemap route or an explicit index file.
+const MAX_URLS_PER_FILE = 50000;
 
 type SitemapFacility = {
   id: string;
@@ -163,16 +164,12 @@ const buildAll = cache(async (): Promise<MetadataRoute.Sitemap> => {
   return [...staticRoutes, ...landing, ...programs];
 });
 
-// One shard per CHUNK URLs. Next serves /sitemap.xml as a sitemap index over the
-// shards at /sitemap/[id].xml; with a single shard it's still a valid one-child index.
-export async function generateSitemaps() {
+// Single /sitemap.xml with every URL. If we ever cross the per-file limit, Google
+// only reads the first 50k, so surface it in logs as a signal to introduce sharding.
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const all = await buildAll();
-  const shards = Math.max(1, Math.ceil(all.length / CHUNK));
-  return Array.from({ length: shards }, (_, id) => ({ id }));
-}
-
-export default async function sitemap({ id }: { id: Promise<string> }): Promise<MetadataRoute.Sitemap> {
-  const shard = Number(await id) || 0;
-  const all = await buildAll();
-  return all.slice(shard * CHUNK, shard * CHUNK + CHUNK);
+  if (all.length > MAX_URLS_PER_FILE) {
+    console.warn(`[sitemap] ${all.length} URLs exceeds ${MAX_URLS_PER_FILE}/file — time to split into a sitemap index.`);
+  }
+  return all;
 }
