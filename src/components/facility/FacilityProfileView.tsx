@@ -9,9 +9,11 @@ import { MatchBackLink } from '@/components/MatchBackLink';
 import { Gallery } from '@/components/Gallery';
 import { FacilityTeam } from '@/components/rep/FacilityTeam';
 import { ReviewForm } from '@/components/facility/ReviewForm';
+import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizePlan, planAllows } from '@/lib/facility/plan';
-import type { FacilityFull } from '@/lib/facility/load';
+import { loadFacilityContext, type FacilityFull } from '@/lib/facility/load';
+import { facilityContextLines } from '@/lib/facility/context';
 import { getRoles, isProviderSide } from '@/lib/auth';
 import {
   LEVEL_LABELS,
@@ -71,6 +73,11 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
     .eq('status', 'approved')
     .order('created_at', { ascending: false });
   const reviews = (reviewRows ?? []) as Review[];
+
+  // Computed-differentiation lines (city → county → state) — unique factual value per
+  // page. Rendered on both free and full profiles (free/thin pages need it most).
+  const ctx = await loadFacilityContext(f);
+  const contextLines = ctx ? facilityContextLines(f, ctx) : [];
 
   const caps = (f.facility_capacity ?? []) as Cap[];
   const payers = (f.facility_payers ?? []) as Payer[];
@@ -329,6 +336,8 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           </dl>
         </div>
 
+        <FacilityContextBlock lines={contextLines} />
+
         {/* Locked previews — show everything a claimed profile gets, greyed out, so the
             facility sees exactly what they're missing. Unlocks on a free claim. */}
         {(['Photos & video tour', 'Location & directions', 'Insurance, Medicaid MCOs & cash pricing'] as const).map((title) => (
@@ -554,6 +563,8 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           </span>
         </div>
       )}
+
+      <FacilityContextBlock lines={contextLines} />
 
       {showDescription && <p className="mt-5 text-sm leading-relaxed text-slate-700">{f.description}</p>}
 

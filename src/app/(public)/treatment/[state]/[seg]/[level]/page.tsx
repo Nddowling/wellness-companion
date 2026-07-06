@@ -10,6 +10,7 @@ import { loadFacilityBySlug, facilityCanonicalPath, buildFacilityMetadata } from
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
 import { LEVELS_OF_CARE, LEVEL_LABELS, LEVEL_BLURB, type LevelOfCare } from '@/lib/constants';
 import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
+import { landingIndexable, robotsFor } from '@/lib/indexable';
 
 export const revalidate = 3600;
 
@@ -66,6 +67,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    robots: robotsFor(landingIndexable(r.rows.length)),
     alternates: { canonical: `/treatment/${state}/${seg}/${level}` },
     openGraph: { title: `${title} | ${SITE_NAME}`, description, url: absoluteUrl(`/treatment/${state}/${seg}/${level}`) },
   };

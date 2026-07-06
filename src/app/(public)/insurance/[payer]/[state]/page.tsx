@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
 import { getPayer } from '@/lib/payers';
 import { codeFromStateSlug, stateName } from '@/lib/geo';
+import { landingIndexable, robotsFor } from '@/lib/indexable';
 
 export const revalidate = 3600;
 
@@ -41,6 +42,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    robots: robotsFor(landingIndexable(r.rows.length)),
     alternates: { canonical: `/insurance/${r.p.slug}/${state}` },
     openGraph: { title: `${title} | ${SITE_NAME}`, description, url: absoluteUrl(`/insurance/${r.p.slug}/${state}`) },
   };

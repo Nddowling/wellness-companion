@@ -385,6 +385,7 @@ export type Database = {
           verification_confidence: string
           source_url: string | null
           verified_by: string | null
+          county: string | null
         }
         Insert: {
           accepts_court_ordered?: string | null
@@ -439,6 +440,7 @@ export type Database = {
           verification_confidence?: string
           source_url?: string | null
           verified_by?: string | null
+          county?: string | null
         }
         Update: {
           accepts_court_ordered?: string | null
@@ -493,6 +495,7 @@ export type Database = {
           verification_confidence?: string
           source_url?: string | null
           verified_by?: string | null
+          county?: string | null
         }
         Relationships: []
       }

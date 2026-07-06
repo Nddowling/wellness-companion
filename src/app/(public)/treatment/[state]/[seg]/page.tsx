@@ -4,10 +4,13 @@ import { notFound } from 'next/navigation';
 
 import JsonLd from '@/components/JsonLd';
 import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
+import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock';
+import { computeAreaStats, cityContextLines, type ContextFacility } from '@/lib/facility/context';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
 import { LEVELS_OF_CARE, LEVEL_LABELS, LEVEL_BLURB, type LevelOfCare } from '@/lib/constants';
 import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
+import { landingIndexable, robotsFor } from '@/lib/indexable';
 
 export const revalidate = 3600;
 
@@ -48,7 +51,7 @@ async function load(stateParam: string, seg: string): Promise<Resolved | null> {
   // City: match on the slug of the stored city name (slug is lossy, so filter here).
   const { data } = await supabase
     .from('facilities')
-    .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+    .select('id, name, slug, city, state, levels_of_care, accreditations, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
     .eq('is_published', true)
     .ilike('state', code)
     .order('name');
@@ -76,6 +79,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    robots: robotsFor(landingIndexable(r.rows.length)),
     alternates: { canonical: `/treatment/${state}/${seg}` },
     openGraph: { title: `${title} | ${SITE_NAME}`, description, url: absoluteUrl(`/treatment/${state}/${seg}`) },
   };
@@ -176,6 +180,13 @@ export default async function StateSegPage({
         {r.kind === 'level' ? r.state : `${r.cityName}, ${r.state}`}, with live bed availability. {SITE_NAME}{' '}
         connects you to treatment facilities; we don&apos;t provide treatment ourselves.
       </p>
+
+      {r.kind === 'city' && (
+        <FacilityContextBlock
+          title={`About treatment in ${r.cityName}`}
+          lines={cityContextLines(r.cityName!, r.code, computeAreaStats(r.rows as unknown as ContextFacility[]))}
+        />
+      )}
 
       <div className="mt-4">
         <Link href="/match" className="text-sm font-medium text-teal-700 hover:underline">

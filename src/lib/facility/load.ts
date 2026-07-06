@@ -2,11 +2,55 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
+import { LEVEL_LABELS, LEVELS_OF_CARE, type LevelOfCare } from '@/lib/constants';
 import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from '@/lib/seo';
+import { profileIndexable, robotsFor } from '@/lib/indexable';
+import { stateName } from '@/lib/geo';
+import { computeAreaStats, type ContextInput } from '@/lib/facility/context';
 
 // Re-exported for server callers; the implementation is the client-safe pure helper.
 export { facilityPath as facilityCanonicalPath } from '@/lib/facility/href';
+
+const CONTEXT_SELECT = 'city, levels_of_care, accreditations, facility_payers(payer_type)';
+
+/**
+ * Load the peer facilities + aggregates needed for a profile's computed-differentiation
+ * block (city → county → state tier). One county-scoped query (county is a superset of
+ * the city); a state-level count is only run for the rural fallback. Cached per request.
+ */
+export const loadFacilityContext = cache(
+  async (f: {
+    city: string | null;
+    county: string | null;
+    state: string | null;
+    levels_of_care: string[] | null;
+  }): Promise<ContextInput | null> => {
+    if (!f.city || !f.state) return null;
+    const code = f.state.toUpperCase();
+    const supabase = createAdminClient();
+
+    const scope = supabase.from('facilities').select(CONTEXT_SELECT).eq('is_published', true).ilike('state', code);
+    const { data } = f.county ? await scope.eq('county', f.county) : await scope.eq('city', f.city);
+    const peers = (data ?? []) as { city: string | null; levels_of_care: string[] | null; accreditations: string[] | null; facility_payers: { payer_type: string }[] }[];
+
+    const city = computeAreaStats(peers.filter((p) => p.city === f.city));
+    const county = f.county ? computeAreaStats(peers) : null;
+
+    let stateLevelCount = 0;
+    const primary = LEVELS_OF_CARE.find((l) => (f.levels_of_care ?? []).includes(l));
+    if (city.total < 3 && (!county || county.total < 3) && primary) {
+      const { count } = await supabase
+        .from('facilities')
+        .select('id', { count: 'exact', head: true })
+        .eq('is_published', true)
+        .ilike('state', code)
+        .contains('levels_of_care', [primary]);
+      stateLevelCount = count ?? 0;
+    }
+
+    return { cityName: f.city, countyName: f.county, stateCode: code, stateName: stateName(code), city, county, stateLevelCount };
+  }
+);
 
 // Shared facility loaders + canonical-URL helper. Facility profiles are reachable
 // by UUID (legacy /programs/[id]) and by slug (/treatment/[state]/[city]/[slug]);
@@ -57,6 +101,8 @@ export function buildFacilityMetadata(f: FacilityFull, canonicalPath: string): M
   return {
     title,
     description,
+    // Stub profiles (no contact or no level of care) stay out of the index until enriched.
+    robots: robotsFor(profileIndexable(f)),
     alternates: { canonical: canonicalPath },
     openGraph: {
       type: 'article',

@@ -6,6 +6,7 @@ import { LEVELS_OF_CARE } from "@/lib/constants";
 import { stateSlug, slugify } from "@/lib/geo";
 import { GUIDES } from "@/lib/guides";
 import { PAYERS } from "@/lib/payers";
+import { profileIndexable, landingIndexable } from "@/lib/indexable";
 
 // Regenerate hourly so newly published programs + SEO landing pages appear without a redeploy.
 export const revalidate = 3600;
@@ -24,6 +25,9 @@ type SitemapFacility = {
   updated_at: string | null;
   state: string | null;
   city: string | null;
+  main_phone: string | null;
+  intake_line: string | null;
+  website: string | null;
   levels_of_care: string[] | null;
   facility_payers: { payer_type: string }[];
 };
@@ -64,7 +68,7 @@ const buildAll = cache(async (): Promise<MetadataRoute.Sitemap> => {
     for (let from = 0; from < 100000; from += PAGE) {
       const { data, error } = await supabase
         .from("facilities")
-        .select("id, slug, updated_at, state, city, levels_of_care, facility_payers(payer_type)")
+        .select("id, slug, updated_at, state, city, main_phone, intake_line, website, levels_of_care, facility_payers(payer_type)")
         .eq("is_published", true)
         .order("updated_at", { ascending: false })
         .range(from, from + PAGE - 1);
@@ -77,6 +81,7 @@ const buildAll = cache(async (): Promise<MetadataRoute.Sitemap> => {
     // with the facility's real updated_at as lastmod.
     programs = rows.flatMap((f) => {
       if (!f.slug || !f.city || !f.state) return []; // can't form the slug URL
+      if (!profileIndexable(f)) return []; // stub profiles are noindexed → keep them out of the sitemap
       const sslug = stateSlug(f.state.toUpperCase());
       const cslug = slugify(f.city);
       return [
@@ -92,17 +97,21 @@ const buildAll = cache(async (): Promise<MetadataRoute.Sitemap> => {
     // Programmatic SEO landing pages, derived only from combos that actually have
     // published programs. State + city hubs carry an honest lastmod = the newest
     // updated_at among their programs; the secondary combos use `now`.
+    // Only count PROFILE-INDEXABLE facilities toward combos, and require ≥3 to
+    // include a combo (mirrors the pages' noindex gate — thin combos stay out).
     const states = new Set<string>();
-    const stateCities = new Set<string>(); // "georgia|atlanta"
-    const stateLevels = new Set<string>(); // "georgia|detox"
-    const cityLevels = new Set<string>(); // "georgia|atlanta|detox"
+    const stateCityCount = new Map<string, number>(); // "georgia|atlanta" -> n
+    const stateLevelCount = new Map<string, number>(); // "georgia|detox" -> n
+    const cityLevelCount = new Map<string, number>(); // "georgia|atlanta|detox" -> n
+    const payerStateCount = new Map<string, number>(); // "payer_type|georgia" -> n
     const stateLastMod = new Map<string, number>(); // sslug -> ms
     const cityLastMod = new Map<string, number>(); // "sslug|cslug" -> ms
-    const typeStates = new Map<string, Set<string>>(); // payer_type -> set of state slugs
+    const typeStates = new Map<string, Set<string>>(); // payer_type -> set of state slugs (for /insurance/[payer] index)
+    const bump = (m: Map<string, number>, k: string) => m.set(k, (m.get(k) ?? 0) + 1);
 
     for (const f of rows) {
       const code = (f.state ?? "").toUpperCase();
-      if (!code) continue;
+      if (!code || !profileIndexable(f)) continue;
       const sslug = stateSlug(code);
       const ts = f.updated_at ? new Date(f.updated_at).getTime() : now.getTime();
       states.add(sslug);
@@ -111,28 +120,33 @@ const buildAll = cache(async (): Promise<MetadataRoute.Sitemap> => {
       const cslug = f.city ? slugify(f.city) : null;
       if (cslug) {
         const ckey = `${sslug}|${cslug}`;
-        stateCities.add(ckey);
+        bump(stateCityCount, ckey);
         cityLastMod.set(ckey, Math.max(cityLastMod.get(ckey) ?? 0, ts));
       }
       for (const l of (f.levels_of_care ?? []) as string[]) {
         if (!(LEVELS_OF_CARE as readonly string[]).includes(l)) continue;
-        stateLevels.add(`${sslug}|${l}`);
-        if (cslug) cityLevels.add(`${sslug}|${cslug}|${l}`);
+        bump(stateLevelCount, `${sslug}|${l}`);
+        if (cslug) bump(cityLevelCount, `${sslug}|${cslug}|${l}`);
       }
       for (const p of (f.facility_payers ?? []) as { payer_type: string }[]) {
         if (!typeStates.has(p.payer_type)) typeStates.set(p.payer_type, new Set());
         typeStates.get(p.payer_type)!.add(sslug);
+        bump(payerStateCount, `${p.payer_type}|${sslug}`);
       }
     }
 
-    // Map each payer (incl. named carriers) onto the states that have its type.
+    // Map each payer (incl. named carriers) onto the states that have ≥3 of its type.
     const payerPages: string[] = [];
     const payerStatePages: string[] = [];
     for (const p of PAYERS) {
       const sset = typeStates.get(p.payerType);
       if (!sset || sset.size === 0) continue;
       payerPages.push(`/insurance/${p.slug}`);
-      for (const s of sset) payerStatePages.push(`/insurance/${p.slug}/${s}`);
+      for (const s of sset) {
+        if (landingIndexable(payerStateCount.get(`${p.payerType}|${s}`) ?? 0)) {
+          payerStatePages.push(`/insurance/${p.slug}/${s}`);
+        }
+      }
     }
 
     const mk = (path: string, priority: number, lastModified: Date = now): MetadataRoute.Sitemap[number] => ({
@@ -142,14 +156,16 @@ const buildAll = cache(async (): Promise<MetadataRoute.Sitemap> => {
       priority,
     });
 
+    // Combos only appear when they have ≥3 indexable facilities (landingIndexable).
+    const keysAtLeast3 = (m: Map<string, number>) => [...m.entries()].filter(([, n]) => landingIndexable(n)).map(([k]) => k);
     landing = [
-      // State hub pages — /treatment/[state]
+      // State hub pages — /treatment/[state] (state hubs are never thin; always index)
       ...[...states].map((s) => mk(`/treatment/${s}`, 0.7, new Date(stateLastMod.get(s) ?? now.getTime()))),
       // City hub pages — /treatment/[state]/[city]
-      ...[...stateCities].map((k) => mk(`/treatment/${k.split("|")[0]}/${k.split("|")[1]}`, 0.6, new Date(cityLastMod.get(k) ?? now.getTime()))),
-      // Secondary landing (kept — already indexed): state×level, city×level, insurance.
-      ...[...stateLevels].map((k) => mk(`/treatment/${k.split("|")[0]}/${k.split("|")[1]}`, 0.7)),
-      ...[...cityLevels].map((k) => {
+      ...keysAtLeast3(stateCityCount).map((k) => mk(`/treatment/${k.split("|")[0]}/${k.split("|")[1]}`, 0.6, new Date(cityLastMod.get(k) ?? now.getTime()))),
+      // Secondary landing: state×level, city×level, insurance×state (all ≥3-gated).
+      ...keysAtLeast3(stateLevelCount).map((k) => mk(`/treatment/${k.split("|")[0]}/${k.split("|")[1]}`, 0.7)),
+      ...keysAtLeast3(cityLevelCount).map((k) => {
         const [s, c, l] = k.split("|");
         return mk(`/treatment/${s}/${c}/${l}`, 0.6);
       }),
