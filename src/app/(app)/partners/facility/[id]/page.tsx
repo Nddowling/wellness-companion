@@ -14,7 +14,8 @@ import {
 import { AddToListMenu } from '@/components/partner/AddToListMenu';
 import { RecordView } from '@/components/partner/RecordView';
 import { BedChip } from '@/components/FacilityCard';
-import { toggleSaveAction } from '@/app/(app)/partners/actions';
+import { toggleSaveAction, submitReferralAction } from '@/app/(app)/partners/actions';
+import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_TYPES, PAYER_LABELS } from '@/lib/constants';
 
 export default async function PartnerFacility({ params }: { params: Promise<{ id: string }> }) {
   await requirePartner();
@@ -91,6 +92,46 @@ export default async function PartnerFacility({ params }: { params: Promise<{ id
           <AddToListMenu facilityId={f.id} lists={listOpts} />
         </div>
       </div>
+
+      {/* Refer a client — records a de-identified referral to the partner's dashboard. */}
+      <form action={submitReferralAction} className="rounded-2xl border border-teal-200 bg-teal-50/60 p-6">
+        <input type="hidden" name="facility_id" value={f.id} />
+        <h2 className="text-sm font-semibold text-ink">Refer a client to this program</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Logs a de-identified referral to your dashboard so you can track it. No client names are stored.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="care_level" className="text-xs font-medium text-slate-600">
+              Level of care (optional)
+            </label>
+            <select id="care_level" name="care_level" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700">
+              <option value="">Any / not sure</option>
+              {LEVELS_OF_CARE.map((l) => (
+                <option key={l} value={l}>
+                  {LEVEL_LABELS[l]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="payer_type" className="text-xs font-medium text-slate-600">
+              Coverage (optional)
+            </label>
+            <select id="payer_type" name="payer_type" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700">
+              <option value="">Any / not sure</option>
+              {PAYER_TYPES.map((p) => (
+                <option key={p} value={p}>
+                  {PAYER_LABELS[p]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <button className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+          Refer a client here →
+        </button>
+      </form>
 
       <Link href={`/programs/${f.id}`} className="inline-block text-sm font-medium text-teal-700 hover:underline">
         Open the full public profile →

@@ -10,6 +10,7 @@ import {
   getSavedFacilityIds,
 } from '@/lib/partner/data';
 import { FacilityRow } from '@/components/partner/FacilityRow';
+import { getMyReferralStats } from '@/lib/referrals/data';
 
 export default async function PartnerHome() {
   const user = await requirePartner();
@@ -20,11 +21,12 @@ export default async function PartnerHome() {
   const fullName = (full?.user_metadata as { full_name?: string } | undefined)?.full_name ?? '';
   const firstName = fullName.split(' ')[0] || null;
 
-  const [profile, savedIds, recentIds, lists] = await Promise.all([
+  const [profile, savedIds, recentIds, lists, refStats] = await Promise.all([
     getPartnerProfile(user.id),
     getSavedFacilityIds(),
     getRecentlyViewedIds(6),
     getPartnerLists(),
+    getMyReferralStats(user.id),
   ]);
   const savedSet = new Set(savedIds);
   const listOpts = lists.map((l) => ({ id: l.id, title: l.title }));
@@ -78,6 +80,29 @@ export default async function PartnerHome() {
           </Link>
         ))}
       </div>
+
+      {/* Referrals — your outbound activity + where it stands */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-slate-700">Your referrals</h2>
+          <Link href="/partners/referrals" className="text-xs font-medium text-teal-700 hover:underline">
+            View all →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: 'Total', value: refStats.total },
+            { label: 'Reached care', value: refStats.connected },
+            { label: 'Accepted', value: refStats.accepted },
+            { label: 'In flight', value: refStats.open },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl bg-slate-50 p-3 text-center">
+              <div className="text-xl font-semibold text-ink">{s.value}</div>
+              <div className="mt-0.5 text-xs text-slate-500">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {!profile?.partner_type && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

@@ -43,6 +43,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   } else if (profile === 'partner') {
     links.push({ href: '/partners', label: 'Dashboard' });
     links.push({ href: '/partners/search', label: 'Search' });
+    links.push({ href: '/partners/referrals', label: 'Referrals' });
     links.push({ href: '/partners/saved', label: 'Saved' });
     links.push({ href: '/partners/lists', label: 'Lists' });
     tabs.push({ href: '/partners', label: 'Home', icon: 'home' });

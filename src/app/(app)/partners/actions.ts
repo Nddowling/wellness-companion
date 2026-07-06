@@ -5,7 +5,9 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isPartnerType } from '@/lib/partner/types';
+import { LEVELS_OF_CARE, PAYER_TYPES } from '@/lib/constants';
 
 /** The signed-in user id, or throw (every action below requires a session). */
 async function uid(): Promise<string> {
@@ -52,6 +54,38 @@ export async function updatePartnerProfileAction(formData: FormData) {
   });
   revalidatePath('/partners/settings');
   revalidatePath('/partners');
+}
+
+// ── referrals ────────────────────────────────────────────────────────────────
+
+/**
+ * File a referral: a de-identified `matches` row (source='bd', attributed to the
+ * signed-in partner) plus a `match_routes` row to the chosen facility. match_routes
+ * insert is admin-gated, so this runs through the service-role client — attribution
+ * is set server-side from the authenticated user, never trusted from the form.
+ */
+export async function submitReferralAction(formData: FormData) {
+  const facility_id = formData.get('facility_id') as string;
+  if (!facility_id) return;
+  const bd_user_id = await uid();
+
+  const careRaw = ((formData.get('care_level') as string) || '').trim();
+  const payerRaw = ((formData.get('payer_type') as string) || '').trim();
+  const care_level_needed = (LEVELS_OF_CARE as readonly string[]).includes(careRaw) ? careRaw : null;
+  const payer_type = (PAYER_TYPES as readonly string[]).includes(payerRaw) ? payerRaw : null;
+
+  const admin = createAdminClient();
+  const { data: match } = await admin
+    .from('matches')
+    .insert({ source: 'bd', bd_user_id, status: 'routed', care_level_needed, payer_type })
+    .select('id')
+    .single();
+  if (match?.id) {
+    await admin.from('match_routes').insert({ match_id: match.id, facility_id, status: 'sent' });
+  }
+  revalidatePath('/partners');
+  revalidatePath('/partners/referrals');
+  redirect('/partners/referrals');
 }
 
 // ── saved facilities ─────────────────────────────────────────────────────────

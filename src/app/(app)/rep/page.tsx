@@ -4,6 +4,8 @@ import { requireRep } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { absoluteUrl } from '@/lib/seo';
 import { getMyAffiliations, getMyInvites, getRepProfile } from '@/lib/rep/data';
+import { getInboundReferrals, getInboundReferralStats } from '@/lib/referrals/data';
+import { LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
 import { AttachFacility } from '@/components/rep/AttachFacility';
 import { CopyLink } from '@/components/partner/CopyLink';
 import {
@@ -35,6 +37,14 @@ export default async function RepDashboard() {
     getMyInvites(user.id),
   ]);
 
+  // Inbound referral activity is scoped to VERIFIED affiliations only — a rep genuinely
+  // works there. Aggregate + de-identified; never grants facility management.
+  const verifiedFacilityIds = affiliations.filter((a) => a.status === 'verified').map((a) => a.facility_id);
+  const [inboundStats, inbound] = await Promise.all([
+    getInboundReferralStats(verifiedFacilityIds),
+    getInboundReferrals(verifiedFacilityIds, 8),
+  ]);
+
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div className="flex items-start justify-between gap-3">
@@ -51,6 +61,45 @@ export default async function RepDashboard() {
           </Link>
         )}
       </div>
+
+      {/* Inbound referral activity — only once at least one facility is verified */}
+      {verifiedFacilityIds.length > 0 && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">Referrals to your facilities</h2>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total', value: inboundStats.total },
+              { label: 'Accepted', value: inboundStats.accepted },
+              { label: 'Awaiting', value: inboundStats.pending },
+            ].map((s) => (
+              <div key={s.label} className="rounded-xl bg-slate-50 p-3 text-center">
+                <div className="text-xl font-semibold text-ink">{s.value}</div>
+                <div className="mt-0.5 text-xs text-slate-500">{s.label}</div>
+              </div>
+            ))}
+          </div>
+          {inbound.length > 0 && (
+            <ul className="mt-4 space-y-2">
+              {inbound.map((r, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-sm first:border-0 first:pt-0"
+                >
+                  <span className="text-slate-700">
+                    {r.facilityName}
+                    {r.careLevel && (
+                      <span className="ml-2 text-xs text-slate-400">
+                        {LEVEL_LABELS[r.careLevel as LevelOfCare] ?? r.careLevel}
+                      </span>
+                    )}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{r.routeStatus}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {/* Profile editor */}
       <form action={updateRepProfileAction} className="space-y-4 rounded-xl border border-slate-200 bg-white p-5">

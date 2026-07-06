@@ -8,6 +8,31 @@ import { createClient } from '@/lib/supabase/client';
 import { Button, Input, Label } from '@/components/ui';
 import { Logo } from '@/components/Logo';
 
+// The four ways to join. Seekers self-create an account (or start anonymously);
+// Partners & facility teams self-signup with a profile; facilities are claim+verified.
+const SIGNUP_OPTIONS = [
+  {
+    title: "I'm looking for treatment",
+    sub: 'For you or a loved one — free, private, no account needed to start',
+    href: '/match',
+  },
+  {
+    title: 'I refer people into care',
+    sub: 'Case managers, clinicians, coaches, clergy — join as a Partner',
+    href: '/for-partners',
+  },
+  {
+    title: 'I work at a facility',
+    sub: 'Admissions / business development — build your team profile',
+    href: '/for-reps',
+  },
+  {
+    title: 'I run a treatment program',
+    sub: 'Claim & verify your facility (we set up your account once approved)',
+    href: '/claim',
+  },
+];
+
 // useSearchParams() requires a Suspense boundary in this Next version.
 export default function LoginPage() {
   return (
@@ -39,6 +64,8 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  // Non-seekers pick a profile type when signing up; this reveals that chooser.
+  const [chooser, setChooser] = useState(false);
 
   // API destinations (e.g. resume checkout) need a real navigation to run the handler.
   function go(d: string) {
@@ -153,26 +180,6 @@ function LoginForm() {
             </p>
           )}
 
-          {/* Partner door — referrers self-signup (unlike verified facilities). */}
-          {!isSeeker && (
-            <p className="mt-2 text-xs text-slate-500">
-              Refer people into care?{' '}
-              <Link href="/for-partners" className="font-medium text-teal-700 underline-offset-2 hover:underline">
-                Join as a Partner →
-              </Link>
-            </p>
-          )}
-
-          {/* Rep door — facility-side staff build a profile + join their team. */}
-          {!isSeeker && (
-            <p className="mt-1 text-xs text-slate-500">
-              Work at a facility?{' '}
-              <Link href="/for-reps" className="font-medium text-teal-700 underline-offset-2 hover:underline">
-                Create your team profile →
-              </Link>
-            </p>
-          )}
-
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col gap-4">
             {mode === 'signup' && (
               <div>
@@ -236,6 +243,7 @@ function LoginForm() {
           </form>
 
           {isSeeker ? (
+            // Seeker care funnel — keep the fast signin/signup toggle in place.
             <p className="mt-6 text-center text-sm text-slate-500">
               {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
               <button
@@ -251,16 +259,46 @@ function LoginForm() {
               </button>
             </p>
           ) : (
-            // Providers don't self-sign-up — point newcomers to the verified claim flow.
-            <p className="mt-6 text-center text-sm text-slate-500">
-              Run a treatment program?{' '}
-              <Link href="/claim" className="font-medium text-teal-700 underline-offset-2 hover:underline">
-                Claim your facility for free →
-              </Link>
-              <span className="mt-1 block text-xs text-slate-400">
-                We verify every program and set up your account once you&apos;re approved.
-              </span>
-            </p>
+            <div className="mt-6 border-t border-slate-100 pt-5">
+              {!chooser ? (
+                <p className="text-center text-sm text-slate-500">
+                  Don&apos;t have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => setChooser(true)}
+                    className="font-semibold text-teal-700 underline-offset-2 hover:underline"
+                  >
+                    Sign up →
+                  </button>
+                </p>
+              ) : (
+                <div>
+                  <p className="text-center text-sm font-semibold text-ink">How will you use Clear Bed?</p>
+                  <div className="mt-3 space-y-2">
+                    {SIGNUP_OPTIONS.map((o) => (
+                      <Link
+                        key={o.href}
+                        href={o.href}
+                        className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition hover:border-teal-400 hover:bg-teal-50"
+                      >
+                        <span>
+                          <span className="block text-sm font-semibold text-ink">{o.title}</span>
+                          <span className="mt-0.5 block text-xs text-slate-500">{o.sub}</span>
+                        </span>
+                        <span className="shrink-0 text-slate-300">→</span>
+                      </Link>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setChooser(false)}
+                    className="mt-3 w-full text-center text-xs text-slate-400 hover:text-slate-600"
+                  >
+                    ← Back to sign in
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </section>
