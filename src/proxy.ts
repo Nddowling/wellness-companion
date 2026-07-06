@@ -10,6 +10,12 @@ import { stateSlug, slugify } from '@/lib/geo';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Only routes that actually read the signed-in user need the Supabase session
+// refresh. Running updateSession on every request does cookie work that makes even
+// static public pages uncacheable — so we scope it to authed prefixes and let all
+// public content stay static/ISR cacheable. Server actions verify auth themselves.
+const AUTHED_PREFIXES = /^\/(admin|facility|me|bd|partners|rep|conversations|get-started|home|account|login|reset)(\/|$)/;
+
 // Best-effort in-process memo of uuid → canonical path. The mapping is IMMUTABLE
 // (a facility's slug never changes once assigned), so entries never expire. This is
 // only a warm-instance optimization and is NOT the correctness boundary — the real
@@ -67,7 +73,10 @@ export async function proxy(request: NextRequest) {
     // Unknown/unpublished uuid: fall through so the page can render its 404.
   }
 
-  return updateSession(request);
+  if (AUTHED_PREFIXES.test(pathname)) {
+    return updateSession(request);
+  }
+  return NextResponse.next();
 }
 
 export const config = {

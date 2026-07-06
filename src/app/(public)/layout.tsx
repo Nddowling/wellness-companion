@@ -1,24 +1,14 @@
 import SiteMenu from '@/components/SiteMenu';
 import PublicChrome from '@/components/PublicChrome';
-import { getRoles, homePathFor, profileType } from '@/lib/auth';
 
 // Public (seeker-facing) pages share a floating hamburger menu for whole-site
-// navigation. It's fixed-position, so it doesn't disturb the full-height /match view.
-// The menu is built from the viewer's canonical profile so each lane sees only its own.
-export default async function PublicLayout({ children }: { children: React.ReactNode }) {
-  const roles = await getRoles();
-  const profile = profileType(roles);
-  // Facility/admin get a dashboard shortcut; seekers already have "My care" inline;
-  // a roleless signed-in user is sent to onboarding.
-  const dashboardHref =
-    profile === 'facility' || profile === 'admin' || profile === 'partner' || profile === 'rep'
-      ? homePathFor(roles)
-      : profile === 'none' && roles.user
-        ? '/get-started'
-        : null;
+// navigation. SiteMenu resolves the viewer's role CLIENT-side (via /api/me/menu), so
+// this layout reads no cookies and every public page stays statically/ISR cacheable —
+// the crawl + speed foundation for the whole directory.
+export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      <SiteMenu profile={profile} dashboardHref={dashboardHref} authed={!!roles.user} />
+      <SiteMenu />
       <PublicChrome>{children}</PublicChrome>
     </>
   );
