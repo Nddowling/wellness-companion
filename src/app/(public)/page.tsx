@@ -15,7 +15,9 @@ export const metadata: Metadata = {
 
 export default async function LandingPage() {
   // Provider-side users (facility/BD, not Global Admin) see no seeker AI/match CTA.
-  const providerSide = isProviderSide(await getRoles());
+  const roles = await getRoles();
+  const providerSide = isProviderSide(roles);
+  const authed = !!roles.user;
   return (
     <>
     <main className="text-slate-800">
@@ -34,12 +36,22 @@ export default async function LandingPage() {
         {/* Top bar — logo + an above-the-fold entry for providers, kept clear of the patient flow */}
         <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-5 pr-6 sm:pr-20">
           <Logo tone="light" className="text-lg" />
-          <Link
-            href="/for-providers"
-            className="hidden shrink-0 rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20 sm:block"
-          >
-            Clear Bed for providers →
-          </Link>
+          <div className="hidden shrink-0 items-center gap-2 sm:flex">
+            {!authed && (
+              <Link
+                href="/login"
+                className="rounded-full px-3 py-2 text-sm font-medium text-white/90 underline-offset-2 transition hover:-translate-y-0.5 hover:text-white hover:underline"
+              >
+                Log in
+              </Link>
+            )}
+            <Link
+              href="/for-providers"
+              className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
+            >
+              Clear Bed for providers →
+            </Link>
+          </div>
         </div>
 
         {/* Patient hero — the dominant message */}

@@ -18,7 +18,7 @@ export default async function PublicLayout({ children }: { children: React.React
         : null;
   return (
     <>
-      <SiteMenu profile={profile} dashboardHref={dashboardHref} />
+      <SiteMenu profile={profile} dashboardHref={dashboardHref} authed={!!roles.user} />
       <PublicChrome>{children}</PublicChrome>
     </>
   );

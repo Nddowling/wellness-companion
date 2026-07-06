@@ -49,9 +49,11 @@ function buildLinks(profile: Profile, dashboardHref: string | null): NavLink[] {
 export default function SiteMenu({
   profile = 'none',
   dashboardHref = null,
+  authed = true,
 }: {
   profile?: Profile;
   dashboardHref?: string | null;
+  authed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const LINKS = buildLinks(profile, dashboardHref);
@@ -130,6 +132,20 @@ export default function SiteMenu({
                 );
               })}
             </div>
+            {!authed && (
+              <div className="mt-2 border-t border-slate-100 pt-2">
+                <Link
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="flex min-h-11 items-center justify-between rounded-xl border border-teal-600 px-3 py-2.5 text-sm font-semibold text-teal-700 transition hover:bg-teal-50"
+                >
+                  <span>Log in</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden className="text-teal-500">
+                    <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              </div>
+            )}
             <div className="mt-2 border-t border-slate-100 pt-2">
               <a
                 href="tel:988"
