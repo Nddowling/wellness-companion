@@ -43,7 +43,7 @@ export default function SiteFooter() {
               <li><Link href="/about" className="hover:text-teal-700 hover:underline">About &amp; how we vet</Link></li>
               <li><Link href="/how-we-make-money" className="hover:text-teal-700 hover:underline">How we make money</Link></li>
               <li><Link href="/data" className="hover:text-teal-700 hover:underline">Treatment access data</Link></li>
-              <li><a href="mailto:nick.dowling@clearbedrecovery.com" className="hover:text-teal-700 hover:underline">Contact us</a></li>
+              <li><Link href="/contact" className="hover:text-teal-700 hover:underline">Contact us</Link></li>
               <li><Link href="/terms" className="hover:text-teal-700 hover:underline">Terms of Service</Link></li>
               <li><Link href="/privacy" className="hover:text-teal-700 hover:underline">Privacy Policy</Link></li>
             </ul>

@@ -46,6 +46,10 @@ export const organizationJsonLd = {
   image: absoluteUrl(DEFAULT_OG_IMAGE.url),
   description: DEFAULT_DESCRIPTION,
   slogan: 'The live directory behind every good referral.',
+  // Public NAP for a hidden-address service-area business: Name + phone + service
+  // area. No PostalAddress (the street stays private / GBP-verification only).
+  telephone: '+1-904-548-8047',
+  email: 'Nick.dowling@clearbedrecovery.com',
   areaServed: { '@type': 'Country', name: 'United States' },
   // Topical-authority signal (March-2026 core update rewards focused expertise).
   knowsAbout: [
@@ -63,7 +67,8 @@ export const organizationJsonLd = {
   contactPoint: {
     '@type': 'ContactPoint',
     contactType: 'customer support',
-    email: 'hello@clearbedrecovery.com',
+    telephone: '+1-904-548-8047',
+    email: 'Nick.dowling@clearbedrecovery.com',
     areaServed: 'US',
     availableLanguage: ['English'],
   },
