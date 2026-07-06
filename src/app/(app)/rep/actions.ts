@@ -51,7 +51,7 @@ export async function updateRepProfileAction(
   let photo_url: string | null = existing?.photo_url ?? null;
   const file = formData.get('photo');
   if (file instanceof File && file.size > 0) {
-    if (file.size > 8_000_000) return { ok: false, error: 'Image is too large — please pick one under 8MB.' };
+    if (file.size > 25_000_000) return { ok: false, error: 'That image is very large — please pick one under 25MB.' };
     if (!file.type.startsWith('image/')) return { ok: false, error: 'That file isn’t an image.' };
     const admin = createAdminClient();
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');

@@ -20,6 +20,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  experimental: {
+    // Profile + facility photos are posted through Server Actions. The 1MB default
+    // rejected ordinary phone photos (throwing the "Something went wrong" page).
+    // Allow generous uploads — a real photo from any device, just not a billboard.
+    serverActions: {
+      bodySizeLimit: "30mb",
+    },
+  },
 };
 
 export default nextConfig;
