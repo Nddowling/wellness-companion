@@ -71,7 +71,10 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   const showCallIntake = planAllows(plan, 'callIntake'); // no "Call intake" on Free profiles
   const images = planAllows(plan, 'photos') ? ((f.images ?? []) as string[]) : [];
   const videos = planAllows(plan, 'video') ? ((f.videos ?? []) as string[]) : [];
-  const showDescription = planAllows(plan, 'description') && !!f.description;
+  // Descriptions render on every profile regardless of plan: unclaimed pages carry a
+  // directory-authored, source-grounded description (the SEO layer + what drives the
+  // claim/growth loop), and a free claim lets a facility replace it with their own.
+  const showDescription = !!f.description;
   const showWebsite = planAllows(plan, 'website') && !!f.website;
   const contact = (f.referral_contact ?? {}) as { name?: string; email?: string; phone?: string };
   const intakePhone = f.intake_line || contact.phone || f.main_phone || null;
