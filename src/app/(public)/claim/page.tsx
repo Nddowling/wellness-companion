@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 
 import { Logo } from '@/components/Logo';
 import { ClaimFacilityField } from '@/components/ClaimFacilityField';
+import { ClaimFunnelAnalytics } from '@/components/analytics/ClaimFunnelAnalytics';
 import { submitPublicClaim } from './actions';
 import SiteFooter from '@/components/SiteFooter';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -24,12 +25,12 @@ export default async function ClaimPage({
 
   // Deep-linked from a listing (/claim?facility=<id>) → pre-select their program so
   // they don't search for it again. Biggest friction-killer for inbound campaign traffic.
-  let initial: { id: string; name: string; city: string | null; state: string | null } | undefined;
+  let initial: { id: string; name: string; slug: string | null; city: string | null; state: string | null } | undefined;
   if (facility) {
     const admin = createAdminClient();
     const { data } = await admin
       .from('facilities')
-      .select('id, name, city, state')
+      .select('id, name, slug, city, state')
       .eq('id', facility)
       .eq('is_published', true)
       .maybeSingle();
@@ -39,6 +40,7 @@ export default async function ClaimPage({
   return (
     <>
     <main className="mx-auto min-h-screen max-w-xl px-5 py-10">
+      <ClaimFunnelAnalytics facility={initial} submitted={Boolean(submitted)} />
       <Link href="/" aria-label="Clear Bed Recovery — home">
         <Logo className="text-xl" />
       </Link>

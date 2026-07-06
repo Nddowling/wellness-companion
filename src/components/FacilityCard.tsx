@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { LEVEL_LABELS, bedSummary, type CapacityRow, type LevelOfCare } from '@/lib/constants';
+import { facilityPath } from '@/lib/facility/href';
 
 export type FacilityCardData = {
   id: string;
@@ -32,7 +33,7 @@ export function FacilityCard({ f }: { f: FacilityCardData }) {
     .join(' · ');
   return (
     <Link
-      href={`/programs/${f.id}`}
+      href={facilityPath(f)}
       className="block rounded-lg border border-slate-200 bg-white p-4 transition hover:border-teal-300"
     >
       <div className="flex items-start justify-between gap-2">

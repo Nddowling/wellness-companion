@@ -30,5 +30,6 @@ export async function submitPublicClaim(formData: FormData) {
     status: 'pending',
   });
 
-  redirect('/claim?submitted=1');
+  // Preserve the facility id so the success page can attribute the conversion event.
+  redirect(facilityId ? `/claim?submitted=1&facility=${facilityId}` : '/claim?submitted=1');
 }

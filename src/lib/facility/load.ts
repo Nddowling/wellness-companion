@@ -2,9 +2,11 @@ import { cache } from 'react';
 import type { Metadata } from 'next';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { stateSlug, slugify } from '@/lib/geo';
 import { LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
 import { DEFAULT_OG_IMAGE, SITE_NAME, absoluteUrl } from '@/lib/seo';
+
+// Re-exported for server callers; the implementation is the client-safe pure helper.
+export { facilityPath as facilityCanonicalPath } from '@/lib/facility/href';
 
 // Shared facility loaders + canonical-URL helper. Facility profiles are reachable
 // by UUID (legacy /programs/[id]) and by slug (/treatment/[state]/[city]/[slug]);
@@ -39,24 +41,6 @@ export const loadFacilityBySlug = cache(async (slug: string) => {
 
 // The full facility row shared by the loaders and the profile view component.
 export type FacilityFull = NonNullable<Awaited<ReturnType<typeof loadFacilityById>>>;
-
-/**
- * Canonical, SEO-friendly path for a facility:
- *   /treatment/<state-slug>/<city-slug>/<facility-slug>
- * Falls back to the legacy /programs/<id> only if slug/city/state are missing
- * (shouldn't happen — every published row has all three).
- */
-export function facilityCanonicalPath(f: {
-  id: string;
-  slug?: string | null;
-  city?: string | null;
-  state?: string | null;
-}): string {
-  if (f.slug && f.city && f.state) {
-    return `/treatment/${stateSlug(f.state.toUpperCase())}/${slugify(f.city)}/${f.slug}`;
-  }
-  return `/programs/${f.id}`;
-}
 
 /** Shared <head> metadata for a facility profile, with the canonical set to the slug URL. */
 export function buildFacilityMetadata(f: FacilityFull, canonicalPath: string): Metadata {
