@@ -1,12 +1,15 @@
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Chip, Dialog } from '@/components/ui';
 import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, type PayerType } from '@/lib/constants';
 import { US_STATES } from '@/lib/geo';
 import { payerTypeBrand, commercialCarriers } from '@/lib/payers';
 import { PayerMark } from '@/components/PayerLogo';
+import { trackFilterApplied, trackSearchSubmitted } from '@/lib/analytics';
+
+const PROGRAMS_PAGE = 'programs_directory';
 
 // URL-first faceted filter bar for the directory. Every change writes the
 // querystring (Back undoes one filter; a filtered URL is shareable). Group
@@ -65,7 +68,14 @@ export function FilterBar({ facets }: { facets: Facets }) {
     <div className="space-y-3">
       {/* Level of care — the primary axis, always visible as segmented chips. */}
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-        <Chip active={!cur.level} interactive onClick={() => push({ level: null })}>
+        <Chip
+          active={!cur.level}
+          interactive
+          onClick={() => {
+            trackFilterApplied('level_of_care', 'cleared', PROGRAMS_PAGE);
+            push({ level: null });
+          }}
+        >
           All care
         </Chip>
         {LEVELS_OF_CARE.map((l) => (
@@ -74,7 +84,11 @@ export function FilterBar({ facets }: { facets: Facets }) {
             active={cur.level === l}
             interactive
             count={facets.levels[l]}
-            onClick={() => push({ level: cur.level === l ? null : l })}
+            onClick={() => {
+              const next = cur.level === l ? null : l;
+              trackFilterApplied('level_of_care', next || 'cleared', PROGRAMS_PAGE);
+              push({ level: next });
+            }}
             className="shrink-0"
           >
             {LEVEL_LABELS[l]}
@@ -87,18 +101,40 @@ export function FilterBar({ facets }: { facets: Facets }) {
         <InsuranceSelect
           active={cur.pay as PayerType | ''}
           counts={facets.payers}
-          onSelect={(v) => push({ pay: v })}
+          onSelect={(v) => {
+            trackFilterApplied('insurance', v || 'cleared', PROGRAMS_PAGE);
+            push({ pay: v });
+          }}
         />
         <FacetSelect
           label="Location"
           activeLabel={cur.region ? US_STATES[cur.region] ?? cur.region : undefined}
           options={regionOptions}
-          onSelect={(v) => push({ region: v })}
+          onSelect={(v) => {
+            trackFilterApplied('location', v || 'cleared', PROGRAMS_PAGE);
+            push({ region: v });
+          }}
         />
-        <Chip tone="sage" active={!!cur.open} interactive onClick={() => push({ open: cur.open ? null : '1' })}>
+        <Chip
+          tone="sage"
+          active={!!cur.open}
+          interactive
+          onClick={() => {
+            const next = cur.open ? null : '1';
+            trackFilterApplied('availability', next ? 'available_now' : 'cleared', PROGRAMS_PAGE);
+            push({ open: next });
+          }}
+        >
           <span aria-hidden className="text-emerald-500">●</span> Available now
         </Chip>
-        <SearchInline value={cur.q} onSubmit={(q) => push({ q: q || null })} />
+        <SearchInline
+          value={cur.q}
+          onSubmit={(q) => {
+            // Boolean only — never the raw directory query text.
+            trackSearchSubmitted({ sourcePage: PROGRAMS_PAGE, searchType: 'inline_directory_search', hasQuery: Boolean(q) });
+            push({ q: q || null });
+          }}
+        />
       </div>
 
       {/* Active filters — removable, so Back-button and the × both undo one thing. */}
@@ -111,7 +147,10 @@ export function FilterBar({ facets }: { facets: Facets }) {
           ))}
           <button
             type="button"
-            onClick={() => router.push(pathname, { scroll: false })}
+            onClick={() => {
+              trackFilterApplied('all_filters', 'cleared', PROGRAMS_PAGE);
+              router.push(pathname, { scroll: false });
+            }}
             className="text-xs text-slate-500 underline hover:text-teal-700"
           >
             Clear all
@@ -260,7 +299,16 @@ function InsuranceSelect({
 
 function SearchInline({ value, onSubmit }: { value: string; onSubmit: (q: string) => void }) {
   const [val, setVal] = useState(value);
-  useEffect(() => setVal(value), [value]);
+  // Re-sync the local input when the URL-derived `value` changes out from under us
+  // (Back button, "Clear all", removing the active search chip). This is the
+  // render-time "adjust state when a prop changes" pattern — it replaces a
+  // setState-in-effect and re-renders before painting, so there's no stale flash.
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setVal(value);
+  }
   return (
     <form
       onSubmit={(e) => { e.preventDefault(); onSubmit(val.trim()); }}

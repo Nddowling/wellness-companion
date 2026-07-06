@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
 import { BedChip } from '@/components/FacilityCard';
 import { FilterBar, type Facets } from '@/components/FilterBar';
+import { ProgramDirectoryAnalytics } from '@/components/analytics/ProgramDirectoryAnalytics';
 import { Breadcrumb, breadcrumbJsonLd, DisclosurePanel } from '@/components/ui';
 import { absoluteUrl } from '@/lib/seo';
 
@@ -95,6 +96,18 @@ export default async function ProgramsDirectory({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6">
+      <ProgramDirectoryAnalytics
+        total={total}
+        page={page}
+        hasQuery={Boolean(q)}
+        hasLocation={Boolean(region)}
+        hasInsuranceFilter={Boolean(validPay)}
+        hasLevelOfCareFilter={Boolean(validLevel)}
+        hasSpecialtyFilter={Boolean(spec)}
+        hasPopulationFilter={Boolean(pop)}
+        hasOpenFilter={Boolean(open)}
+        region={region || undefined}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(crumbs)) }}

@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 
 import { US_STATES } from '@/lib/geo';
 import { commonPayers } from '@/lib/payers';
 import { PayerMark } from '@/components/PayerLogo';
+import { trackSearchStarted, trackSearchSubmitted, trackFilterApplied } from '@/lib/analytics';
+
+const OVERLAY_PAGE = 'find_treatment_overlay';
 
 // Recovery.com-inspired "command palette" search for treatment seekers. A single bar
 // opens a rich overlay: natural-language search (→ the AI guide at /match), location
@@ -14,15 +17,15 @@ import { PayerMark } from '@/components/PayerLogo';
 // chips — every one wired to a real /programs filter. Branded in Clear Bed's palette,
 // not copied. Need-based: nothing here ranks paid facilities above others.
 
-type Loc = { code: string; label: string; from: number; to: number; current?: boolean };
+type Loc = { code: string; label: string; from: number; to: number; current?: boolean; photo?: string };
 
 // States with directory coverage today, plus the IP-aware "Current Location" tile.
 // `from`/`to` drive a soft brand gradient per tile (styled stand-in until real photos).
 const LOCATIONS: Loc[] = [
   { code: '', label: 'Current Location', from: 0, to: 0, current: true },
-  { code: 'GA', label: 'Georgia', from: 158, to: 174 },
-  { code: 'FL', label: 'Florida', from: 188, to: 205 },
-  { code: 'AL', label: 'Alabama', from: 200, to: 30 },
+  { code: 'GA', label: 'Georgia', from: 158, to: 174, photo: '/states/ga.jpg' },
+  { code: 'FL', label: 'Florida', from: 188, to: 205, photo: '/states/fl.jpg' },
+  { code: 'AL', label: 'Alabama', from: 200, to: 30, photo: '/states/al.jpg' },
 ];
 
 const CONDITIONS: { label: string; href: string }[] = [
@@ -51,11 +54,14 @@ const CLIENTELE: { label: string; href: string }[] = [
 const INSURANCE = commonPayers().map((p) => ({
   brand: p.brand,
   label: p.name,
+  payerType: p.payerType,
   href: `/programs?pay=${p.payerType}`,
 }));
 
 function tileStyle(l: Loc): React.CSSProperties {
   if (l.current) return { background: 'linear-gradient(135deg,#0f3b34,#1f6f60)' };
+  // Real state photo, darkened with a teal wash so the white state code stays legible.
+  if (l.photo) return { backgroundImage: 'linear-gradient(180deg,rgba(15,59,52,0.22),rgba(15,59,52,0.64)),url(' + l.photo + ')', backgroundSize: 'cover', backgroundPosition: 'center' };
   return { background: `linear-gradient(135deg,hsl(${l.from} 38% 42%),hsl(${l.to} 45% 30%))` };
 }
 
@@ -74,7 +80,13 @@ export function FindTreatmentSearch({
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
-  const setOpen = (v: boolean) => (onOpenChange ? onOpenChange(v) : setInternalOpen(v));
+  // Stable identity so the scroll-lock/Esc effect can list it as a dependency
+  // without re-running on every render. onOpenChange is the only real input;
+  // setInternalOpen is already stable from useState.
+  const setOpen = useCallback(
+    (v: boolean) => (onOpenChange ? onOpenChange(v) : setInternalOpen(v)),
+    [onOpenChange],
+  );
   const [text, setText] = useState('');
   const [locating, setLocating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -92,7 +104,7 @@ export function FindTreatmentSearch({
       document.body.style.overflow = prev;
       window.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   const go = (href: string) => {
     setOpen(false);
@@ -103,6 +115,8 @@ export function FindTreatmentSearch({
   const submitSearch = (e?: React.FormEvent) => {
     e?.preventDefault();
     const q = text.trim();
+    // Only a boolean about whether text was typed — never the raw query.
+    trackSearchSubmitted({ sourcePage: OVERLAY_PAGE, searchType: 'directory_search', hasQuery: Boolean(q) });
     go(q ? `/programs?q=${encodeURIComponent(q)}` : '/programs');
   };
 
@@ -111,12 +125,20 @@ export function FindTreatmentSearch({
   // directory query can't. Empty input just opens the guide.
   const naturalSearch = () => {
     const q = text.trim();
+    trackSearchSubmitted({
+      sourcePage: OVERLAY_PAGE,
+      searchType: q ? 'natural_language_directory_search' : 'ai_match_start',
+      hasQuery: Boolean(q),
+    });
     go(q ? `/match?q=${encodeURIComponent(q)}` : '/match');
   };
 
   // Current Location → browser Geolocation API (accurate, permission-based, VPN-proof),
   // falling back to coarse IP geo only if the user denies or it's unavailable.
-  const useMyLocation = () => {
+  // NB: a plain event handler, not a hook — named with a non-`use` prefix so the
+  // Rules-of-Hooks lint doesn't mistake it for one when called inside a callback.
+  const startLocationSearch = () => {
+    trackFilterApplied('location', 'current_location', OVERLAY_PAGE);
     setLocating(true);
     const ipFallback = async () => {
       try {
@@ -145,7 +167,10 @@ export function FindTreatmentSearch({
       {trigger !== 'none' && (
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            trackSearchStarted('hero_search');
+            setOpen(true);
+          }}
           className="flex w-full items-center gap-4 rounded-2xl bg-white px-5 py-4 text-left shadow-2xl shadow-ink/30 ring-1 ring-black/5 transition hover:-translate-y-0.5 sm:px-6 sm:py-5"
         >
           <SearchIcon className="h-6 w-6 shrink-0 text-teal-700" />
@@ -205,21 +230,31 @@ export function FindTreatmentSearch({
                 {LOCATIONS.map((l) => (
                   <button
                     key={l.label}
-                    onClick={() => (l.current ? useMyLocation() : go(`/programs?region=${l.code}`))}
+                    onClick={() => {
+                      if (l.current) return startLocationSearch();
+                      trackFilterApplied('location', l.code, OVERLAY_PAGE);
+                      go(`/programs?region=${l.code}`);
+                    }}
                     className="group w-32 shrink-0 text-left"
                   >
                     <span className="relative grid h-20 w-32 place-items-center overflow-hidden rounded-xl shadow-sm ring-1 ring-black/5" style={tileStyle(l)}>
                       {l.current ? (
                         locating ? <SpinnerIcon className="h-6 w-6 text-white" /> : <PinIcon className="h-6 w-6 text-white" />
                       ) : (
-                        <span className="font-fraunces text-2xl font-semibold text-white/90">{l.code}</span>
+                        <span className="font-fraunces text-2xl font-semibold text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.55)]">{l.code}</span>
                       )}
                       <span className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                     </span>
                     <span className="mt-1.5 block truncate text-sm font-medium text-slate-700">{l.label}</span>
                   </button>
                 ))}
-                <button onClick={() => go('/programs')} className="group w-32 shrink-0 text-left">
+                <button
+                  onClick={() => {
+                    trackFilterApplied('location', 'all_states', OVERLAY_PAGE);
+                    go('/programs');
+                  }}
+                  className="group w-32 shrink-0 text-left"
+                >
                   <span className="grid h-20 w-32 place-items-center rounded-xl bg-slate-100 text-slate-500 ring-1 ring-black/5 transition group-hover:bg-slate-200">
                     <span className="text-sm font-medium">All states →</span>
                   </span>
@@ -229,7 +264,13 @@ export function FindTreatmentSearch({
 
               {/* Conditions */}
               <Section title="Common needs" />
-              <ChipRow items={CONDITIONS} onPick={go} />
+              <ChipRow
+                items={CONDITIONS}
+                onPick={(href) => {
+                  trackFilterApplied('condition', 'preset_condition', OVERLAY_PAGE);
+                  go(href);
+                }}
+              />
 
               {/* Insurance — micro brand logos + name */}
               <Section title="By accepted insurance" />
@@ -237,7 +278,10 @@ export function FindTreatmentSearch({
                 {INSURANCE.map((c) => (
                   <button
                     key={c.label}
-                    onClick={() => go(c.href)}
+                    onClick={() => {
+                      trackFilterApplied('insurance', c.payerType, OVERLAY_PAGE);
+                      go(c.href);
+                    }}
                     className="flex items-center gap-2 rounded-full bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-teal-50 hover:text-teal-800"
                   >
                     <PayerMark brand={c.brand} size="md" />
@@ -248,7 +292,13 @@ export function FindTreatmentSearch({
 
               {/* Clientele */}
               <Section title="Who it's for" />
-              <ChipRow items={CLIENTELE} onPick={go} />
+              <ChipRow
+                items={CLIENTELE}
+                onPick={(href) => {
+                  trackFilterApplied('population', 'preset_population', OVERLAY_PAGE);
+                  go(href);
+                }}
+              />
             </div>
           </div>
         </div>,
