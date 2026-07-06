@@ -17,23 +17,6 @@ export const DEFAULT_TITLE =
 export const DEFAULT_DESCRIPTION =
   'Clear Bed Recovery helps you find addiction treatment — including programs for co-occurring mental-health needs — that fits your situation, insurance, and region, with real-time bed availability. We connect you to treatment facilities; we don’t provide treatment ourselves. Free, private, and no account required to start.';
 
-export const SEO_KEYWORDS = [
-  'addiction treatment',
-  'rehab directory',
-  'drug and alcohol rehab',
-  'mental health treatment',
-  'detox centers',
-  'residential treatment',
-  'partial hospitalization program',
-  'intensive outpatient program',
-  'IOP',
-  'PHP',
-  'substance abuse treatment',
-  'find rehab near me',
-  'treatment bed availability',
-  'dual diagnosis treatment',
-];
-
 export const DEFAULT_OG_IMAGE = {
   url: '/images/hero.jpg',
   width: 1200,

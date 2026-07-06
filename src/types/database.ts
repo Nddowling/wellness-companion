@@ -381,6 +381,10 @@ export type Database = {
           zip: string | null
           zip3: string | null
           slug: string | null
+          last_verified: string | null
+          verification_confidence: string
+          source_url: string | null
+          verified_by: string | null
         }
         Insert: {
           accepts_court_ordered?: string | null
@@ -431,6 +435,10 @@ export type Database = {
           zip?: string | null
           zip3?: string | null
           slug?: string | null
+          last_verified?: string | null
+          verification_confidence?: string
+          source_url?: string | null
+          verified_by?: string | null
         }
         Update: {
           accepts_court_ordered?: string | null
@@ -481,6 +489,10 @@ export type Database = {
           zip?: string | null
           zip3?: string | null
           slug?: string | null
+          last_verified?: string | null
+          verification_confidence?: string
+          source_url?: string | null
+          verified_by?: string | null
         }
         Relationships: []
       }
@@ -682,6 +694,8 @@ export type Database = {
           id: string
           in_network: boolean
           payer_type: string
+          verification_confidence: string
+          source_url: string | null
         }
         Insert: {
           created_at?: string
@@ -689,6 +703,8 @@ export type Database = {
           id?: string
           in_network?: boolean
           payer_type: string
+          verification_confidence?: string
+          source_url?: string | null
         }
         Update: {
           created_at?: string
@@ -696,6 +712,8 @@ export type Database = {
           id?: string
           in_network?: boolean
           payer_type?: string
+          verification_confidence?: string
+          source_url?: string | null
         }
         Relationships: [
           {
