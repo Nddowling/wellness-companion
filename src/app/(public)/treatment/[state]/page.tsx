@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { unstable_cache } from 'next/cache';
 
 import JsonLd from '@/components/JsonLd';
 import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
@@ -10,22 +11,31 @@ import { LEVELS_OF_CARE, LEVEL_LABELS, type LevelOfCare } from '@/lib/constants'
 import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
 
 export const revalidate = 3600;
+export function generateStaticParams() {
+  return [];
+}
 
 type Row = FacilityCardData;
 
 async function load(stateSlugParam: string) {
   const code = codeFromStateSlug(stateSlugParam);
   if (!code) return null;
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from('facilities')
-    .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
-    .eq('is_published', true)
-    .ilike('state', code)
-    .order('name');
-  const rows = (data ?? []) as Row[];
-  if (rows.length === 0) return null;
-  return { code, rows };
+  return unstable_cache(
+    async () => {
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from('facilities')
+        .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+        .eq('is_published', true)
+        .ilike('state', code)
+        .order('name');
+      const rows = (data ?? []) as Row[];
+      if (rows.length === 0) return null;
+      return { code, rows };
+    },
+    ['treatment-state', code],
+    { revalidate: 3600, tags: [`treatment:${code}`] }
+  )();
 }
 
 export async function generateMetadata({

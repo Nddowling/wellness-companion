@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
+import { unstable_cache } from 'next/cache';
 
 import JsonLd from '@/components/JsonLd';
 import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
 import { FacilityProfileView } from '@/components/facility/FacilityProfileView';
+import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock';
+import { computeAreaStats, cityLevelContextLines, type ContextFacility } from '@/lib/facility/context';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadFacilityBySlug, facilityCanonicalPath, buildFacilityMetadata } from '@/lib/facility/load';
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
@@ -38,11 +41,17 @@ async function load(stateParam: string, seg: string, level: string) {
   if (!isLevel(level) || isLevel(seg)) return null; // seg must be a city, not a level
   const code = codeFromStateSlug(stateParam);
   if (!code) return null;
+  return unstable_cache(() => loadUncached(code, seg, level), ['treatment-city-level', code, seg, level], {
+    revalidate: 3600,
+    tags: [`treatment:${code}`],
+  })();
+}
 
+async function loadUncached(code: string, seg: string, level: string) {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from('facilities')
-    .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+    .select('id, name, slug, city, state, levels_of_care, accreditations, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
     .eq('is_published', true)
     .ilike('state', code)
     .contains('levels_of_care', [level])
@@ -170,6 +179,11 @@ export default async function CityLevelOrProfilePage({
           {LEVEL_LABELS[r.level]} across {r.state}
         </Link>
       </div>
+
+      <FacilityContextBlock
+        title={`About ${LEVEL_LABELS[r.level].toLowerCase()} in ${r.cityName}`}
+        lines={cityLevelContextLines(r.cityName, r.code, LEVEL_LABELS[r.level], computeAreaStats(r.rows as unknown as ContextFacility[]))}
+      />
 
       <div className="mt-7 space-y-2">
         {r.rows.map((f) => (

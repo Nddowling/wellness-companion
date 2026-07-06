@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { unstable_cache } from 'next/cache';
 
 import JsonLd from '@/components/JsonLd';
 import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
@@ -13,6 +14,12 @@ import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
 import { landingIndexable, robotsFor } from '@/lib/indexable';
 
 export const revalidate = 3600;
+
+// Opt the dynamic-param route into ISR (render on demand, then cache) — without this
+// Next 16 renders it fully dynamic even with revalidate + cached reads.
+export function generateStaticParams() {
+  return [];
+}
 
 function isLevel(seg: string): seg is LevelOfCare {
   return (LEVELS_OF_CARE as readonly string[]).includes(seg);
@@ -33,6 +40,13 @@ type Resolved = {
 async function load(stateParam: string, seg: string): Promise<Resolved | null> {
   const code = codeFromStateSlug(stateParam);
   if (!code) return null;
+  return unstable_cache(() => loadUncached(code, seg), ['treatment-seg', code, seg], {
+    revalidate: 3600,
+    tags: [`treatment:${code}`],
+  })();
+}
+
+async function loadUncached(code: string, seg: string): Promise<Resolved | null> {
   const supabase = createAdminClient();
 
   if (isLevel(seg)) {

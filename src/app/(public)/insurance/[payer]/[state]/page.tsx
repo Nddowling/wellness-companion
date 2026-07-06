@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { unstable_cache } from 'next/cache';
 
 import JsonLd from '@/components/JsonLd';
 import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
@@ -11,20 +12,29 @@ import { codeFromStateSlug, stateName } from '@/lib/geo';
 import { landingIndexable, robotsFor } from '@/lib/indexable';
 
 export const revalidate = 3600;
+export function generateStaticParams() {
+  return [];
+}
 
 async function load(payerSlugParam: string, stateSlugParam: string) {
   const p = getPayer(payerSlugParam);
   const code = codeFromStateSlug(stateSlugParam);
   if (!p || !code) return null;
-  const supabase = createAdminClient();
-  const { data } = await supabase
-    .from('facilities')
-    .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated), facility_payers!inner(payer_type)')
-    .eq('is_published', true)
-    .ilike('state', code)
-    .eq('facility_payers.payer_type', p.payerType)
-    .order('name');
-  const rows = (data ?? []) as FacilityCardData[];
+  const rows = await unstable_cache(
+    async () => {
+      const supabase = createAdminClient();
+      const { data } = await supabase
+        .from('facilities')
+        .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated), facility_payers!inner(payer_type)')
+        .eq('is_published', true)
+        .ilike('state', code)
+        .eq('facility_payers.payer_type', p.payerType)
+        .order('name');
+      return (data ?? []) as FacilityCardData[];
+    },
+    ['insurance-state', code, p.payerType],
+    { revalidate: 3600, tags: [`treatment:${code}`] }
+  )();
   if (rows.length === 0) return null;
   return { p, code, state: stateName(code), rows };
 }

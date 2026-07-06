@@ -117,6 +117,19 @@ function accrLabel(f: ContextFacility): string | null {
   return badges.length ? badges.join(', ') : null;
 }
 
+/** Factual summary stats for a CITY × LEVEL page (e.g. "Detox in Atlanta"). */
+export function cityLevelContextLines(cityName: string, stateCode: string, levelLabel: string, stats: AreaStats): string[] {
+  const lines: string[] = [
+    `${cityName}, ${stateCode} has ${stats.total} ${levelLabel.toLowerCase()} program${stats.total === 1 ? '' : 's'} listed on Clear Bed Recovery.`,
+  ];
+  const payerParts = KEY_PAYERS.filter((p) => stats.byPayer[p]).map((p) => `${stats.byPayer[p]} accept ${PAYER_LABELS[p]}`);
+  if (payerParts.length) lines.push(`Insurance: ${payerParts.join(' · ')}.`);
+  if (stats.accredited) {
+    lines.push(`${stats.accredited} ${stats.accredited === 1 ? 'is' : 'are'} accredited (CARF, The Joint Commission, or state licensure).`);
+  }
+  return lines;
+}
+
 /** Factual, citation-friendly summary stats for a CITY hub. */
 export function cityContextLines(cityName: string, stateCode: string, stats: AreaStats): string[] {
   const lines: string[] = [
