@@ -19,6 +19,9 @@ import {
   bedSummary,
   freshnessTone,
   isBedBased,
+  availabilityStale,
+  availabilityAsOf,
+  AVAILABILITY_DISCLAIMER,
   type LevelOfCare,
   type PayerType,
 } from '@/lib/constants';
@@ -427,9 +430,14 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   }
 
   const mapQuery = [f.street, f.city, f.state, f.zip].filter(Boolean).join(', ');
-  const anyAccepting = levels.some(
-    (l) => !isBedBased(l) || (caps.find((c) => c.level_of_care === l)?.beds_available ?? 0) > 0
-  );
+  const anyAccepting = levels.some((l) => {
+    if (!isBedBased(l)) return true;
+    const cap = caps.find((c) => c.level_of_care === l);
+    // Only count a bed as "accepting" if it's reported AND recently verified.
+    return !!cap && cap.beds_available > 0 && !availabilityStale(cap.last_updated);
+  });
+  // True if any bed-based level has a stale/unverified count — drives the disclaimer.
+  const showsBedCounts = levels.some((l) => isBedBased(l));
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-6">
@@ -604,23 +612,34 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
             {levels.length ? (
               levels.map((l) => {
                 const cap = caps.find((c) => c.level_of_care === l);
-                const tone = !isBedBased(l)
-                  ? 'outpatient'
-                  : cap && cap.beds_available > 0
-                    ? freshnessTone(cap.last_updated)
-                    : 'none';
+                const hasBeds = !!cap && cap.beds_available > 0;
+                const fresh = hasBeds && !availabilityStale(cap!.last_updated);
+                let label: string;
+                let tone: 'green' | 'amber' | 'red' | 'muted';
+                if (!isBedBased(l)) {
+                  label = 'outpatient';
+                  tone = 'muted';
+                } else if (fresh) {
+                  label = `${cap!.beds_available} beds · ${availabilityAsOf(cap!.last_updated)}`;
+                  tone = freshnessTone(cap!.last_updated);
+                } else if (hasBeds) {
+                  // reported, but older than the 30-day window — never show a stale count
+                  label = 'Availability not recently verified';
+                  tone = 'muted';
+                } else {
+                  label = 'call to confirm beds';
+                  tone = 'muted';
+                }
+                const toneClass =
+                  tone === 'green'
+                    ? 'text-emerald-600'
+                    : tone === 'amber'
+                      ? 'text-amber-600'
+                      : 'text-slate-400';
                 return (
                   <li key={l} className="flex items-center justify-between gap-2">
                     <span>• {LEVEL_LABELS[l as LevelOfCare] ?? l}</span>
-                    <span className="text-xs text-slate-400">
-                      {tone === 'outpatient'
-                        ? 'outpatient'
-                        : tone === 'none'
-                          ? 'call to confirm beds'
-                          : cap
-                            ? `${cap.beds_available} beds`
-                            : ''}
-                    </span>
+                    <span className={`text-xs ${toneClass}`}>{label}</span>
                   </li>
                 );
               })
@@ -628,6 +647,9 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               <li className="text-slate-400">Not specified</li>
             )}
           </ul>
+          {showsBedCounts && (
+            <p className="mt-2 text-xs text-slate-400">{AVAILABILITY_DISCLAIMER}.</p>
+          )}
         </section>
 
         <section className="rounded-xl border border-slate-200 bg-white p-4">

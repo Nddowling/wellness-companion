@@ -77,6 +77,34 @@ export function isoDaysAgo(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString();
 }
 
+// Bed availability is self-reported and can go stale fast. A family arriving to a
+// phantom bed is a catastrophic trust failure — so past this window we STOP showing
+// a live count and say so, everywhere availability renders.
+export const AVAILABILITY_MAX_AGE_DAYS = 30;
+
+export function availabilityAgeDays(lastUpdated: string | null): number | null {
+  if (!lastUpdated) return null;
+  return Math.floor((Date.now() - new Date(lastUpdated).getTime()) / 86_400_000);
+}
+
+/** True when availability is too old to display a live count (or was never set). */
+export function availabilityStale(lastUpdated: string | null, maxDays = AVAILABILITY_MAX_AGE_DAYS): boolean {
+  const age = availabilityAgeDays(lastUpdated);
+  return age === null || age > maxDays;
+}
+
+/** Human "as of" label for a still-fresh availability timestamp. */
+export function availabilityAsOf(lastUpdated: string | null): string {
+  const age = availabilityAgeDays(lastUpdated);
+  if (age === null) return 'not recently verified';
+  if (age <= 0) return 'updated today';
+  if (age === 1) return 'updated yesterday';
+  return `updated ${age} days ago`;
+}
+
+/** Shown wherever a live bed count could otherwise read as a guarantee. */
+export const AVAILABILITY_DISCLAIMER = 'Call to confirm current availability';
+
 export type CapacityRow = { level_of_care: string; beds_available: number; last_updated: string };
 
 // One-line bed indicator for a facility card. Sums beds across overnight (bed-based)
@@ -86,7 +114,9 @@ export function bedSummary(
   caps: CapacityRow[] | null | undefined,
   levels: string[] | null | undefined
 ): { label: string; tone: 'green' | 'amber' | 'red' } {
-  const openBeds = (caps ?? []).filter((c) => isBedBased(c.level_of_care) && c.beds_available > 0);
+  const openBeds = (caps ?? []).filter(
+    (c) => isBedBased(c.level_of_care) && c.beds_available > 0 && !availabilityStale(c.last_updated)
+  );
   if (openBeds.length) {
     const total = openBeds.reduce((s, c) => s + c.beds_available, 0);
     const rank = { green: 0, amber: 1, red: 2 } as const;
