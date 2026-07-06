@@ -47,10 +47,21 @@ export function NearbyMap({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const cbRef = useRef(onBoundsFacilities);
-  cbRef.current = onBoundsFacilities;
   const originRef = useRef(origin);
-  originRef.current = origin;
   const hasKey = !!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  // Keep these refs pointing at the latest props WITHOUT re-running the map-init
+  // effect below (re-running it would tear down and rebuild the whole map on
+  // every pan). No dependency array → this re-syncs after every commit. It's
+  // declared before the map-init effect so that in the rare render where both
+  // run (a new `initial`), the refs are already current when init reads them.
+  // Mutating a ref during render is unsafe: React can render without committing
+  // (Strict Mode double-render, concurrent bail-outs), which would leave the ref
+  // reflecting work that was thrown away.
+  useEffect(() => {
+    cbRef.current = onBoundsFacilities;
+    originRef.current = origin;
+  });
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -147,7 +158,6 @@ export function NearbyMap({
       cancelled = true;
     };
     // origin + callback are read through refs; `initial` is stable per page load.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial]);
 
   if (!hasKey) {

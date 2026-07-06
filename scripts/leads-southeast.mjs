@@ -68,18 +68,6 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSessio
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── role targeting ────────────────────────────────────────────────────────────
-const EXEC_ROLES = ['Owner', 'Founder', 'Chief Executive Officer', 'Executive Director', 'President'];
-const BDM_ROLES = [
-  'Director of Admissions',
-  'Admissions',
-  'Director of Business Development',
-  'Business Development',
-  'Community Outreach',
-  'Community Liaison',
-  'Marketing Director',
-  'Clinical Director',
-  'Alumni Coordinator',
-];
 // Title vocabulary, bucketed by sales priority. First match wins, so the highest-value
 // buckets are listed first. Deliberately broad — capture anyone with a real title; you
 // never know which rung gets you to the decision-maker.

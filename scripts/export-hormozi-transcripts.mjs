@@ -10,7 +10,7 @@
 // moved to <folder>.bak-<ts> the first time, then overwritten on re-runs).
 
 import { createClient } from '@supabase/supabase-js';
-import { writeFileSync, mkdirSync, existsSync, readdirSync, rmSync, renameSync } from 'node:fs';
+import { writeFileSync, mkdirSync, existsSync, rmSync, renameSync } from 'node:fs';
 import path from 'node:path';
 
 const DRY = process.argv.includes('--dry');
@@ -97,7 +97,6 @@ for (const [creator, rows] of Object.entries(byCreator)) {
 
   // back up an existing folder once, then start clean
   if (existsSync(dir)) {
-    const stamp = new Date(0).toISOString().slice(0, 10); // fixed stamp ok; rm if re-run
     const bak = `${dir}.bak`;
     if (!existsSync(bak)) renameSync(dir, bak);
     else rmSync(dir, { recursive: true, force: true });

@@ -16,12 +16,21 @@ export function FacilityPicker() {
   const [selected, setSelected] = useState<Hit | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Clear results the moment the query empties — done here, in the same code path
+  // that changes q/state, rather than via a setState-in-effect. Covers every way
+  // the inputs can empty (both controls below route through these).
+  const changeQ = (v: string) => {
+    setQ(v);
+    if (!v.trim() && !state) setHits([]);
+  };
+  const changeState = (v: string) => {
+    setState(v);
+    if (!q.trim() && !v) setHits([]);
+  };
+
   useEffect(() => {
     if (selected) return; // a selection is locked in — stop searching
-    if (!q.trim() && !state) {
-      setHits([]);
-      return;
-    }
+    if (!q.trim() && !state) return; // nothing to search; hits already cleared by the handlers
     const ctrl = new AbortController();
     const t = setTimeout(async () => {
       setLoading(true);
@@ -66,14 +75,14 @@ export function FacilityPicker() {
           <div className="flex flex-wrap gap-2">
             <input
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => changeQ(e.target.value)}
               placeholder="Search by program name or city…"
               autoFocus
               className="min-w-[12rem] flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
             />
             <select
               value={state}
-              onChange={(e) => setState(e.target.value)}
+              onChange={(e) => changeState(e.target.value)}
               className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700"
             >
               <option value="">All states</option>

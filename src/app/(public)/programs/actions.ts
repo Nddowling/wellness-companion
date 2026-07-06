@@ -1,7 +1,5 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export type ReviewResult = { ok: boolean; error?: string } | null;
