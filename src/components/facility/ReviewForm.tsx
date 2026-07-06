@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef } from 'react';
 
-import { addReview, type ReviewResult } from '../actions';
+import { addReview, type ReviewResult } from '@/app/(public)/programs/actions';
 
 // Public "share your experience" form with pending + success/error feedback.
 export function ReviewForm({ facilityId }: { facilityId: string }) {

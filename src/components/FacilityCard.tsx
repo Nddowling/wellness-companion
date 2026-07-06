@@ -5,6 +5,7 @@ import { LEVEL_LABELS, bedSummary, type CapacityRow, type LevelOfCare } from '@/
 export type FacilityCardData = {
   id: string;
   name: string;
+  slug?: string | null;
   city: string | null;
   state: string | null;
   levels_of_care: string[] | null;

@@ -18,6 +18,7 @@ import { ShareProfile } from '@/components/ShareProfile';
 import { FacilityTeamManager } from '@/components/rep/FacilityTeamManager';
 import { FreeProfileUpgradePreview } from '@/components/FreeProfileUpgradePreview';
 import { absoluteUrl } from '@/lib/seo';
+import { facilityCanonicalPath } from '@/lib/facility/load';
 import { normalizePlan, PLAN_LABEL, planAllows } from '@/lib/facility/plan';
 
 const CONCERN_LABELS: Record<string, string> = {
@@ -72,7 +73,7 @@ export default async function FacilityManage({
   const { data: facility } = await supabase
     .from('facilities')
     .select(
-      'id, name, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, accreditations, main_phone, intake_line, facility_capacity(level_of_care, beds_available, last_updated)'
+      'id, name, slug, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, accreditations, main_phone, intake_line, facility_capacity(level_of_care, beds_available, last_updated)'
     )
     .eq('id', id)
     .maybeSingle();
@@ -518,7 +519,7 @@ export default async function FacilityManage({
         </p>
       </section>
 
-      {facility.is_published && <ShareProfile profileUrl={absoluteUrl(`/programs/${id}`)} facilityName={facility.name} />}
+      {facility.is_published && <ShareProfile profileUrl={absoluteUrl(facilityCanonicalPath(facility))} facilityName={facility.name} />}
 
       {/* Team — reps who added themselves to this listing */}
       <div className="mt-5">

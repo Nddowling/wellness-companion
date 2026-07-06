@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 
 import JsonLd from '@/components/JsonLd';
 import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
+import { FacilityProfileView } from '@/components/facility/FacilityProfileView';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { loadFacilityBySlug, facilityCanonicalPath, buildFacilityMetadata } from '@/lib/facility/load';
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
 import { LEVELS_OF_CARE, LEVEL_LABELS, LEVEL_BLURB, type LevelOfCare } from '@/lib/constants';
 import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
@@ -14,6 +16,13 @@ export const revalidate = 3600;
 function isLevel(seg: string): seg is LevelOfCare {
   return (LEVELS_OF_CARE as readonly string[]).includes(seg);
 }
+
+// This 3-segment leaf serves TWO shapes that share the same slot:
+//   /treatment/[state]/[city]/[level]  → city × level-of-care listing (below)
+//   /treatment/[state]/[city]/[slug]   → a single facility profile
+// The third segment disambiguates: a known level keyword → listing; anything else
+// is treated as a facility slug (slugs are always name-city-state, never a bare
+// level keyword, so there's no collision).
 
 // City × level page, e.g. /treatment/georgia/atlanta/detox → "Detox in Atlanta, GA".
 // `seg` is the city slug; `level` must be a level (else this URL is invalid).
@@ -25,7 +34,7 @@ async function load(stateParam: string, seg: string, level: string) {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from('facilities')
-    .select('id, name, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+    .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
     .eq('is_published', true)
     .ilike('state', code)
     .contains('levels_of_care', [level])
@@ -42,6 +51,14 @@ export async function generateMetadata({
   params: Promise<{ state: string; seg: string; level: string }>;
 }): Promise<Metadata> {
   const { state, seg, level } = await params;
+
+  // Facility-profile branch: the third segment is a facility slug, not a level.
+  if (!isLevel(level)) {
+    const f = await loadFacilityBySlug(level);
+    if (f) return buildFacilityMetadata(f, facilityCanonicalPath(f));
+    return { title: 'Treatment not found', robots: { index: false, follow: true } };
+  }
+
   const r = await load(state, seg, level);
   if (!r) return { title: 'Treatment not found', robots: { index: false, follow: true } };
   const title = `${LEVEL_LABELS[r.level]} in ${r.cityName}, ${r.code}`;
@@ -54,12 +71,27 @@ export async function generateMetadata({
   };
 }
 
-export default async function CityLevelPage({
+export default async function CityLevelOrProfilePage({
   params,
 }: {
   params: Promise<{ state: string; seg: string; level: string }>;
 }) {
   const { state, seg, level } = await params;
+
+  // Facility-profile branch: the third segment is a facility slug, not a level.
+  if (!isLevel(level)) {
+    const f = await loadFacilityBySlug(level);
+    if (!f) notFound();
+    const canonicalPath = facilityCanonicalPath(f);
+    // Enforce one indexable URL per facility: if the state/city segments don't
+    // match the canonical (e.g. a valid slug reached under the wrong city),
+    // 301 to the canonical path.
+    if (`/treatment/${state}/${seg}/${level}` !== canonicalPath) {
+      permanentRedirect(canonicalPath);
+    }
+    return <FacilityProfileView f={f} canonicalPath={canonicalPath} />;
+  }
+
   const r = await load(state, seg, level);
   if (!r) notFound();
 

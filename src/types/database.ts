@@ -380,6 +380,7 @@ export type Database = {
           description: string | null
           zip: string | null
           zip3: string | null
+          slug: string | null
         }
         Insert: {
           accepts_court_ordered?: string | null
@@ -429,6 +430,7 @@ export type Database = {
           description?: string | null
           zip?: string | null
           zip3?: string | null
+          slug?: string | null
         }
         Update: {
           accepts_court_ordered?: string | null
@@ -478,6 +480,7 @@ export type Database = {
           description?: string | null
           zip?: string | null
           zip3?: string | null
+          slug?: string | null
         }
         Relationships: []
       }

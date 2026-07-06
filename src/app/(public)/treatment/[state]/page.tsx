@@ -7,7 +7,7 @@ import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
 import { LEVELS_OF_CARE, LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
-import { codeFromStateSlug, stateName, stateSlug, slugify } from '@/lib/geo';
+import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
 
 export const revalidate = 3600;
 
@@ -19,7 +19,7 @@ async function load(stateSlugParam: string) {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from('facilities')
-    .select('id, name, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+    .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
     .eq('is_published', true)
     .ilike('state', code)
     .order('name');

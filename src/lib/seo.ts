@@ -2,6 +2,8 @@
 // for brand, canonical host, and structured data used across metadata, the
 // sitemap, robots, and per-page <JsonLd>.
 
+import { stateSlug, slugify } from '@/lib/geo';
+
 export const SITE_NAME = 'Clear Bed Recovery';
 
 // Canonical host. www → apex 308-redirects, so the apex is canonical. Hardcoded
@@ -124,7 +126,7 @@ export function breadcrumbJsonLd(crumbs: { name: string; path: string }[]) {
  * signals for AI-citation per 2026 research).
  */
 export function facilityItemListJsonLd(
-  items: { id: string; name: string; city?: string | null; state?: string | null }[]
+  items: { id: string; name: string; slug?: string | null; city?: string | null; state?: string | null }[]
 ) {
   return {
     '@context': 'https://schema.org',
@@ -132,7 +134,12 @@ export function facilityItemListJsonLd(
     itemListElement: items.slice(0, 50).map((f, i) => ({
       '@type': 'ListItem',
       position: i + 1,
-      url: absoluteUrl(`/programs/${f.id}`),
+      // Emit the canonical slug URL directly (not the UUID URL, which only 301s) so
+      // structured data matches the page's canonical and doesn't dilute the signal.
+      url:
+        f.slug && f.city && f.state
+          ? absoluteUrl(`/treatment/${stateSlug(f.state.toUpperCase())}/${slugify(f.city)}/${f.slug}`)
+          : absoluteUrl(`/programs/${f.id}`),
       name: [f.name, [f.city, f.state].filter(Boolean).join(', ')].filter(Boolean).join(' — '),
     })),
   };

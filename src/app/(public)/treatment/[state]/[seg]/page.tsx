@@ -35,7 +35,7 @@ async function load(stateParam: string, seg: string): Promise<Resolved | null> {
   if (isLevel(seg)) {
     const { data } = await supabase
       .from('facilities')
-      .select('id, name, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+      .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
       .eq('is_published', true)
       .ilike('state', code)
       .contains('levels_of_care', [seg])
@@ -48,7 +48,7 @@ async function load(stateParam: string, seg: string): Promise<Resolved | null> {
   // City: match on the slug of the stored city name (slug is lossy, so filter here).
   const { data } = await supabase
     .from('facilities')
-    .select('id, name, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+    .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
     .eq('is_published', true)
     .ilike('state', code)
     .order('name');
