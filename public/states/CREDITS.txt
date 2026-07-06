@@ -1,0 +1,21 @@
+State location-tile photos — provenance & licensing
+====================================================
+
+All images below are Public Domain or CC0 (no attribution legally required,
+free for commercial use). Sourced from Wikimedia Commons, downscaled and
+re-compressed for use as small location tiles in the treatment search overlay.
+
+ga.jpg  Providence Canyon State Park, Georgia
+        Source: Wikimedia Commons — "Providence-Canyon-SP-GA-1.jpg"
+        License: Public Domain
+
+fl.jpg  Everglades National Park, Florida
+        Source: Wikimedia Commons — "Everglades national park.jpg"
+        License: Public Domain (National Park Service)
+
+al.jpg  Little River Canyon National Preserve, Alabama
+        Source: Wikimedia Commons — "Little River Canyon Pkwy, Alabama, April 2018 2.jpg"
+        License: CC0 1.0 (Public Domain Dedication)
+
+To add a new state: drop <state>.jpg here and set `photo: '/states/<state>.jpg'`
+on that state's entry in src/components/search/FindTreatmentSearch.tsx.

@@ -61,3 +61,8 @@ leads*.csv
 leads*.xlsx
 scripts/.invite-sent.json
 docs/marketing/mined-hooks.*
+
+# test outputs (generated)
+/test-results/
+/playwright-report/
+/qa-results.json

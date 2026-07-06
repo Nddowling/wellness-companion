@@ -9,7 +9,12 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "guard:vault": "node scripts/guard-vault.mjs",
-    "rls-test": "tsx scripts/rls-test.ts"
+    "rls-test": "tsx scripts/rls-test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:prod": "cross-env QA_TARGET_URL=https://clearbedrecovery.com playwright test",
+    "report:supabase": "node scripts/report-to-supabase.mjs",
+    "qa:xlsx": "node scripts/qa-export-xlsx.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
@@ -23,11 +28,13 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "playwright": "^1.60.0",
