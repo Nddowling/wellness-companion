@@ -9,10 +9,11 @@ import type { Metadata } from 'next';
 
 export const MIN_FACILITIES_TO_INDEX = 3;
 
-// Master switch. The noindex/sitemap-exclusion gate ships OFF and is flipped ON in
-// SEQ-4, AFTER enrichment — so no page is ever noindexed before it's been enriched
-// (per the enrichment-first sequencing). While false, everything stays indexable.
-export const INDEX_GATES_ENABLED = false;
+// Master switch. Now ON (SEQ-4): thin combos (<3 facilities) and stub profiles
+// (no contact AND no level) carry noindex,follow and drop out of the sitemap — the
+// differentiation engine is live, so real pages clear the unique-value bar and this
+// only curates genuinely thin/empty pages that would otherwise dilute the domain.
+export const INDEX_GATES_ENABLED = true;
 
 const nonEmpty = (s: unknown): boolean => typeof s === 'string' && s.trim() !== '';
 
