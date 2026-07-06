@@ -14,6 +14,13 @@ import { landingIndexable, robotsFor } from '@/lib/indexable';
 
 export const revalidate = 3600;
 
+// No build-time params (13.5k+ pages), but declaring this opts the route into ISR:
+// unknown params render on demand and are then CACHED, instead of rendered fresh
+// every request. Without it, a dynamic-param route stays fully dynamic in Next 16.
+export function generateStaticParams() {
+  return [];
+}
+
 function isLevel(seg: string): seg is LevelOfCare {
   return (LEVELS_OF_CARE as readonly string[]).includes(seg);
 }
