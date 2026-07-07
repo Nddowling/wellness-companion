@@ -75,6 +75,13 @@ export async function POST(request: Request) {
     return Response.json({ error: 'No matching facilities' }, { status: 404 });
   }
 
+  // KILL SWITCH — hard-disables ONLY the face-sheet auto-send to FACILITIES (a full SUD
+  // referral packet emailed to third parties) regardless of any env flag, until the
+  // isolated vault project + signed BAA + a secure (dashboard, NOT email) delivery
+  // channel exist and are reviewed under 42 CFR Part 2 / EKRA. Lead capture (name/email)
+  // and the seeker's own emails are unaffected. See handoff/config.ts.
+  const FACESHEET_SEND_DISABLED = true;
+
   const baaInPlace = process.env.HANDOFF_BAA_SIGNED === 'true';
 
   // ── Fallback (no BAA): no PHI stored or sent — return public contacts only ──
@@ -262,7 +269,7 @@ export async function POST(request: Request) {
     }
   }
 
-  if (consents.share) {
+  if (consents.share && !FACESHEET_SEND_DISABLED) {
     for (const f of facilities) {
       const contact = (f.referral_contact ?? {}) as { email?: string };
       if (!contact.email) continue;

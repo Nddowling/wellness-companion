@@ -14,7 +14,12 @@ import 'server-only';
  */
 export type HandoffMode = 'direct' | 'forward';
 
+// EMERGENCY KILL SWITCH — see api/handoff/route.ts. PHI forwarding is hard-disabled
+// everywhere until the isolated vault project + BAA + secure (non-email) delivery exist.
+export const FORWARDING_HARD_DISABLED = true;
+
 export function handoffMode(): HandoffMode {
+  if (FORWARDING_HARD_DISABLED) return 'direct';
   const requested = process.env.HANDOFF_MODE === 'forward' ? 'forward' : 'direct';
   // Never silently enable PHI forwarding — fall back to direct without the gate.
   if (requested === 'forward' && process.env.HANDOFF_BAA_SIGNED !== 'true') {
@@ -25,7 +30,7 @@ export function handoffMode(): HandoffMode {
 
 /** Hard stop: throws unless the BAA + legal review gate has been explicitly cleared. */
 export function assertForwardAllowed(): void {
-  if (process.env.HANDOFF_BAA_SIGNED !== 'true') {
+  if (FORWARDING_HARD_DISABLED || process.env.HANDOFF_BAA_SIGNED !== 'true') {
     throw new Error(
       'PHI forwarding is disabled. It requires a signed BAA + HIPAA add-on + 42 CFR Part 2 / EKRA legal review of the transport channel before any real seeker data is forwarded. Set HANDOFF_BAA_SIGNED=true only after that review.'
     );
