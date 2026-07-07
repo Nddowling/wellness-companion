@@ -9,10 +9,14 @@ import {
   isoDaysAgo,
   LEVEL_LABELS,
   PAYER_LABELS,
+  PAYER_TYPES,
   type LevelOfCare,
   type PayerType,
 } from '@/lib/constants';
-import { updateCapacity, setLeadStatus, updateContact, updateProfile, uploadPhoto, removePhoto, uploadVideo, removeVideo } from '../actions';
+import { updateCapacity, setLeadStatus, updateContact, updateProfile, updateInsurance, uploadPhoto, removePhoto, uploadVideo, removeVideo } from '../actions';
+import { COMMERCIAL_CARRIERS } from '@/lib/payers';
+import { PayerMark } from '@/components/PayerLogo';
+import { payerTypeBrand } from '@/lib/payers';
 import { UpgradePrompt } from '@/components/UpgradePrompt';
 import { ShareProfile } from '@/components/ShareProfile';
 import { FacilityTeamManager } from '@/components/rep/FacilityTeamManager';
@@ -72,7 +76,7 @@ export default async function FacilityManage({
   const { data: facility } = await supabase
     .from('facilities')
     .select(
-      'id, name, slug, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, accreditations, main_phone, intake_line, facility_capacity(level_of_care, beds_available, last_updated)'
+      'id, name, slug, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, accreditations, main_phone, intake_line, carriers_named, cash_rate, facility_capacity(level_of_care, beds_available, last_updated), facility_payers(payer_type)'
     )
     .eq('id', id)
     .maybeSingle();
@@ -88,6 +92,8 @@ export default async function FacilityManage({
   const images = (facility.images ?? []) as string[];
   const videos = (facility.videos ?? []) as string[];
   const specialties = splitList(facility.specialty_programs);
+  const currentPayers = new Set(((facility.facility_payers ?? []) as { payer_type: string }[]).map((p) => p.payer_type));
+  const currentCarriers = new Set((facility.carriers_named ?? []) as string[]);
 
   const { data: routeData } = await supabase
     .from('match_routes')
@@ -250,6 +256,57 @@ export default async function FacilityManage({
             <input type="file" name="video" accept="video/*" required className="text-sm" />
             <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
               Upload video
+            </button>
+          </form>
+        </section>
+
+        {/* Insurance & payment */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold text-slate-700">Insurance &amp; payment</h2>
+          <p className="text-xs text-slate-500">
+            Tell seekers exactly what you accept — it&apos;s one of the first things they filter on, and accurate
+            insurance is what gets you matched.
+          </p>
+          <form action={updateInsurance} className="grid gap-4 rounded-md border border-slate-200 bg-white p-3">
+            <input type="hidden" name="facility_id" value={id} />
+            <div>
+              <div className="text-xs font-medium text-slate-600">Coverage types accepted</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {PAYER_TYPES.map((pt) => (
+                  <label key={pt} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm hover:border-teal-400">
+                    <input type="checkbox" name="payer_type" value={pt} defaultChecked={currentPayers.has(pt)} />
+                    <PayerMark brand={payerTypeBrand(pt)} size="sm" />
+                    {PAYER_LABELS[pt]}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-xs font-medium text-slate-600">Commercial insurers you&apos;re in-network with</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {COMMERCIAL_CARRIERS.map((c) => (
+                  <label key={c.slug} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm hover:border-teal-400">
+                    <input type="checkbox" name="carrier" value={c.name} defaultChecked={currentCarriers.has(c.name)} />
+                    <PayerMark brand={c.brand} size="sm" />
+                    {c.name}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-slate-400">Checking any carrier marks you as accepting commercial insurance.</p>
+            </div>
+            <div className="grid gap-1">
+              <label className="text-xs font-medium text-slate-600">Self-pay / cash rate (optional, USD)</label>
+              <input
+                name="cash_rate"
+                type="text"
+                inputMode="numeric"
+                defaultValue={facility.cash_rate != null ? String(facility.cash_rate) : ''}
+                placeholder="e.g. 500"
+                className="w-40 rounded border border-slate-300 px-3 py-2 text-sm"
+              />
+            </div>
+            <button type="submit" className="justify-self-start rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
+              Save insurance
             </button>
           </form>
         </section>

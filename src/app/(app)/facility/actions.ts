@@ -11,6 +11,7 @@ import { sendEmail } from '@/lib/email/send';
 import { staffInviteEmail } from '@/lib/email/templates';
 import { SITE_URL } from '@/lib/seo';
 import { normalizePlan, photoLimit, seatLimit, EXTRA_SEAT_PRICE_MONTHLY } from '@/lib/facility/plan';
+import { PAYER_TYPES, type PayerType } from '@/lib/constants';
 
 /** A logged-in user requests to manage a facility; an admin approves it. */
 export async function requestClaim(formData: FormData) {
@@ -173,6 +174,42 @@ export async function updateProfile(formData: FormData) {
       website: String(formData.get('website') || '') || null,
       specialty_programs: String(formData.get('specialty_programs') || '') || null,
     })
+    .eq('id', facilityId);
+
+  revalidatePath(`/facility/${facilityId}`);
+  revalidatePath(`/programs/${facilityId}`);
+}
+
+/**
+ * Facility self-reports the insurance it accepts: payer categories, named commercial
+ * carriers, and an optional cash rate. This is the authoritative source once claimed —
+ * it replaces the facility's payer rows and drives both matching and the profile's
+ * Insurance & payment section. Naming a commercial carrier implies commercial coverage.
+ */
+export async function updateInsurance(formData: FormData) {
+  const { facilityIds } = await requireFacilityMember();
+  const facilityId = String(formData.get('facility_id'));
+  if (!facilityIds.includes(facilityId)) throw new Error('Not your facility');
+
+  const cats = new Set(
+    formData.getAll('payer_type').map(String).filter((v): v is PayerType => (PAYER_TYPES as readonly string[]).includes(v))
+  );
+  const carriers = formData.getAll('carrier').map(String).filter(Boolean);
+  if (carriers.length) cats.add('commercial'); // naming a carrier ⇒ accepts commercial
+  const cashRaw = String(formData.get('cash_rate') || '').replace(/[^0-9.]/g, '');
+  const cash_rate = cashRaw ? Math.round(Number(cashRaw)) : null;
+
+  const admin = createAdminClient();
+  // Replace payer categories with the facility-reported set (verified, high-confidence).
+  await admin.from('facility_payers').delete().eq('facility_id', facilityId);
+  if (cats.size) {
+    await admin.from('facility_payers').insert(
+      [...cats].map((payer_type) => ({ facility_id: facilityId, payer_type, in_network: true, verification_confidence: 'high' }))
+    );
+  }
+  await admin
+    .from('facilities')
+    .update({ carriers_named: carriers, cash_rate, updated_at: new Date().toISOString() })
     .eq('id', facilityId);
 
   revalidatePath(`/facility/${facilityId}`);

@@ -232,6 +232,9 @@ export const SELF_PAY_RANGES: { level: string; label: string; range: string }[] 
   { level: 'op', label: 'Standard outpatient', range: '$2,000–$10,000 per program, by intensity' },
 ];
 
+/** Named commercial carriers a facility can list on its profile (drives the editor). */
+export const COMMERCIAL_CARRIERS = PAYERS.filter((p) => p.kind === 'commercial');
+
 export function getPayer(slug: string): Payer | undefined {
   return PAYERS.find((p) => p.slug === slug.toLowerCase());
 }
