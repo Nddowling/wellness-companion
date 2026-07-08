@@ -10,6 +10,7 @@ import { Gallery } from '@/components/Gallery';
 import { FacilityTeam } from '@/components/rep/FacilityTeam';
 import { ReviewForm } from '@/components/facility/ReviewForm';
 import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock';
+import { FacilityRichSections } from '@/components/facility/FacilityRichSections';
 import { normalizePlan, planAllows } from '@/lib/facility/plan';
 import { HideForProviders } from '@/components/facility/HideForProviders';
 import { loadFacilityContext, loadFacilityReviews, type FacilityFull } from '@/lib/facility/load';
@@ -323,6 +324,11 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
         </div>
 
         <FacilityContextBlock lines={contextLines} />
+
+        {/* Rich directory content (therapies, MAT, populations, aftercare, policies) —
+            public SAMHSA data, shown free on every profile. This IS the Recovery.com-style
+            depth that makes a free listing worth landing on (and worth claiming). */}
+        <FacilityRichSections f={f} />
 
         {/* Locked previews — show everything a claimed profile gets, greyed out, so the
             facility sees exactly what they're missing. Unlocks on a free claim. */}
@@ -728,6 +734,9 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
             ))}
         </div>
       </section>
+
+      {/* Recovery.com-style deep content — therapies, MAT, who they serve, aftercare, policies */}
+      <FacilityRichSections f={f} />
 
       {/* Their team (verified reps) */}
       <div className="mt-5">
