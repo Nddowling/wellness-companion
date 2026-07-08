@@ -43,11 +43,14 @@ const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_R
 const BANNED = /\b(best|leading|premier|world[- ]class|top[- ]rated|#1|number one|cutting[- ]edge|state[- ]of[- ]the[- ]art|guarantee|cure)\b/i;
 
 async function fetchTargets() {
+  // Filter to empty/null descriptions in the query itself (not client-side) so we don't
+  // lose targets past the API's 1000-row default page.
   let q = sb
     .from('facilities')
     .select('id, name, city, state, website, description')
     .eq('is_published', true)
     .not('website', 'is', null)
+    .or('description.is.null,description.eq.')
     .order('name');
   if (STATE) q = q.ilike('state', STATE);
   const { data, error } = await q;
