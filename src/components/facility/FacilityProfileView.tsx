@@ -11,6 +11,8 @@ import { FacilityTeam } from '@/components/rep/FacilityTeam';
 import { ReviewForm } from '@/components/facility/ReviewForm';
 import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock';
 import { FacilityRichSections } from '@/components/facility/FacilityRichSections';
+import { FacilityStickyNav } from '@/components/facility/FacilityStickyNav';
+import { FacilityStickyContact } from '@/components/facility/FacilityStickyContact';
 import { normalizePlan, planAllows } from '@/lib/facility/plan';
 import { HideForProviders } from '@/components/facility/HideForProviders';
 import { loadFacilityContext, loadFacilityReviews, type FacilityFull } from '@/lib/facility/load';
@@ -212,7 +214,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
       ...(intakePhone ? { telephone: intakePhone } : {}),
     };
     return (
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className="mx-auto max-w-3xl px-4 py-8 pb-28">
         <JsonLd data={minimalLd} />
         <FacilityProfileAnalytics
           facilityId={f.id}
@@ -325,6 +327,9 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
 
         <FacilityContextBlock lines={contextLines} />
 
+        {/* Recovery.com-style in-page section tabs (free profiles get them too) */}
+        <FacilityStickyNav />
+
         {/* Rich directory content (therapies, MAT, populations, aftercare, policies) —
             public SAMHSA data, shown free on every profile. This IS the Recovery.com-style
             depth that makes a free listing worth landing on (and worth claiming). */}
@@ -426,6 +431,9 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
             </div>
           </div>
         </HideForProviders>
+
+        {/* Floating contact bar — follows the user down the page */}
+        <FacilityStickyContact name={f.name as string} phone={intakePhone} />
       </main>
     );
   }
@@ -441,7 +449,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   const showsBedCounts = levels.some((l) => isBedBased(l));
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-6">
+    <main className="mx-auto max-w-3xl px-4 py-6 pb-28">
       <JsonLd data={jsonLd} />
       <FacilityProfileAnalytics
         facilityId={f.id}
@@ -560,6 +568,9 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
 
       {showDescription && <p className="mt-5 text-sm leading-relaxed text-slate-700">{f.description}</p>}
 
+      {/* Recovery.com-style in-page section tabs — sticks under the header on scroll */}
+      <FacilityStickyNav />
+
       {f.street && (
         <section className="mt-5 overflow-hidden rounded-xl border border-slate-200">
           <iframe
@@ -609,7 +620,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
 
       {/* Treatment & details */}
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <section id="levels" className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Levels of care</h2>
           <ul className="space-y-1 text-sm text-slate-700">
             {levels.length ? (
@@ -677,7 +688,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           </ul>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-4">
+        <section id="insurance" className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Insurance &amp; payment</h2>
           <ul className="space-y-1.5 text-sm text-slate-700">
             {govPayers.map((p) => (
@@ -878,6 +889,9 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           )}
         </div>
       )}
+
+      {/* Floating contact bar — follows the user down the page */}
+      <FacilityStickyContact name={f.name as string} phone={intakePhone} />
     </main>
   );
 }
