@@ -7,6 +7,16 @@ import { Logo } from '@/components/Logo';
 import { getRoles, isProviderSide } from '@/lib/auth';
 import SiteFooter from '@/components/SiteFooter';
 import { FindTreatmentSearch } from '@/components/search/FindTreatmentSearch';
+import { LogoCarousel, type LogoItem } from '@/components/LogoCarousel';
+import { commercialCarriers, getPayer } from '@/lib/payers';
+
+// "Centers by Accepted Insurance" carousel — the public buckets + named commercial
+// carriers, each linking to that filter in the directory. Real logos render from
+// /public/images/insurance/{slug}.svg; until those are added, tiles fall back to the
+// brand mark + name automatically.
+const INSURANCE_LOGOS: LogoItem[] = [getPayer('medicaid'), getPayer('medicare'), getPayer('tricare'), ...commercialCarriers()]
+  .filter((p): p is NonNullable<typeof p> => !!p)
+  .map((p) => ({ slug: p.slug, name: p.name, brand: p.brand, href: `/programs?pay=${p.payerType}` }));
 
 export const metadata: Metadata = {
   // Home inherits the layout's default (brand) title + OG; just pin the canonical.
@@ -131,6 +141,9 @@ export default async function LandingPage() {
           <path fill="currentColor" d="M0,40 C320,90 720,0 1440,48 L1440,80 L0,80 Z" />
         </svg>
       </section>
+
+      {/* ── BROWSE BY INSURANCE (slideable logo carousel) ────── */}
+      <LogoCarousel title="Centers by Accepted Insurance" items={INSURANCE_LOGOS} />
 
       {/* ── HOW IT WORKS ─────────────────────────────────────── */}
       <section className="bg-[#eef5f2] py-16">
