@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { US_STATES } from '@/lib/geo';
 import { commonPayers } from '@/lib/payers';
-import { PayerMark } from '@/components/PayerLogo';
+import { PayerLogoImage } from '@/components/LogoCarousel';
 import { trackSearchStarted, trackSearchSubmitted, trackFilterApplied } from '@/lib/analytics';
 
 const OVERLAY_PAGE = 'find_treatment_overlay';
@@ -48,12 +48,14 @@ const CLIENTELE: { label: string; href: string }[] = [
   { label: 'Pregnant / Postpartum', href: '/programs?pop=pregnant' },
 ];
 
-// Insurance options, rendered as micro brand-logo chips. The common payers cover
-// the 4 public/self buckets + the top commercial carriers; each carrier maps to the
-// matchable `commercial` payer_type in the directory filter.
+// Insurance options, rendered as a side-scrolling row of real carrier logos (falling
+// back to the brand monogram for carriers whose logo file isn't sourced yet). The common
+// payers cover the 4 public/self buckets + the top commercial carriers; each carrier maps
+// to the matchable `commercial` payer_type in the directory filter.
 const INSURANCE = commonPayers().map((p) => ({
+  slug: p.slug,
+  name: p.name,
   brand: p.brand,
-  label: p.name,
   payerType: p.payerType,
   href: `/programs?pay=${p.payerType}`,
 }));
@@ -251,7 +253,9 @@ export function FindTreatmentSearch({
                 <button
                   onClick={() => {
                     trackFilterApplied('location', 'all_states', OVERLAY_PAGE);
-                    go('/programs');
+                    // The state hub — a list of every state to choose from. NOT /programs,
+                    // which dumps you into the flat all-programs list with no state choice.
+                    go('/treatment');
                   }}
                   className="group w-32 shrink-0 text-left"
                 >
@@ -274,18 +278,19 @@ export function FindTreatmentSearch({
 
               {/* Insurance — micro brand logos + name */}
               <Section title="By accepted insurance" />
-              <div className="flex flex-wrap gap-2">
+              <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {INSURANCE.map((c) => (
                   <button
-                    key={c.label}
+                    key={c.slug}
                     onClick={() => {
                       trackFilterApplied('insurance', c.payerType, OVERLAY_PAGE);
                       go(c.href);
                     }}
-                    className="flex items-center gap-2 rounded-full bg-slate-100 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-teal-50 hover:text-teal-800"
+                    title={c.name}
+                    aria-label={`Centers that accept ${c.name}`}
+                    className="flex h-16 w-32 shrink-0 snap-start items-center justify-center rounded-xl bg-slate-50 ring-1 ring-slate-200/70 transition hover:bg-white hover:shadow-md hover:ring-teal-300"
                   >
-                    <PayerMark brand={c.brand} size="md" />
-                    {c.label}
+                    <PayerLogoImage slug={c.slug} name={c.name} brand={c.brand} compact />
                   </button>
                 ))}
               </div>
