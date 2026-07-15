@@ -869,7 +869,6 @@ export type Database = {
         Row: {
           auth_user_id: string | null
           created_at: string
-          face_sheet: Json
           id: string
           match_id: string | null
           matched_facilities: Json
@@ -881,7 +880,6 @@ export type Database = {
         Insert: {
           auth_user_id?: string | null
           created_at?: string
-          face_sheet?: Json
           id?: string
           match_id?: string | null
           matched_facilities?: Json
@@ -893,7 +891,6 @@ export type Database = {
         Update: {
           auth_user_id?: string | null
           created_at?: string
-          face_sheet?: Json
           id?: string
           match_id?: string | null
           matched_facilities?: Json
@@ -1058,9 +1055,7 @@ export type Database = {
           consent_share: boolean
           coverage_status: string | null
           created_at: string
-          dob: string | null
           email: string | null
-          face_sheet: Json
           id: string
           insurance: string | null
           last_reminded_at: string | null
@@ -1077,9 +1072,7 @@ export type Database = {
           consent_share?: boolean
           coverage_status?: string | null
           created_at?: string
-          dob?: string | null
           email?: string | null
-          face_sheet?: Json
           id?: string
           insurance?: string | null
           last_reminded_at?: string | null
@@ -1096,9 +1089,7 @@ export type Database = {
           consent_share?: boolean
           coverage_status?: string | null
           created_at?: string
-          dob?: string | null
           email?: string | null
-          face_sheet?: Json
           id?: string
           insurance?: string | null
           last_reminded_at?: string | null

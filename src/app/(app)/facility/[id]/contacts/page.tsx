@@ -19,25 +19,6 @@ const CONCERN_LABELS: Record<string, string> = {
   unsure: 'Unsure',
 };
 
-// Face-sheet keys already shown in the header — don't repeat in the detail grid.
-const HEADER_KEYS = new Set(['name', 'full_name', 'preferred_name', 'email', 'phone', 'status']);
-const FIELD_LABELS: Record<string, string> = {
-  insurance_carrier: 'Insurance carrier',
-  insurance_member_id: 'Member ID',
-  other_substances: 'Other substances',
-  last_use: 'Last use',
-  co_occurring_mh: 'Co-occurring',
-  prior_treatment: 'Prior treatment',
-  court_ordered: 'Court ordered',
-  urgency: 'Urgency',
-  transportation_needs: 'Transportation',
-  dob: 'Date of birth',
-  city: 'City',
-  state: 'State',
-  zip: 'ZIP',
-};
-const fieldLabel = (k: string) => FIELD_LABELS[k] ?? k.replace(/_/g, ' ');
-
 function StatusBadge({ status }: { status: string }) {
   const cls =
     status === 'accepted'
@@ -60,12 +41,6 @@ function ContactCard({ c, canSeeIdentity }: { c: MatchedContact; canSeeIdentity:
   ]
     .filter(Boolean)
     .join(' · ');
-
-  const details = c.faceSheet
-    ? Object.entries(c.faceSheet)
-        .filter(([k, v]) => !HEADER_KEYS.has(k) && v !== null && v !== undefined && String(v).trim() !== '')
-        .slice(0, 14)
-    : [];
 
   return (
     <div id={c.routeId} className="scroll-mt-24 rounded-lg border border-slate-200 bg-white p-4">
@@ -106,16 +81,6 @@ function ContactCard({ c, canSeeIdentity }: { c: MatchedContact; canSeeIdentity:
         </div>
       </div>
 
-      {c.shared && canSeeIdentity && details.length > 0 && (
-        <div className="mt-3 grid gap-x-6 gap-y-1 border-t border-slate-100 pt-3 text-sm sm:grid-cols-2">
-          {details.map(([k, v]) => (
-            <div key={k} className="flex justify-between gap-3 border-b border-slate-50 py-1">
-              <span className="capitalize text-slate-500">{fieldLabel(k)}</span>
-              <span className="text-right text-slate-700">{String(v)}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

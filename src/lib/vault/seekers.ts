@@ -5,18 +5,21 @@ import { toFacilitySummary, type FacilityRowForSummary } from '@/lib/facility/su
 import type { FacilitySummary } from '@/lib/email/templates';
 import type { Json } from '@/types/database';
 
-// PHI data-access for the vault. Every call goes through createVaultClient(), which
-// throws unless HANDOFF_BAA_SIGNED=true — so nothing here can touch PHI by accident.
+// Lead data-access. PATH A: we are a CONNECTOR, not a provider — we store only what is
+// needed to make an INTRODUCTION, never what is needed to run an intake. No HIPAA
+// identifiers (no DOB), no clinical detail (no substances/medications/diagnoses), no
+// face sheet. The clinical record belongs to the facility, in the facility's own system.
+// Re-enabling PHI storage requires the project-b preconditions (BAA + HIPAA add-on +
+// security review + 42 CFR Part 2 / EKRA sign-off) — not a feature flag.
 
 export type SeekerIdentity = {
   email?: string;
   name?: string;
-  dob?: string;
   insurance?: string;
   phone?: string;
 };
 
-export type EmailKind = 'welcome' | 'treatment_info' | 'face_sheet' | 'weekly_reminder';
+export type EmailKind = 'welcome' | 'treatment_info' | 'weekly_reminder';
 
 /**
  * Capture a contact the moment the conversation starts — just a name + email — so the
@@ -35,7 +38,6 @@ export async function createContact(params: { name?: string; email?: string }): 
       consent_email: false,
       consent_share: false,
       status: 'active',
-      face_sheet: {} as Json,
     })
     .select('id')
     .single();
@@ -44,10 +46,9 @@ export async function createContact(params: { name?: string; email?: string }): 
 }
 
 /**
- * Store a seeker (identity + consent + full face sheet) and their interests. When
- * `contactId` is given (the early lead from createContact), UPDATE that row instead of
- * inserting — so the early contact and the completed hand-off are one record, not two.
- * Returns the id.
+ * Store a lead (contact + consent) and their interests. When `contactId` is given (the
+ * early lead from createContact), UPDATE that row instead of inserting — so the early
+ * contact and the completed hand-off are one record, not two. Returns the id.
  */
 export async function createSeekerWithInterest(params: {
   matchId: string | null;
@@ -56,7 +57,6 @@ export async function createSeekerWithInterest(params: {
   coverageStatus?: string | null;
   consents: { email: boolean; share: boolean };
   facilityIds: string[];
-  faceSheet?: Record<string, unknown>;
 }): Promise<string | null> {
   const vault = createVaultClient();
   const now = new Date().toISOString();
@@ -65,7 +65,6 @@ export async function createSeekerWithInterest(params: {
     match_id: params.matchId,
     email: params.identity.email ?? null,
     name: params.identity.name ?? null,
-    dob: params.identity.dob ?? null,
     insurance: params.identity.insurance ?? null,
     coverage_status: params.coverageStatus ?? null,
     phone: params.identity.phone ?? null,
@@ -73,7 +72,6 @@ export async function createSeekerWithInterest(params: {
     consent_share: params.consents.share,
     consent_at: now,
     status: 'active',
-    face_sheet: (params.faceSheet ?? {}) as Json,
   };
 
   let seekerId: string | null = null;
@@ -184,7 +182,6 @@ export async function setSeekerAuthUser(seekerId: string, authUserId: string): P
 export type SeekerDashboard = {
   name: string | null;
   coverageStatus: string | null;
-  faceSheet: Record<string, unknown>;
   facilities: (FacilitySummary & { id: string })[];
 };
 
@@ -193,7 +190,7 @@ export async function getSeekerByAuthUser(authUserId: string): Promise<SeekerDas
   const vault = createVaultClient();
   const { data: seeker } = await vault
     .from('vault_seekers')
-    .select('id, name, coverage_status, face_sheet')
+    .select('id, name, coverage_status')
     .eq('auth_user_id', authUserId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -217,7 +214,6 @@ export async function getSeekerByAuthUser(authUserId: string): Promise<SeekerDas
   return {
     name: seeker.name,
     coverageStatus: seeker.coverage_status,
-    faceSheet: (seeker.face_sheet as Record<string, unknown>) ?? {},
     facilities,
   };
 }
@@ -227,15 +223,13 @@ export type SeekerRow = {
   name: string | null;
   email: string | null;
   phone: string | null;
-  dob: string | null;
   insurance: string | null;
   coverage_status: string | null;
   status: string;
   created_at: string;
-  face_sheet: Record<string, unknown>;
 };
 
-const SEEKER_COLS = 'id, name, email, phone, dob, insurance, coverage_status, status, created_at, face_sheet';
+const SEEKER_COLS = 'id, name, email, phone, insurance, coverage_status, status, created_at';
 
 async function facilitiesForSeeker(
   vault: ReturnType<typeof createVaultClient>,
@@ -336,15 +330,14 @@ export type FacilityContact = {
   phone: string | null;
   coverageStatus: string | null;
   status: string; // vault_seekers.status: active | connected | unsubscribed
-  faceSheet: Record<string, unknown>;
-  sharedAt: string; // when the face sheet was sent to this facility (falls back to interest creation)
+  sharedAt: string; // when the contact was shared with this facility (falls back to interest creation)
 };
 
 /**
- * Facility "Contacts": the seekers who explicitly consented to share their details
- * with THIS facility (consent_share=true). Same PHI the facility already receives by
- * email on hand-off — surfaced in-app, scoped to one facility. Callers MUST verify
- * facility membership before calling (this bypasses RLS via the service-role client).
+ * Facility "Contacts": the seekers who explicitly consented to share their details with
+ * THIS facility (consent_share=true). Contact details only — name, email, phone, coverage
+ * status — so the facility can reach out and run their own intake in their own system.
+ * Callers MUST verify facility membership before calling (bypasses RLS via service-role).
  */
 export async function listSeekerContactsForFacility(facilityId: string): Promise<FacilityContact[]> {
   const vault = createVaultClient();
@@ -363,7 +356,7 @@ export async function listSeekerContactsForFacility(facilityId: string): Promise
   // created on a consented hand-off.
   const { data: seekers } = await vault
     .from('vault_seekers')
-    .select('id, name, email, phone, coverage_status, status, face_sheet')
+    .select('id, name, email, phone, coverage_status, status')
     .in('id', seekerIds)
     .eq('consent_share', true);
   const byId = new Map((seekers ?? []).map((s) => [s.id, s]));
@@ -380,7 +373,6 @@ export async function listSeekerContactsForFacility(facilityId: string): Promise
       phone: s.phone,
       coverageStatus: s.coverage_status,
       status: s.status,
-      faceSheet: (s.face_sheet as Record<string, unknown>) ?? {},
       sharedAt: i.info_sent_at ?? i.created_at,
     });
   }
@@ -391,7 +383,7 @@ export async function listSeekerContactsForFacility(facilityId: string): Promise
 export async function updateMyInfo(
   authUserId: string,
   seekerId: string,
-  patch: { name?: string; email?: string; phone?: string; dob?: string; insurance?: string }
+  patch: { name?: string; email?: string; phone?: string; insurance?: string }
 ): Promise<void> {
   const vault = createVaultClient();
   await vault
@@ -400,7 +392,6 @@ export async function updateMyInfo(
       name: patch.name ?? null,
       email: patch.email ?? null,
       phone: patch.phone ?? null,
-      dob: patch.dob ?? null,
       insurance: patch.insurance ?? null,
     })
     .eq('id', seekerId)

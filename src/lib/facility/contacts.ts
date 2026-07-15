@@ -25,7 +25,6 @@ export type MatchedContact = {
   name: string | null;
   phone: string | null;
   email: string | null;
-  faceSheet: Record<string, unknown> | null;
 };
 
 type MatchRow = {
@@ -51,7 +50,7 @@ export async function listFacilityContacts(facilityId: string): Promise<MatchedC
   // Identity for seekers who consented to share with THIS facility, keyed by match.
   const identityByMatch = new Map<
     string,
-    { name: string | null; phone: string | null; email: string | null; faceSheet: Record<string, unknown> }
+    { name: string | null; phone: string | null; email: string | null }
   >();
   if (isVaultEnabled()) {
     try {
@@ -64,7 +63,7 @@ export async function listFacilityContacts(facilityId: string): Promise<MatchedC
       if (seekerIds.length) {
         const { data: seekers } = await vault
           .from('vault_seekers')
-          .select('match_id, name, phone, email, face_sheet')
+          .select('match_id, name, phone, email')
           .in('id', seekerIds)
           .eq('consent_share', true);
         for (const s of seekers ?? []) {
@@ -73,7 +72,6 @@ export async function listFacilityContacts(facilityId: string): Promise<MatchedC
             name: s.name,
             phone: s.phone,
             email: s.email,
-            faceSheet: (s.face_sheet as Record<string, unknown>) ?? {},
           });
         }
       }
@@ -99,7 +97,6 @@ export async function listFacilityContacts(facilityId: string): Promise<MatchedC
       name: id?.name ?? null,
       phone: id?.phone ?? null,
       email: id?.email ?? null,
-      faceSheet: id?.faceSheet ?? null,
     };
   });
 }

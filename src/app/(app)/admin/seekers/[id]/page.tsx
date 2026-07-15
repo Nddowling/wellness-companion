@@ -18,7 +18,6 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
   const data = await getSeekerById(id);
   if (!data) notFound();
   const { seeker, facilities } = data;
-  const fs = seeker.face_sheet ?? {};
   const consentEvents = await getConsentEvents(id);
   const transcripts = await getSeekerTranscripts(id);
 
@@ -35,7 +34,6 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
           <input name="name" defaultValue={seeker.name ?? ''} placeholder="Name" className={field} />
           <input name="email" defaultValue={seeker.email ?? ''} placeholder="Email" className={field} />
           <input name="phone" defaultValue={seeker.phone ?? ''} placeholder="Phone" className={field} />
-          <input name="dob" defaultValue={seeker.dob ?? ''} placeholder="Date of birth" className={field} />
           <input name="insurance" defaultValue={seeker.insurance ?? ''} placeholder="Insurance" className={field} />
           <select name="status" defaultValue={seeker.status} className={field}>
             <option value="active">active</option>
@@ -75,20 +73,6 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
             ))}
           </ul>
         )}
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Face sheet</h2>
-        <div className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
-          {Object.entries(fs)
-            .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '')
-            .map(([k, v]) => (
-              <div key={k} className="flex justify-between gap-3 border-b border-slate-100 py-1">
-                <span className="text-slate-500">{k.replace(/_/g, ' ')}</span>
-                <span className="text-right text-slate-700">{String(v)}</span>
-              </div>
-            ))}
-        </div>
       </section>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">

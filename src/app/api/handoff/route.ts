@@ -4,38 +4,35 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { toFacilitySummary, type FacilityRowForSummary } from '@/lib/facility/summary';
 import { sendEmail } from '@/lib/email/send';
-import {
-  welcomeEmail,
-  treatmentInfoEmail,
-  faceSheetEmail,
-  seekerAccountEmail,
-  type SeekerFaceSheet,
-} from '@/lib/email/templates';
+import { welcomeEmail, treatmentInfoEmail, seekerAccountEmail } from '@/lib/email/templates';
 import {
   createSeekerWithInterest,
   logConsentEvents,
   logEmail,
-  markInterestInfoSent,
   setSeekerAuthUser,
 } from '@/lib/vault/seekers';
 import { upsertConversation } from '@/lib/vault/conversations';
 
 // Seeker "complete & connect" endpoint.
 //
-// The Companion gathers a full referral face sheet in the conversation; the client
-// sends it here with the recommended facilities. When HANDOFF_BAA_SIGNED=true (BAA +
-// HIPAA add-on + 42 CFR Part 2 / EKRA review in place): the face sheet is stored in
-// the PHI vault, the seeker gets a welcome + treatment-info email, and each facility
-// the seeker consented to share with gets the face sheet so their intake team has it
-// in hand. Otherwise: nothing is stored or emailed — we return public contacts only.
+// PATH A — we are a CONNECTOR, not a provider. The client posts the answers gathered in
+// the conversation; we read ONLY what is needed to make an INTRODUCTION (name, contact,
+// insurance carrier, consent) and persist ONLY that. The answers blob is TRANSIENT and
+// is never stored. No DOB, no substances/medications/diagnoses, no member IDs, no face
+// sheet — the clinical intake belongs to the facility, in the facility's own system.
+//
+// Do NOT re-add persistence of the raw blob: that rebuilds a clinical record in a
+// non-BAA database. Storing PHI requires the project-b preconditions (BAA + HIPAA
+// add-on + security review + 42 CFR Part 2 / EKRA sign-off) — not a feature flag.
 
-type FaceSheet = Record<string, unknown>;
+/** Transient intake answers from the conversation. Read-only; never persisted. */
+type IntakeAnswers = Record<string, unknown>;
 type ChatMsg = { role: 'user' | 'assistant'; content: string };
 type Body = {
   match_id?: string;
   contact_id?: string; // the early lead captured at the start of the conversation
   facility_ids?: string[];
-  face_sheet?: FaceSheet;
+  face_sheet?: IntakeAnswers; // legacy wire name; transient answers blob — never persisted
   consents?: { email?: boolean; share?: boolean };
   // The conversation transcript + matched-program snapshot, sent so an anonymous
   // chat is saved to the seeker's history the moment their account is created.
@@ -75,13 +72,9 @@ export async function POST(request: Request) {
     return Response.json({ error: 'No matching facilities' }, { status: 404 });
   }
 
-  // KILL SWITCH — hard-disables ONLY the face-sheet auto-send to FACILITIES (a full SUD
-  // referral packet emailed to third parties) regardless of any env flag, until the
-  // isolated vault project + signed BAA + a secure (dashboard, NOT email) delivery
-  // channel exist and are reviewed under 42 CFR Part 2 / EKRA. Lead capture (name/email)
-  // and the seeker's own emails are unaffected. See handoff/config.ts.
-  const FACESHEET_SEND_DISABLED = true;
-
+  // The face-sheet auto-send to facilities (a full SUD referral packet emailed to third
+  // parties) has been REMOVED outright, not just flag-disabled — there is no longer a
+  // face sheet to send. Facilities get contact details in-app and run their own intake.
   const baaInPlace = process.env.HANDOFF_BAA_SIGNED === 'true';
 
   // ── Fallback (no BAA): no PHI stored or sent — return public contacts only ──
@@ -93,23 +86,25 @@ export async function POST(request: Request) {
     });
   }
 
-  // ── Compliant PHI path ─────────────────────────────────────────────────────
-  const fs = (body.face_sheet ?? {}) as FaceSheet;
+  // ── Connect path (contact only — no PHI stored) ─────────────────────────────
+  const fs = (body.face_sheet ?? {}) as IntakeAnswers;
   const consents = {
     email: body.consents?.email ?? fs.consent_contact === true,
     share: body.consents?.share ?? fs.consent_share === true,
   };
 
-  // De-identified match details complete the face sheet (concern/coverage/region).
+  // De-identified match details (concern/coverage/region) — these live on `matches`,
+  // keyed only by match_id, and are never joined to a person outside this request.
   const { data: match } = await supabase
     .from('matches')
     .select('concern_category, coverage_status, region_zip3')
     .eq('id', matchId)
     .maybeSingle();
 
+  // The ONLY fields we keep: enough to make an introduction. No DOB, no clinical detail,
+  // no member IDs. Everything else in `fs` stays transient and dies with this request.
   const identity = {
     name: str(fs.full_name),
-    dob: str(fs.dob),
     phone: str(fs.phone),
     email: str(fs.email),
     insurance: str(fs.insurance_carrier),
@@ -122,7 +117,6 @@ export async function POST(request: Request) {
     coverageStatus: match?.coverage_status ?? null,
     consents,
     facilityIds,
-    faceSheet: fs,
   });
 
   // Immutable record of exactly what they answered (yes AND no), and when.
@@ -131,41 +125,6 @@ export async function POST(request: Request) {
   const summaries = facilities
     .map((f) => toFacilitySummary(f as unknown as FacilityRowForSummary))
     .filter((s): s is NonNullable<typeof s> => s !== null);
-
-  // The full face sheet sent to each facility the seeker consented to share with.
-  const sheet: SeekerFaceSheet = {
-    name: str(fs.full_name),
-    preferred_name: str(fs.preferred_name),
-    dob: str(fs.dob),
-    phone: str(fs.phone),
-    contact_pref: str(fs.contact_pref),
-    email: str(fs.email),
-    city: str(fs.city),
-    state: str(fs.state),
-    zip: str(fs.zip),
-    language: str(fs.language),
-    insurance_carrier: str(fs.insurance_carrier),
-    insurance_member_id: str(fs.insurance_member_id),
-    insurance_group: str(fs.insurance_group),
-    subscriber_name: str(fs.subscriber_name),
-    subscriber_relationship: str(fs.subscriber_relationship),
-    secondary_insurance: str(fs.secondary_insurance),
-    coverage_status: match?.coverage_status ?? undefined,
-    concern_category: match?.concern_category ?? undefined,
-    region_zip3: match?.region_zip3 ?? undefined,
-    other_substances: str(fs.other_substances),
-    last_use: str(fs.last_use),
-    co_occurring_mh: str(fs.co_occurring_mh),
-    prior_treatment: str(fs.prior_treatment),
-    medications: str(fs.medications),
-    allergies: str(fs.allergies),
-    emergency_contact_name: str(fs.emergency_contact_name),
-    emergency_contact_relationship: str(fs.emergency_contact_relationship),
-    emergency_contact_phone: str(fs.emergency_contact_phone),
-    court_ordered: str(fs.court_ordered),
-    urgency: str(fs.urgency),
-    transportation_needs: str(fs.transportation_needs),
-  };
 
   // /match is anonymous-start by design — the seeker may have no account here. If
   // they happen to be signed in, link this search to their account (so it shows on
@@ -218,7 +177,6 @@ export async function POST(request: Request) {
           email: identity.email,
           password: tempPassword,
           loginUrl,
-          faceSheet: sheet,
           facilities: summaries,
         });
         const r = await sendEmail({ to: identity.email, ...acct });
@@ -262,29 +220,16 @@ export async function POST(request: Request) {
         messages: transcript,
         matchId: matchId || null,
         matchedFacilities: Array.isArray(body.matched_facilities) ? body.matched_facilities : [],
-        faceSheet: fs,
       });
     } catch {
       /* best-effort — history save never blocks the hand-off */
     }
   }
 
-  if (consents.share && !FACESHEET_SEND_DISABLED) {
-    for (const f of facilities) {
-      const contact = (f.referral_contact ?? {}) as { email?: string };
-      if (!contact.email) continue;
-      const fsEmail = faceSheetEmail(f.name, sheet);
-      const res = await sendEmail({ to: contact.email, ...fsEmail });
-      await logEmail({
-        seeker_id: seekerId,
-        facility_id: f.id,
-        kind: 'face_sheet',
-        to_email: contact.email,
-        provider_id: res.id,
-      });
-      if (seekerId) await markInterestInfoSent(seekerId, f.id);
-    }
-  }
+  // NOTE: there is deliberately NO outbound send of seeker details to facilities here.
+  // Consented contact details are surfaced to the facility in-app (Contacts), where the
+  // facility runs its own intake. Emailing a referral packet to third-party inboxes is
+  // exactly what 42 CFR Part 2 governs — do not reintroduce it.
 
   return Response.json({
     ok: true,

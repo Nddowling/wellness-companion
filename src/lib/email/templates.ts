@@ -1,10 +1,8 @@
 import {
   LEVEL_LABELS,
   PAYER_LABELS,
-  COVERAGE_LABELS,
   type LevelOfCare,
   type PayerType,
-  type CoverageStatus,
 } from '@/lib/constants';
 
 // Email templates. Pure functions → { subject, html, text }. Kept simple and
@@ -19,47 +17,6 @@ export type FacilitySummary = {
   beds: number;
   freshnessLabel: string;
   contact: { name?: string; email?: string; phone?: string } | null;
-};
-
-export type SeekerFaceSheet = {
-  // identity & contact
-  name?: string;
-  preferred_name?: string;
-  dob?: string;
-  phone?: string;
-  contact_pref?: string;
-  email?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  language?: string;
-  // insurance
-  insurance?: string;
-  insurance_carrier?: string;
-  insurance_member_id?: string;
-  insurance_group?: string;
-  subscriber_name?: string;
-  subscriber_relationship?: string;
-  secondary_insurance?: string;
-  coverage_status?: string;
-  // presenting (coarse)
-  concern_category?: string;
-  other_substances?: string;
-  last_use?: string;
-  co_occurring_mh?: string;
-  prior_treatment?: string;
-  medications?: string;
-  allergies?: string;
-  region_zip3?: string;
-  // emergency contact
-  emergency_contact_name?: string;
-  emergency_contact_relationship?: string;
-  emergency_contact_phone?: string;
-  // logistics
-  court_ordered?: string;
-  urgency?: string;
-  transportation_needs?: string;
-  note?: string;
 };
 
 const CRISIS =
@@ -264,26 +221,19 @@ export function treatmentInfoEmail(
   return { subject, html, text };
 }
 
-// 2b) Account — sent to a seeker when an account is created on completion. Includes
-// their login, a summary of what they shared, and the programs matched to them.
+// 2b) Account — sent to a seeker when an account is created on completion. Their login
+// and the programs matched to them. Takes only a first name — this email deliberately
+// does NOT echo back health details (no "what you shared" summary): an inbox is not a
+// safe channel for that, and we no longer hold it anyway.
 export function seekerAccountEmail(params: {
   email: string;
   password: string;
   loginUrl: string;
-  faceSheet: SeekerFaceSheet;
+  name?: string;
   facilities: FacilitySummary[];
 }): { subject: string; html: string; text: string } {
-  const s = params.faceSheet;
-  const hi = s.name ? `Hi ${s.name.split(' ')[0]},` : 'Hi,';
+  const hi = params.name ? `Hi ${params.name.split(' ')[0]},` : 'Hi,';
   const subject = 'Your Clear Bed Recovery account & matched programs';
-
-  const info = (
-    [
-      ['Looking for', s.concern_category ? `help with ${s.concern_category.replace(/_/g, ' ')}` : undefined],
-      ['Insurance', s.insurance_carrier ?? s.insurance],
-      ['Coverage', s.coverage_status ? COVERAGE_LABELS[s.coverage_status as CoverageStatus] ?? s.coverage_status : undefined],
-    ] as [string, string | undefined][]
-  ).filter(([, v]) => v && v.trim()) as [string, string][];
 
   const html = wrap('Welcome — your account is ready', `
     <p style="margin:0 0 12px;font-size:15px;line-height:1.6">${esc(hi)}</p>
@@ -297,98 +247,11 @@ export function seekerAccountEmail(params: {
       'You’re in: your matched programs and saved conversations are all there.',
     ])}
     <p style="margin:0 0 12px;font-size:14px;color:${BRAND.slate};line-height:1.6">You don’t have to sign in to keep going — you can reach any of the programs below directly, any time.</p>
-    ${info.length ? `<div style="font-size:14px;color:${BRAND.slate};margin:0 0 8px"><strong>What you shared:</strong> ${info.map(([k, v]) => `${esc(k)} — ${esc(v)}`).join(' · ')}</div>` : ''}
     <h2 style="font-size:15px;color:${BRAND.teal};margin:16px 0 4px">Programs matched to you</h2>
     ${params.facilities.map(facilityBlockHtml).join('')}
     <p style="font-size:13px;color:${BRAND.slate};margin-top:12px">Reach out whenever you’re ready — there’s no pressure and no wrong pace.</p>`);
 
   const text = `${hi}\n\nThank you for taking this step. Your Clear Bed Recovery account is ready — your matches and conversation are saved.\n\nGet started:\n1) Sign in: ${params.loginUrl}\n2) Email: ${params.email}\n3) Temporary password: ${params.password}\n4) Choose your own password when prompted.\n\nYou can also reach any program directly, any time.\n\nPrograms matched to you:\n${params.facilities.map(facilityBlockText).join('\n')}\n\n${CRISIS}`;
-  return { subject, html, text };
-}
-
-// 3) Face sheet — sent to a FACILITY when the seeker consents to share details.
-export function faceSheetEmail(
-  facilityName: string,
-  s: SeekerFaceSheet
-): { subject: string; html: string; text: string } {
-  const subject = 'New referral via Clear Bed Recovery';
-
-  const nameLine = [s.name, s.preferred_name ? `(prefers "${s.preferred_name}")` : '']
-    .filter(Boolean)
-    .join(' ');
-  const address = [s.city, s.state, s.zip].filter(Boolean).join(', ');
-  const coverage = s.coverage_status
-    ? COVERAGE_LABELS[s.coverage_status as CoverageStatus] ?? s.coverage_status
-    : undefined;
-  const subscriber = s.subscriber_name
-    ? `${s.subscriber_name}${s.subscriber_relationship ? ` (${s.subscriber_relationship})` : ''}`
-    : undefined;
-  const emergency = s.emergency_contact_name
-    ? `${s.emergency_contact_name}${s.emergency_contact_relationship ? ` (${s.emergency_contact_relationship})` : ''}${s.emergency_contact_phone ? ` — ${s.emergency_contact_phone}` : ''}`
-    : undefined;
-
-  const sections: [string, [string, string | undefined][]][] = [
-    ['Contact', [
-      ['Name', nameLine || s.name],
-      ['Date of birth', s.dob],
-      ['Phone', s.phone],
-      ['Contact preference', s.contact_pref],
-      ['Email', s.email],
-      ['Location', address || (s.region_zip3 ? `${s.region_zip3}xx` : undefined)],
-      ['Language', s.language],
-    ]],
-    ['Insurance', [
-      ['Carrier / plan', s.insurance_carrier ?? s.insurance],
-      ['Member / policy ID', s.insurance_member_id],
-      ['Group #', s.insurance_group],
-      ['Coverage status', coverage],
-      ['Policy holder', subscriber],
-      ['Secondary insurance', s.secondary_insurance],
-    ]],
-    ['Presenting (coarse — facility to assess clinically)', [
-      ['Primary concern', s.concern_category],
-      ['Other substances', s.other_substances],
-      ['Last use', s.last_use],
-      ['Co-occurring mental health', s.co_occurring_mh],
-      ['Prior treatment', s.prior_treatment],
-      ['Current medications', s.medications],
-      ['Allergies', s.allergies],
-    ]],
-    ['Emergency contact', [['Contact', emergency]]],
-    ['Logistics', [
-      ['Court-ordered / legal', s.court_ordered],
-      ['Hoping to start', s.urgency],
-      ['Transportation / access', s.transportation_needs],
-      ['Note', s.note],
-    ]],
-  ];
-
-  const htmlSections = sections
-    .map(([title, rows]) => {
-      const present = rows.filter(([, v]) => v && String(v).trim());
-      if (!present.length) return '';
-      return `<h2 style="font-size:13px;color:#0f766e;margin:16px 0 4px">${esc(title)}</h2>
-      <table style="font-size:14px;border-collapse:collapse">
-        ${present.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0;color:#64748b;vertical-align:top">${esc(k)}</td><td style="padding:3px 0"><strong>${esc(String(v))}</strong></td></tr>`).join('')}
-      </table>`;
-    })
-    .join('');
-
-  const html = wrap(`New referral for ${facilityName}`, `
-    <p>A person matched to your facility through Clear Bed Recovery consented to share these details so your intake team has them in hand when you reach out:</p>
-    ${htmlSections}
-    <p style="font-size:12px;color:#94a3b8;margin-top:16px">This information is confidential and protected (incl. 42 CFR Part 2). Use it only to coordinate this person's care.</p>`);
-
-  const textSections = sections
-    .map(([title, rows]) => {
-      const present = rows.filter(([, v]) => v && String(v).trim());
-      if (!present.length) return '';
-      return `${title}\n${present.map(([k, v]) => `  ${k}: ${v}`).join('\n')}`;
-    })
-    .filter(Boolean)
-    .join('\n\n');
-  const text = `New referral for ${facilityName} via Clear Bed Recovery.\n\n${textSections}\n\nThis information is confidential and protected. Use it only to coordinate this person's care.`;
-
   return { subject, html, text };
 }
 

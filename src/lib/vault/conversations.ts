@@ -44,7 +44,6 @@ export async function upsertConversation(params: {
   messages: ChatMessage[];
   matchId?: string | null;
   matchedFacilities?: MatchedFacilitySnapshot[];
-  faceSheet?: Record<string, unknown>;
 }): Promise<string | null> {
   if (!isVaultEnabled()) return params.id ?? null;
   const vault = createVaultClient();
@@ -54,7 +53,6 @@ export async function upsertConversation(params: {
     messages: params.messages as unknown as Json,
     match_id: params.matchId ?? null,
     matched_facilities: (params.matchedFacilities ?? []) as unknown as Json,
-    face_sheet: (params.faceSheet ?? {}) as Json,
   };
 
   if (params.id) {

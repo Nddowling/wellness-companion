@@ -50,7 +50,6 @@ export async function POST(request: Request) {
     messages,
     matchId: typeof body.match_id === 'string' ? body.match_id : null,
     matchedFacilities: Array.isArray(body.matched_facilities) ? body.matched_facilities : [],
-    faceSheet: body.face_sheet ?? {},
   });
 
   return Response.json({ id });

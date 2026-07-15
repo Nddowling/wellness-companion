@@ -61,7 +61,6 @@ export default async function SeekerDashboard() {
                 <input name="name" defaultValue={latest.name ?? ''} placeholder="Name" className={field} />
                 <input name="email" defaultValue={latest.email ?? ''} placeholder="Email" className={field} />
                 <input name="phone" defaultValue={latest.phone ?? ''} placeholder="Phone" className={field} />
-                <input name="dob" defaultValue={latest.dob ?? ''} placeholder="Date of birth" className={field} />
                 <input name="insurance" defaultValue={latest.insurance ?? ''} placeholder="Insurance" className={field} />
               </div>
               <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Save my info</button>
@@ -74,9 +73,8 @@ export default async function SeekerDashboard() {
             {searches.map(({ search, facilities }) => (
               <div key={search.id} className="rounded-lg border border-slate-200 bg-white p-4">
                 <div className="text-xs text-slate-400">
-                  {new Date(search.created_at).toLocaleDateString()} ·{' '}
-                  {String(search.face_sheet?.concern_category ?? 'care')} ·{' '}
-                  {String(search.face_sheet?.care_level_needed ?? '')}
+                  {new Date(search.created_at).toLocaleDateString()}
+                  {search.coverage_status ? ` · ${search.coverage_status}` : ''}
                 </div>
                 <div className="mt-2 space-y-1">
                   {facilities.map((f) => (

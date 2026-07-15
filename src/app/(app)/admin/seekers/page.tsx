@@ -35,7 +35,7 @@ export default async function AdminSeekers() {
             <div className="min-w-0">
               <div className="font-medium text-slate-800">{s.name || 'Anonymous'}</div>
               <div className="truncate text-xs text-slate-500">
-                {s.email || 'no email'} · {String(s.face_sheet?.concern_category ?? '—')} ·{' '}
+                {s.email || 'no email'} · {s.coverage_status ?? '—'} ·{' '}
                 {new Date(s.created_at).toLocaleDateString()}
               </div>
             </div>

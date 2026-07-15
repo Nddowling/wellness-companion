@@ -442,7 +442,6 @@ export async function adminCreateSeeker(formData: FormData) {
     name: String(formData.get('name') || '') || null,
     email: String(formData.get('email') || '') || null,
     phone: String(formData.get('phone') || '') || null,
-    dob: String(formData.get('dob') || '') || null,
     insurance: String(formData.get('insurance') || '') || null,
     coverage_status: String(formData.get('coverage_status') || '') || null,
     status: 'active',
@@ -461,7 +460,6 @@ export async function adminUpdateSeeker(formData: FormData) {
       name: String(formData.get('name') || '') || null,
       email: String(formData.get('email') || '') || null,
       phone: String(formData.get('phone') || '') || null,
-      dob: String(formData.get('dob') || '') || null,
       insurance: String(formData.get('insurance') || '') || null,
       status: String(formData.get('status') || 'active'),
     })

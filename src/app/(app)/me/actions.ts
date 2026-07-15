@@ -13,7 +13,6 @@ export async function updateMyInfoAction(formData: FormData) {
     name: String(formData.get('name') || '') || undefined,
     email: String(formData.get('email') || '') || undefined,
     phone: String(formData.get('phone') || '') || undefined,
-    dob: String(formData.get('dob') || '') || undefined,
     insurance: String(formData.get('insurance') || '') || undefined,
   });
   revalidatePath('/me');
