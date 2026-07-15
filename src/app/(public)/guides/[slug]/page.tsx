@@ -92,7 +92,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
       </div>
 
       <div className="mt-6 rounded-xl bg-mist p-5 text-center">
-        <p className="text-sm text-ink">Find a program that fits — with real-time bed availability.</p>
+        <p className="text-sm text-ink">Compare programs with source and availability freshness cues.</p>
         <div className="mt-3 flex flex-wrap justify-center gap-3">
           <Link
             href="/match"

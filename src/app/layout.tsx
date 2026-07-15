@@ -1,15 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Nunito, Fraunces } from "next/font/google";
 import "./globals.css";
-import JsonLd from "@/components/JsonLd";
 import {
   DEFAULT_DESCRIPTION,
   DEFAULT_OG_IMAGE,
   DEFAULT_TITLE,
   SITE_NAME,
   SITE_URL,
-  organizationJsonLd,
-  websiteJsonLd,
 } from "@/lib/seo";
 import { Analytics } from "@vercel/analytics/next";
 import { ToastProvider } from "@/components/ui";
@@ -110,10 +107,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${nunito.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <JsonLd data={[organizationJsonLd, websiteJsonLd]} />
         {/* Site-wide toast host — any client component can call useToast().toast(…) */}
         <ToastProvider>{children}</ToastProvider>
-        <Analytics />
+        {process.env.VERCEL && <Analytics />}
       </body>
     </html>
   );

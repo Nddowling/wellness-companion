@@ -1,26 +1,58 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
+import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, isBedBased, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
 import { BedChip } from '@/components/FacilityCard';
 import { FilterBar, type Facets } from '@/components/FilterBar';
 import { ProgramDirectoryAnalytics } from '@/components/analytics/ProgramDirectoryAnalytics';
 import { Breadcrumb, breadcrumbJsonLd, DisclosurePanel } from '@/components/ui';
 import { absoluteUrl } from '@/lib/seo';
+import { US_STATES } from '@/lib/geo';
+import { serializeJsonLd } from '@/components/JsonLd';
 
 const PROGRAMS_TITLE = 'Browse Treatment Programs — Rehab & Recovery Directory';
 const PROGRAMS_DESCRIPTION =
-  'Browse our directory of addiction treatment programs — including care for co-occurring mental-health needs — across detox, residential, PHP, IOP, and outpatient, with accepted insurance and real-time bed availability.';
+  'Browse addiction treatment directory records across detox, residential, PHP, IOP, and outpatient, with listed payment options and dated availability reports.';
 
-export const metadata: Metadata = {
+const PROGRAMS_METADATA: Metadata = {
   title: PROGRAMS_TITLE,
   description: PROGRAMS_DESCRIPTION,
   alternates: { canonical: '/programs' },
   openGraph: { title: PROGRAMS_TITLE, description: PROGRAMS_DESCRIPTION, url: absoluteUrl('/programs') },
 };
 
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const query = await searchParams;
+  return {
+    ...PROGRAMS_METADATA,
+    // Faceted and paginated variants are useful navigation, not standalone
+    // landing pages. Keep one indexable canonical directory URL and let crawlers
+    // follow result links without indexing every query combination.
+    ...(Object.keys(query).length > 0
+      ? { robots: { index: false, follow: true, noarchive: true } }
+      : {}),
+  };
+}
+
 const PAGE_SIZE = 24;
+const MAX_PAGE = 1_000;
+const PUBLIC_SPECIALTY_FILTERS = new Set(['occurring', 'trauma', 'mat', 'substance']);
+const PUBLIC_POPULATION_FILTERS = new Set([
+  'men',
+  'women',
+  'adolescent',
+  'young adult',
+  'veteran',
+  'senior',
+  'pregnant',
+]);
+const ALLOWED_QUERY_KEYS = new Set(['level', 'region', 'pay', 'open', 'spec', 'pop', 'page']);
 
 type Row = {
   id: string;
@@ -33,12 +65,12 @@ type Row = {
   facility_capacity: CapacityRow[] | null;
 };
 
-function acceptedSummary(r: Row): string {
+function paymentSummary(r: Row): string {
   const gov = (r.facility_payers ?? [])
     .filter((p) => p.payer_type !== 'commercial')
     .map((p) => PAYER_LABELS[p.payer_type as PayerType] ?? p.payer_type);
   const all = [...gov, ...(r.carriers_named ?? [])];
-  if (!all.length) return 'Call to verify coverage';
+  if (!all.length) return 'Call to verify payment options';
   return all.slice(0, 4).join(' · ') + (all.length > 4 ? ` +${all.length - 4} more` : '');
 }
 
@@ -47,34 +79,82 @@ export default async function ProgramsDirectory({
 }: {
   searchParams: Promise<{ level?: string; q?: string; region?: string; pay?: string; open?: string; spec?: string; pop?: string; page?: string }>;
 }) {
-  const { level, q, region, pay, open, spec, pop, page: pageParam } = await searchParams;
+  const raw = await searchParams;
+  const { level, q, region, pay, open, spec, pop, page: pageParam } = raw;
 
   const validLevel = level && (LEVELS_OF_CARE as readonly string[]).includes(level) ? level : null;
   const validPay = pay && (PAYER_TYPES as readonly string[]).includes(pay) ? pay : null;
-  const page = Math.max(1, Number(pageParam) || 1);
+  const validRegion = region && Object.hasOwn(US_STATES, region) ? region : null;
+  const validSpec = spec && PUBLIC_SPECIALTY_FILTERS.has(spec) ? spec : null;
+  const validPop = pop && PUBLIC_POPULATION_FILTERS.has(pop) ? pop : null;
+  const page = pageParam && /^\d+$/.test(pageParam)
+    ? Math.min(MAX_PAGE, Math.max(1, Number(pageParam)))
+    : 1;
+  const bedReportEligible = validLevel === null || isBedBased(validLevel);
+  const openFilter = bedReportEligible && open === '1';
+
+  const hasUnsafeOrNonCanonicalParam =
+    Object.keys(raw).some((key) => !ALLOWED_QUERY_KEYS.has(key)) ||
+    q !== undefined ||
+    (level !== undefined && level !== validLevel) ||
+    (pay !== undefined && pay !== validPay) ||
+    (region !== undefined && region !== validRegion) ||
+    (spec !== undefined && spec !== validSpec) ||
+    (pop !== undefined && pop !== validPop) ||
+    (open !== undefined && (!openFilter || open !== '1')) ||
+    (pageParam !== undefined && (page === 1 || pageParam !== String(page)));
+
+  // Older directory search linked arbitrary free text in `q`, which could put a
+  // treatment narrative into browser history and request logs. Strip that legacy
+  // parameter while preserving the coarse, allow-listed facets.
+  if (hasUnsafeOrNonCanonicalParam) {
+    const safe = new URLSearchParams();
+    for (const [key, value] of Object.entries({
+      level: validLevel ?? undefined,
+      region: validRegion ?? undefined,
+      pay: validPay ?? undefined,
+      spec: validSpec ?? undefined,
+      pop: validPop ?? undefined,
+      open: openFilter ? '1' : undefined,
+      page: page > 1 ? String(page) : undefined,
+    })) {
+      if (value) safe.set(key, value);
+    }
+    const query = safe.toString();
+    redirect(query ? `/programs?${query}` : '/programs');
+  }
 
   // All filtering/counting/paging runs in Postgres (no 1,000-row PostgREST cap), so
   // the directory searches the WHOLE table and returns just this page + true totals.
   const filters = {
-    p_region: region || null,
+    p_region: validRegion,
     p_level: validLevel,
     p_pay: validPay,
-    p_spec: spec?.trim() || null,
-    p_pop: pop?.trim() || null,
-    p_q: q?.trim() || null,
-    p_open: !!open,
+    p_spec: validSpec,
+    p_pop: validPop,
+    p_q: null,
+    p_open: openFilter,
   };
 
   const admin = createAdminClient();
   // RPCs aren't in the generated types — cast the client (receiver intact).
   const client = admin as unknown as {
-    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { code?: string } | null }>;
   };
   const [rowsRes, countRes, facetRes] = await Promise.all([
     client.rpc('facilities_search', { ...filters, p_limit: PAGE_SIZE, p_offset: (page - 1) * PAGE_SIZE }),
     client.rpc('facilities_search_count', filters),
     client.rpc('facilities_facet_counts', filters),
   ]);
+
+  if (rowsRes.error || countRes.error || facetRes.error) {
+    console.error('[directory] database RPC failed', {
+      rows: rowsRes.error?.code ?? null,
+      count: countRes.error?.code ?? null,
+      facets: facetRes.error?.code ?? null,
+    });
+    throw new Error('The treatment directory is temporarily unavailable.');
+  }
 
   const rows = (rowsRes.data as Row[]) ?? [];
   const total = Number(countRes.data ?? 0);
@@ -84,7 +164,7 @@ export default async function ProgramsDirectory({
   // Pagination hrefs keep the active filters (changing a filter is handled by FilterBar).
   const pageHref = (n: number) => {
     const p = new URLSearchParams();
-    for (const [k, v] of Object.entries({ level: validLevel ?? undefined, region, q, pay: validPay ?? undefined, spec, pop, open })) if (v) p.set(k, v);
+    for (const [k, v] of Object.entries({ level: validLevel ?? undefined, region: validRegion ?? undefined, pay: validPay ?? undefined, spec: validSpec ?? undefined, pop: validPop ?? undefined, open: openFilter ? '1' : undefined })) if (v) p.set(k, v);
     if (n > 1) p.set('page', String(n));
     const s = p.toString();
     return s ? `/programs?${s}` : '/programs';
@@ -99,18 +179,18 @@ export default async function ProgramsDirectory({
       <ProgramDirectoryAnalytics
         total={total}
         page={page}
-        hasQuery={Boolean(q)}
-        hasLocation={Boolean(region)}
+        hasQuery={false}
+        hasLocation={Boolean(validRegion)}
         hasInsuranceFilter={Boolean(validPay)}
         hasLevelOfCareFilter={Boolean(validLevel)}
-        hasSpecialtyFilter={Boolean(spec)}
-        hasPopulationFilter={Boolean(pop)}
-        hasOpenFilter={Boolean(open)}
-        region={region || undefined}
+        hasSpecialtyFilter={Boolean(validSpec)}
+        hasPopulationFilter={Boolean(validPop)}
+        hasOpenFilter={openFilter}
+        region={validRegion || undefined}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(crumbs)) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd(crumbs)) }}
       />
       <Breadcrumb items={crumbs} />
 
@@ -130,9 +210,8 @@ export default async function ProgramsDirectory({
 
       <div className="mt-4">
         <DisclosurePanel label="How we rank results" tone="trust" icon={<span aria-hidden>⚖️</span>}>
-          We list every licensed program the same way. Sponsors pay a <strong>flat fee</strong> and are clearly
-          labeled — they never outrank a program that better fits your needs, and we never take per-admission or
-          per-call fees.{' '}
+          Directory results are ordered neutrally by name; payment is not required for inclusion and cannot purchase
+          a higher position. We never take per-admission or per-call fees.{' '}
           <Link href="/how-we-make-money" className="font-medium text-teal-700 underline">
             How we make money →
           </Link>
@@ -177,7 +256,7 @@ export default async function ProgramsDirectory({
                     </div>
                   )}
                   <div className="mt-auto text-xs text-slate-500">
-                    <span className="font-medium text-slate-600">Accepts:</span> {acceptedSummary(r)}
+                    <span className="font-medium text-slate-600">Listed payment options:</span> {paymentSummary(r)}
                   </div>
                 </div>
               </Link>

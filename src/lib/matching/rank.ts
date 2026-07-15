@@ -5,12 +5,14 @@ import type { IntakeExtraction } from '@/lib/intake/prompt';
  * Deterministic facility ranking for a de-identified intake. Pure functions over
  * Project A data — no DB, no network, no identity — so the scoring is unit-testable.
  *
- * Hard filters (a facility must clear all): not gated, OFFERS the needed level of
- * care, and accepts the person's payer type. A facility that offers the level but
- * has no confirmed beds is still recommended ("call to confirm") — we never leave a
+ * Hard filters (a facility must clear all): LISTS the needed level of care and
+ * accepts the person's payer type. Physical campus attributes never exclude a
+ * program. A facility that offers the level but
+ * has no confirmed beds can still be displayed ("call to confirm") — we never leave a
  * seeker with nothing — it just ranks below facilities with fresh, confirmed beds.
  * Soft ranking: bed availability (binary — beds or none) + capacity freshness (the
- * moat) + same-region + in-network. Raw bed count is only a tiebreaker.
+ * moat) + same-region. Raw bed count is only a tiebreaker. A generic payer category
+ * never proves member-specific network status, so `in_network` does not affect rank.
  */
 
 export type ReferralContact = { name?: string; email?: string; phone?: string };
@@ -23,9 +25,12 @@ export type FacilityForMatch = {
   zip3: string | null;
   is_gated: boolean;
   is_faith_based: boolean;
+  levels_of_care: string[];
+  co_occurring: string | null;
   referral_contact: ReferralContact | null;
-  capacity: { level_of_care: string; beds_available: number; last_updated: string }[];
-  payers: { payer_type: string; in_network: boolean }[];
+  carriers_named: string[];
+  capacity: { level_of_care: string; beds_available: number; last_updated: string; updated_by?: string | null }[];
+  payers: { payer_type: string }[];
 };
 
 export type RankedFacility = {
@@ -37,9 +42,9 @@ export type RankedFacility = {
   level: string; // the matched level of care
   bed_based: boolean; // false for php/iop/op (outpatient — no beds)
   beds_available: number;
-  last_updated: string;
+  last_updated: string | null;
   freshness: 'green' | 'amber' | 'red';
-  in_network: boolean;
+  provider_reported: boolean;
   region_match: boolean;
   score: number;
 };
@@ -56,36 +61,52 @@ export function scoreFacility(
   intake: IntakeExtraction,
   facility: FacilityForMatch
 ): RankedFacility | null {
-  if (facility.is_gated) return null; // gated facilities are not open-matched
+  // Clear Bed's source corpus is an addiction-treatment directory. Do not route a
+  // standalone mental-health request as though it were a supported clinical match.
+  if (intake.concern_category === 'mental_health') return null;
+  if (intake.concern_category === 'co_occurring') {
+    const claim = facility.co_occurring?.toLowerCase() ?? '';
+    if (!claim || /\b(no|none|not offered)\b/.test(claim) || !/(yes|co.?occurring|dual|integrated|both)/.test(claim)) {
+      return null;
+    }
+  }
 
+  if (!facility.levels_of_care.includes(intake.care_level_needed)) return null;
   const cap = facility.capacity.find((c) => c.level_of_care === intake.care_level_needed);
-  if (!cap) return null; // doesn't offer the needed level of care at all
 
   const payer = facility.payers.find((p) => p.payer_type === intake.payer_type);
   if (!payer) return null; // can't be paid for with this coverage
 
+  // A generic `commercial` row does not prove that a facility accepts a named
+  // carrier. When the person volunteered a carrier, require the facility's
+  // source-backed/profile-reported named-carrier field to contain it.
+  if (
+    intake.payer_carrier &&
+    !facility.carriers_named.some((carrier) => carrier.toLowerCase() === intake.payer_carrier!.toLowerCase())
+  ) {
+    return null;
+  }
+
   const bed_based = isBedBased(intake.care_level_needed);
-  // Outpatient (php/iop/op) has no beds — treat as available. For bed levels, no
-  // confirmed beds means availability is unknown → "call to confirm" (red).
-  const freshness = !bed_based
+  // Outpatient rows prove only that the program lists the level; this schema has
+  // no current-scheduling/accepting flag. Keep the date for display context but do
+  // not turn it into an availability claim. For bed levels, a positive reported
+  // count plus freshness can support the stronger availability treatment.
+  const freshness = bed_based && cap && cap.beds_available > 0
     ? freshnessTone(cap.last_updated)
-    : cap.beds_available > 0
-      ? freshnessTone(cap.last_updated)
-      : 'red';
+    : 'red';
   const region_match = !!facility.zip3 && facility.zip3 === intake.region_zip3;
 
-  // Outpatient is always "accepting"; for bed levels, any open bed counts. Flat —
-  // one bed and ten beds score the same here (bed count is only a tiebreaker).
-  const has_availability = !bed_based || cap.beds_available > 0;
+  const beds_available = bed_based ? Math.max(0, cap?.beds_available ?? 0) : 0;
+  const has_availability = bed_based && beds_available > 0 && freshness !== 'red';
 
   // Proximity dominates: a same-region facility should outrank a distant one even
   // if the distant one has fresher beds. Freshness + availability then break ties
   // WITHIN a region (that's where the moat lives).
   const score =
     (region_match ? 12 : 0) +
-    FRESHNESS_POINTS[freshness] +
-    (has_availability ? AVAILABILITY_POINTS : 0) +
-    (payer.in_network ? 2 : 0.5);
+    (bed_based ? FRESHNESS_POINTS[freshness] : 0) +
+    (has_availability ? AVAILABILITY_POINTS : 0);
 
   return {
     id: facility.id,
@@ -95,10 +116,10 @@ export function scoreFacility(
     referral_contact: facility.referral_contact,
     level: intake.care_level_needed,
     bed_based,
-    beds_available: cap.beds_available,
-    last_updated: cap.last_updated,
+    beds_available,
+    last_updated: bed_based ? cap?.last_updated ?? null : null,
     freshness,
-    in_network: payer.in_network,
+    provider_reported: bed_based && !!cap?.updated_by,
     region_match,
     score,
   };
@@ -113,6 +134,10 @@ export function rankFacilities(
   return facilities
     .map((f) => scoreFacility(intake, f))
     .filter((r): r is RankedFacility => r !== null)
-    .sort((a, b) => b.score - a.score || b.beds_available - a.beds_available)
+    .sort((a, b) => {
+      const aFreshBeds = a.bed_based && a.freshness !== 'red' ? a.beds_available : 0;
+      const bFreshBeds = b.bed_based && b.freshness !== 'red' ? b.beds_available : 0;
+      return b.score - a.score || bFreshBeds - aFreshBeds || a.name.localeCompare(b.name);
+    })
     .slice(0, limit);
 }

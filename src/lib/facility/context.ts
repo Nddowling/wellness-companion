@@ -27,7 +27,7 @@ export type ContextFacility = {
 export type AreaStats = {
   total: number;
   byLevel: Record<string, number>; // level -> # of programs in the area offering it
-  byPayer: Record<string, number>; // payer_type -> # of programs accepting it
+  byPayer: Record<string, number>; // payer_type -> # of programs listing it
   accredited: number; // # with ≥1 accreditation
 };
 
@@ -86,7 +86,7 @@ export function facilityContextLines(f: ContextFacility, ctx: ContextInput): str
     // 3. Medicaid access
     const payers = new Set((f.facility_payers ?? []).map((p) => p.payer_type));
     if (payers.has('medicaid') && (area.stats.byPayer.medicaid ?? 0) >= 2) {
-      lines.push(`One of ${area.stats.byPayer.medicaid} programs in ${area.name} that accept Medicaid.`);
+      lines.push(`One of ${area.stats.byPayer.medicaid} programs in ${area.name} that list Medicaid as a payment option.`);
     }
     // 4. Accreditation — only cite the count when it's MEANINGFULLY below the total
     //    (otherwise "one of 47 accredited" is redundant next to "47 programs").
@@ -122,10 +122,10 @@ export function cityLevelContextLines(cityName: string, stateCode: string, level
   const lines: string[] = [
     `${cityName}, ${stateCode} has ${stats.total} ${levelLabel.toLowerCase()} program${stats.total === 1 ? '' : 's'} listed on Clear Bed Recovery.`,
   ];
-  const payerParts = KEY_PAYERS.filter((p) => stats.byPayer[p]).map((p) => `${stats.byPayer[p]} accept ${PAYER_LABELS[p]}`);
-  if (payerParts.length) lines.push(`Insurance: ${payerParts.join(' · ')}.`);
+  const payerParts = KEY_PAYERS.filter((p) => stats.byPayer[p]).map((p) => `${stats.byPayer[p]} list ${PAYER_LABELS[p]}`);
+  if (payerParts.length) lines.push(`Reported payment options: ${payerParts.join(' · ')}.`);
   if (stats.accredited) {
-    lines.push(`${stats.accredited} ${stats.accredited === 1 ? 'is' : 'are'} accredited (CARF, The Joint Commission, or state licensure).`);
+    lines.push(`${stats.accredited} ${stats.accredited === 1 ? 'is' : 'are'} accredited by a recognized accrediting organization such as CARF or The Joint Commission.`);
   }
   return lines;
 }
@@ -133,16 +133,16 @@ export function cityLevelContextLines(cityName: string, stateCode: string, level
 /** Factual, citation-friendly summary stats for a CITY hub. */
 export function cityContextLines(cityName: string, stateCode: string, stats: AreaStats): string[] {
   const lines: string[] = [
-    `${cityName}, ${stateCode} has ${stats.total} addiction and mental-health treatment program${stats.total === 1 ? '' : 's'} listed on Clear Bed Recovery.`,
+    `${cityName}, ${stateCode} has ${stats.total} addiction-treatment program${stats.total === 1 ? '' : 's'} listed on Clear Bed Recovery.`,
   ];
   const levelParts = (LEVELS_OF_CARE as readonly LevelOfCare[])
     .filter((l) => stats.byLevel[l])
     .map((l) => `${stats.byLevel[l]} ${LEVEL_LABELS[l].toLowerCase()}`);
   if (levelParts.length) lines.push(`Levels of care available: ${levelParts.join(', ')}.`);
-  const payerParts = KEY_PAYERS.filter((p) => stats.byPayer[p]).map((p) => `${stats.byPayer[p]} accept ${PAYER_LABELS[p]}`);
-  if (payerParts.length) lines.push(`Insurance: ${payerParts.join(' · ')}.`);
+  const payerParts = KEY_PAYERS.filter((p) => stats.byPayer[p]).map((p) => `${stats.byPayer[p]} list ${PAYER_LABELS[p]}`);
+  if (payerParts.length) lines.push(`Reported payment options: ${payerParts.join(' · ')}.`);
   if (stats.accredited) {
-    lines.push(`${stats.accredited} ${stats.accredited === 1 ? 'program is' : 'programs are'} accredited (CARF, The Joint Commission, or state licensure).`);
+    lines.push(`${stats.accredited} ${stats.accredited === 1 ? 'program is' : 'programs are'} accredited by a recognized accrediting organization such as CARF or The Joint Commission.`);
   }
   return lines;
 }

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { randomUUID } from 'node:crypto';
 import nodemailer from 'nodemailer';
 
 // Provider-agnostic transactional email. Send priority:
@@ -46,7 +47,47 @@ function smtpTransport(): nodemailer.Transporter {
   return transporter;
 }
 
+/**
+ * Send treatment-seeking or other Part 2-sensitive content only through an SMTP
+ * transport the operator has explicitly attested is covered by the required BAA.
+ * This path deliberately never falls back to the generic Resend integration.
+ */
+export function sensitiveEmailConfigured(): boolean {
+  return (
+    process.env.SENSITIVE_EMAIL_BAA_APPROVED === 'true' &&
+    Boolean(SMTP_USER) &&
+    Boolean(SMTP_PASS)
+  );
+}
+
+export async function sendSensitiveEmail(
+  msg: EmailMessage,
+): Promise<{ id: string | null; ok: boolean }> {
+  const deliveryId = randomUUID();
+  if (!sensitiveEmailConfigured() || !SMTP_USER || !SMTP_PASS) {
+    console.warn('[email] sensitive delivery is not configured', { deliveryId });
+    return { id: null, ok: false };
+  }
+
+  try {
+    const info = await smtpTransport().sendMail({
+      from: fromAddress(SMTP_USER),
+      to: msg.to,
+      subject: msg.subject,
+      html: msg.html,
+      text: msg.text,
+    });
+    return { id: info.messageId ?? null, ok: true };
+  } catch {
+    console.error('[email] sensitive smtp delivery failed', { deliveryId });
+    return { id: null, ok: false };
+  }
+}
+
 export async function sendEmail(msg: EmailMessage): Promise<{ id: string | null; ok: boolean }> {
+  // Correlate a delivery attempt without ever putting the recipient, subject, body,
+  // or a provider response (which may echo them) into runtime logs.
+  const deliveryId = randomUUID();
   // 1) Gmail / Google Workspace SMTP
   if (SMTP_USER && SMTP_PASS) {
     try {
@@ -58,8 +99,8 @@ export async function sendEmail(msg: EmailMessage): Promise<{ id: string | null;
         text: msg.text,
       });
       return { id: info.messageId ?? null, ok: true };
-    } catch (err) {
-      console.error('[email] smtp send error', err instanceof Error ? err.message : err);
+    } catch {
+      console.error('[email] smtp delivery failed', { deliveryId });
       return { id: null, ok: false };
     }
   }
@@ -74,18 +115,19 @@ export async function sendEmail(msg: EmailMessage): Promise<{ id: string | null;
         body: JSON.stringify({ from: fromAddress(), to: msg.to, subject: msg.subject, html: msg.html, text: msg.text }),
       });
       if (!res.ok) {
-        console.error('[email] resend send failed', res.status, await res.text().catch(() => ''));
+        // Do not consume/log the response body: providers may echo recipient data.
+        console.error('[email] resend delivery failed', { deliveryId, status: res.status });
         return { id: null, ok: false };
       }
       const data = (await res.json().catch(() => ({}))) as { id?: string };
       return { id: data.id ?? null, ok: true };
-    } catch (err) {
-      console.error('[email] resend send error', err instanceof Error ? err.message : err);
+    } catch {
+      console.error('[email] resend delivery failed', { deliveryId });
       return { id: null, ok: false };
     }
   }
 
   // 3) Dev fallback
-  console.log(`[email:dev] (no SMTP_* or RESEND_API_KEY) would send → ${msg.to} :: ${msg.subject}`);
-  return { id: null, ok: true };
+  console.warn('[email] delivery is not configured', { deliveryId });
+  return { id: null, ok: false };
 }

@@ -24,25 +24,30 @@ export function FacilityStickyNav() {
   const [active, setActive] = useState<string | null>(null);
 
   useEffect(() => {
-    const present = CANDIDATES.filter((t) => document.getElementById(t.id));
-    setTabs(present);
-    if (present.length < 2) return; // not worth a nav for a single section
+    let observer: IntersectionObserver | null = null;
+    const frame = requestAnimationFrame(() => {
+      const present = CANDIDATES.filter((t) => document.getElementById(t.id));
+      setTabs(present);
+      if (present.length < 2) return;
 
-    // Highlight whichever section is nearest the top of the viewport.
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id);
-      },
-      { rootMargin: '-96px 0px -70% 0px', threshold: 0 },
-    );
-    present.forEach((t) => {
-      const el = document.getElementById(t.id);
-      if (el) observer.observe(el);
+      observer = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          if (visible[0]) setActive(visible[0].target.id);
+        },
+        { rootMargin: '-96px 0px -70% 0px', threshold: 0 },
+      );
+      present.forEach((t) => {
+        const el = document.getElementById(t.id);
+        if (el) observer?.observe(el);
+      });
     });
-    return () => observer.disconnect();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
   }, []);
 
   if (tabs.length < 2) return null;

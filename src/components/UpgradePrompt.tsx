@@ -10,19 +10,22 @@ export function UpgradePrompt({
   title,
   body,
   cta = 'Upgrade →',
-  href = '/pricing',
+  href,
+  facilityId,
   variant = 'card',
 }: {
   title?: string;
   body?: string;
   cta?: string;
   href?: string;
+  facilityId?: string;
   variant?: Variant;
 }) {
+  const billingHref = href ?? (facilityId ? `/pricing?facility=${encodeURIComponent(facilityId)}` : '/pricing');
   if (variant === 'inline') {
     return (
       <Link
-        href={href}
+        href={billingHref}
         className="inline-flex shrink-0 items-center rounded-full bg-terracotta px-3 py-1 text-xs font-semibold text-white transition hover:bg-terracotta-dark"
       >
         {cta}
@@ -38,7 +41,7 @@ export function UpgradePrompt({
           {body && <p className="mt-0.5 text-xs text-slate-600">{body}</p>}
         </div>
         <Link
-          href={href}
+          href={billingHref}
           className="shrink-0 rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
         >
           {cta}
@@ -53,7 +56,7 @@ export function UpgradePrompt({
       <p className="text-sm font-medium text-slate-700">🔒 {title}</p>
       {body && <p className="mx-auto mt-1 max-w-sm text-xs text-slate-500">{body}</p>}
       <Link
-        href={href}
+        href={billingHref}
         className="mt-3 inline-block rounded-md bg-terracotta px-4 py-2 text-sm font-semibold text-white transition hover:bg-terracotta-dark"
       >
         {cta}

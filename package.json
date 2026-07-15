@@ -21,11 +21,11 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.108.0",
     "@vercel/analytics": "^2.0.1",
-    "next": "16.2.7",
-    "nodemailer": "^8.0.11",
+    "next": "16.2.10",
+    "nodemailer": "9.0.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "xlsx": "^0.18.5"
+    "stripe": "22.3.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
@@ -36,9 +36,15 @@
     "@types/react-dom": "^19",
     "cross-env": "^10.1.0",
     "eslint": "^9",
-    "eslint-config-next": "16.2.7",
+    "eslint-config-next": "16.2.10",
     "playwright": "^1.60.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "8.5.10"
+    }
   }
 }

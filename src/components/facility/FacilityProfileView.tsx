@@ -1,19 +1,17 @@
 import Link from 'next/link';
 
-import JsonLd from '@/components/JsonLd';
+import JsonLd, { serializeJsonLd } from '@/components/JsonLd';
 import { GoToWebsiteButton } from '@/components/GoToWebsiteButton';
 import { TrackedContactLink } from '@/components/TrackedContactLink';
 import { FacilityProfileAnalytics } from '@/components/analytics/FacilityProfileAnalytics';
 import { ClaimProfileLink } from '@/components/analytics/ClaimProfileLink';
-import { MatchBackLink } from '@/components/MatchBackLink';
 import { Gallery } from '@/components/Gallery';
 import { FacilityTeam } from '@/components/rep/FacilityTeam';
-import { ReviewForm } from '@/components/facility/ReviewForm';
 import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock';
 import { FacilityRichSections } from '@/components/facility/FacilityRichSections';
 import { FacilityStickyNav } from '@/components/facility/FacilityStickyNav';
 import { FacilityStickyContact } from '@/components/facility/FacilityStickyContact';
-import { normalizePlan, planAllows } from '@/lib/facility/plan';
+import { hasFullPublicProfile } from '@/lib/facility/plan';
 import { HideForProviders } from '@/components/facility/HideForProviders';
 import { loadFacilityContext, loadFacilityReviews, type FacilityFull } from '@/lib/facility/load';
 import { facilityContextLines } from '@/lib/facility/context';
@@ -29,15 +27,16 @@ import {
   type LevelOfCare,
   type PayerType,
 } from '@/lib/constants';
-import { DEFAULT_OG_IMAGE, absoluteUrl } from '@/lib/seo';
+import { absoluteUrl } from '@/lib/seo';
 import { stateSlug, stateName, slugify } from '@/lib/geo';
 import { Breadcrumb, breadcrumbJsonLd, DisclosurePanel, Accordion } from '@/components/ui';
 import { SnapshotBar } from '@/components/SnapshotBar';
 import { PayerMark } from '@/components/PayerLogo';
 import { payerTypeBrand, payerBrandForLabel } from '@/lib/payers';
+import { credentialLabel, normalizeCredentials } from '@/lib/facility/accreditation';
 
-type Cap = { level_of_care: string; beds_available: number; last_updated: string };
-type Payer = { payer_type: string; in_network: boolean };
+type Cap = { level_of_care: string; beds_available: number; last_updated: string; updated_by?: string | null };
+type Payer = { payer_type: string };
 
 function splitList(text: string | null): string[] {
   if (!text) return [];
@@ -50,6 +49,94 @@ function splitList(text: string | null): string[] {
 function stars(n: number): string {
   const r = Math.round(n);
   return '★★★★★'.slice(0, r) + '☆☆☆☆☆'.slice(0, 5 - r);
+}
+
+function FacilityTrustPanel({
+  claimed,
+  verificationConfidence,
+  lastVerified,
+  verifiedAt,
+  verifiedBy,
+  sourceUrl,
+  caps,
+}: {
+  claimed: boolean;
+  verificationConfidence: string | null;
+  lastVerified: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  sourceUrl: string | null;
+  caps: Cap[];
+}) {
+  const isSamhsaImport = verifiedBy === 'samhsa_import';
+  let verificationLabel = 'Directory source — confirm details directly';
+  if (claimed) verificationLabel = 'Program ownership claim approved by an administrator';
+  else if (verifiedAt) verificationLabel = 'Listing reviewed by an administrator';
+  else if (isSamhsaImport) verificationLabel = 'SAMHSA directory import — confirm details directly';
+  else if (verificationConfidence === 'high') verificationLabel = 'High-confidence directory source';
+  else if (verificationConfidence === 'medium') verificationLabel = 'Cross-checked directory source';
+  const latestCapacity = [...caps]
+    .filter((cap) => isBedBased(cap.level_of_care) && cap.last_updated)
+    .sort((a, b) => new Date(b.last_updated).getTime() - new Date(a.last_updated).getTime())[0] ?? null;
+  // The imported corpus carries a generic locator homepage, not a record-level
+  // citation. Do not present that generic URL as if it substantiated this listing.
+  const linkedSource = !isSamhsaImport && sourceUrl && /^https?:\/\//i.test(sourceUrl) ? sourceUrl : null;
+  const formatDate = (value: string | null) =>
+    value && !Number.isNaN(new Date(value).getTime())
+      ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(
+          new Date(value),
+        )
+      : null;
+  // `facilities.updated_at` can be bumped by imports or related availability edits,
+  // so it is never evidence that the profile was checked. The SAMHSA backfill also
+  // marks its timestamp as an import rather than an independent verification.
+  const checked = formatDate(verifiedAt) ?? (isSamhsaImport ? null : formatDate(lastVerified));
+  const imported = isSamhsaImport ? formatDate(lastVerified) : null;
+  const verificationDetail = checked
+    ? `record checked ${checked}`
+    : imported
+      ? `directory source imported ${imported}`
+      : linkedSource
+        ? 'source linked below; no check date recorded'
+        : 'no source check date recorded';
+
+  return (
+    <section aria-label="Profile trust and data sources" className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-600">How to read this profile</h2>
+      <dl className="mt-2 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+        <div>
+          <dt className="font-semibold text-slate-700">Profile ownership</dt>
+          <dd>{claimed ? 'Claimed by the program' : 'Maintained from directory sources'}</dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-slate-700">Verification</dt>
+          <dd>
+            {verificationLabel} · {verificationDetail}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-slate-700">Availability</dt>
+          <dd>
+            {latestCapacity
+              ? `${latestCapacity.updated_by ? 'Program account report' : 'Directory availability record'} · ${availabilityAsOf(latestCapacity.last_updated)}`
+              : 'No residential-bed report available'}
+          </dd>
+        </div>
+      </dl>
+      <p className="mt-2 text-xs leading-relaxed text-slate-500">
+        Availability, insurance, accreditation, and services can change. Exact bed counts are hidden after seven days;
+        confirm current availability, network status, benefits, and credentials directly.
+        {linkedSource && (
+          <>
+            {' '}
+            <a href={linkedSource} target="_blank" rel="noopener noreferrer" className="font-medium text-teal-700 hover:underline">
+              View cited source page ↗
+            </a>
+          </>
+        )}
+      </p>
+    </section>
+  );
 }
 
 /**
@@ -68,17 +155,18 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
 
   const caps = (f.facility_capacity ?? []) as Cap[];
   const payers = (f.facility_payers ?? []) as Payer[];
-  // Plan-gated profile richness (photos, about, website are part of a claimed,
-  // Starter+ profile). Matching/availability is NOT gated — it stays need-based.
-  const plan = normalizePlan(f.plan);
-  const showCallIntake = planAllows(plan, 'callIntake'); // no "Call intake" on Free profiles
-  const images = planAllows(plan, 'photos') ? ((f.images ?? []) as string[]) : [];
-  const videos = planAllows(plan, 'video') ? ((f.videos ?? []) as string[]) : [];
+  // Only an approved ownership claim unlocks full public-profile content. A paid
+  // subscription adds operational tooling but cannot unlock an unclaimed profile.
+  const fullProfile = hasFullPublicProfile(f.facility_claims);
+  const isClaimed = fullProfile;
+  const showCallIntake = fullProfile;
+  const images = fullProfile ? ((f.images ?? []) as string[]) : [];
+  const videos = fullProfile ? ((f.videos ?? []) as string[]) : [];
   // Descriptions render on every profile regardless of plan: unclaimed pages carry a
   // directory-authored, source-grounded description (the SEO layer + what drives the
   // claim/growth loop), and a free claim lets a facility replace it with their own.
   const showDescription = !!f.description;
-  const showWebsite = planAllows(plan, 'website') && !!f.website;
+  const showWebsite = fullProfile && !!f.website;
   const contact = (f.referral_contact ?? {}) as { name?: string; email?: string; phone?: string };
   const intakePhone = f.intake_line || contact.phone || f.main_phone || null;
 
@@ -99,6 +187,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   const carriers = (f.carriers_named ?? []) as string[];
   const govPayers = payers.filter((p) => p.payer_type !== 'commercial');
   const acceptsCommercial = payers.some((p) => p.payer_type === 'commercial');
+  const credentials = normalizeCredentials(f.accreditations);
 
   const ratings = reviews.map((r) => r.rating).filter((r): r is number => typeof r === 'number');
   const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : null;
@@ -110,27 +199,28 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   if (st && f.city) crumbs.push({ label: f.city, href: `/treatment/${stateSlug(st)}/${slugify(f.city)}` });
   crumbs.push({ label: f.name });
 
-  // FAQs generated from structured fields (zero marginal writing) → also FAQPage JSON-LD.
+  // FAQs generated from structured fields and mirrored exactly in FAQPage JSON-LD.
   const paymentNames = [
     ...govPayers.map((p) => PAYER_LABELS[p.payer_type as PayerType] ?? p.payer_type),
     ...(acceptsCommercial ? ['commercial insurance'] : []),
   ];
   const faqs: { q: string; a: string }[] = [];
   if (levels.length)
-    faqs.push({ q: `What levels of care does ${f.name} offer?`, a: `${f.name} offers ${levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(', ')}.` });
+    faqs.push({
+      q: `What levels of care are listed for ${f.name}?`,
+      a: `The directory lists ${levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(', ')}. A qualified provider determines the appropriate level of care and admission.`,
+    });
   faqs.push({
     q: `Does ${f.name} accept insurance?`,
-    a: paymentNames.length ? `Yes — ${paymentNames.join(', ')}. Always confirm current in-network status with the program.` : `Call the program to verify coverage.`,
+    a: paymentNames.length ? `The directory lists these payment categories: ${paymentNames.join(', ')}. This does not prove in-network status or member benefits; confirm both directly.` : `Call the program and your insurer to verify coverage.`,
   });
   faqs.push({
     q: `Is detox available at ${f.name}?`,
-    a: levels.includes('detox') ? `Yes, ${f.name} offers medically supervised detox.` : `Detox is not listed for this program — ask their intake team about options.`,
+    a: levels.includes('detox') ? `Detox is listed for ${f.name}. Confirm clinical staffing and admission details directly.` : `Detox is not listed for this program — ask their intake team about options.`,
   });
-  if (f.cash_rate)
-    faqs.push({ q: `How much does ${f.name} cost?`, a: `Self-pay is estimated at $${Number(f.cash_rate).toLocaleString()}. Actual cost varies by program and length of stay, and insurance may cover much of it.` });
   if (f.city || f.state) faqs.push({ q: `Where is ${f.name} located?`, a: `${f.name} is in ${[f.city, f.state].filter(Boolean).join(', ')}.` });
 
-  // schema.org MedicalBusiness — drives rich results (rating stars, address, phone).
+  // schema.org MedicalBusiness describing only facts also visible on this page.
   const jsonLd: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'MedicalBusiness',
@@ -144,8 +234,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
       ...(f.zip ? { postalCode: f.zip } : {}),
       addressCountry: 'US',
     },
-    medicalSpecialty: 'Addiction',
-    image: images.length ? images.slice(0, 3) : [absoluteUrl(DEFAULT_OG_IMAGE.url)],
+    ...(images.length ? { image: images.slice(0, 3) } : {}),
   };
   if (showDescription) jsonLd.description = f.description;
   if (intakePhone) jsonLd.telephone = intakePhone;
@@ -153,27 +242,8 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   if (f.city || f.state) {
     jsonLd.areaServed = { '@type': 'Place', name: [f.city, f.state].filter(Boolean).join(', ') };
   }
-  if (f.cash_rate) jsonLd.priceRange = `$${Number(f.cash_rate).toLocaleString()}`;
-  if (avg !== null && ratings.length) {
-    jsonLd.aggregateRating = {
-      '@type': 'AggregateRating',
-      ratingValue: avg.toFixed(1),
-      reviewCount: reviews.length,
-      bestRating: 5,
-      worstRating: 1,
-    };
-  }
-  if (reviews.length) {
-    jsonLd.review = reviews.slice(0, 5).map((r) => ({
-      '@type': 'Review',
-      author: { '@type': 'Person', name: r.author_name || 'Anonymous' },
-      ...(r.created_at ? { datePublished: r.created_at.slice(0, 10) } : {}),
-      reviewBody: r.body,
-      ...(r.rating
-        ? { reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 } }
-        : {}),
-    }));
-  }
+  // Community comments are moderated but identity and attendance are not verified,
+  // so they are deliberately excluded from Review/AggregateRating structured data.
 
   const goodToKnow: [string, string | null][] = [
     ['Setting', f.operator_type],
@@ -183,22 +253,20 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
     ['Co-occurring / dual diagnosis', f.co_occurring],
     ['Court-ordered accepted', f.accepts_court_ordered],
     ['Intake hours', f.intake_hours],
-    ['Accreditations', (f.accreditations ?? []).join(', ') || null],
+    ['Credentials reported', credentials.map(credentialLabel).join(', ') || null],
   ];
 
-  // FREE tier → a basic directory listing only: name, location, accreditations,
-  // treatment type, address, and email. No photos, insurance, description,
-  // reviews, etc. (Claiming the program + upgrading unlocks the full profile.)
-  if (plan === 'free') {
+  // Unclaimed free directory rows stay concise until a program takes ownership.
+  // Claiming is free and immediately unlocks the complete public profile.
+  if (!fullProfile) {
     const streetAddress = [f.street, f.zip].filter(Boolean).join(', '); // the specific part; city/state is in the header
     const treatmentTypes =
-      levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(' · ') || 'Addiction & mental-health treatment';
+      levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(' · ') || 'Addiction-treatment program';
     const email = contact.email || null;
     const minimalLd = {
       '@context': 'https://schema.org',
       '@type': 'MedicalBusiness',
       name: f.name,
-      medicalSpecialty: 'Addiction',
       address: {
         '@type': 'PostalAddress',
         ...(f.street ? { streetAddress: f.street } : {}),
@@ -227,8 +295,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           hasPhone={Boolean(intakePhone)}
           sourcePage="facility_profile_free"
         />
-        <MatchBackLink className="mb-1 inline-block text-sm text-teal-700 hover:underline" />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd(crumbs)) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(breadcrumbJsonLd(crumbs)) }} />
         <Breadcrumb items={crumbs} />
 
         <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-5">
@@ -247,22 +314,26 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
                   clipRule="evenodd"
                 />
               </svg>
-              Unverified listing — details not yet confirmed
+              Directory-sourced listing — details not admin-reviewed
             </div>
           )}
 
-          {((f.accreditations ?? []).length > 0 || f.is_faith_based || f.verified_at) && (
+          {(credentials.length > 0 || f.is_faith_based || f.verified_at) && (
             <div className="mt-3 flex flex-wrap gap-2">
-              {(f.accreditations ?? []).map((a: string) => (
-                <span key={a} className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800">
-                  {a.toUpperCase()}
+              {credentials.map((credential) => (
+                <span
+                  key={`${credential.kind}:${credential.label}`}
+                  title="Credential reported in the directory source; confirm current status with the issuing body."
+                  className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800"
+                >
+                  {credentialLabel(credential)}
                 </span>
               ))}
               {f.is_faith_based && (
                 <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">Faith-based</span>
               )}
               {f.verified_at && (
-                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs text-emerald-700">Verified</span>
+                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs text-emerald-700">Admin-reviewed listing</span>
               )}
             </div>
           )}
@@ -323,6 +394,16 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               </div>
             )}
           </dl>
+
+          <FacilityTrustPanel
+            claimed={isClaimed}
+            verificationConfidence={f.verification_confidence ?? null}
+            lastVerified={f.last_verified ?? null}
+            verifiedAt={f.verified_at ?? null}
+            verifiedBy={f.verified_by ?? null}
+            sourceUrl={f.source_url ?? null}
+            caps={caps}
+          />
         </div>
 
         <FacilityContextBlock lines={contextLines} />
@@ -337,7 +418,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
 
         {/* Locked previews — show everything a claimed profile gets, greyed out, so the
             facility sees exactly what they're missing. Unlocks on a free claim. */}
-        {(['Photos & video tour', 'Location & directions', 'Insurance, Medicaid MCOs & cash pricing'] as const).map((title) => (
+        {(['Photos & video tour', 'Location & directions', 'Insurance & payment information'] as const).map((title) => (
           <section key={title} className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
             <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
               <span className="text-sm font-semibold text-slate-700">{title}</span>
@@ -358,7 +439,11 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
                   </div>
                 ) : (
                   <div className="space-y-3 p-5 text-sm text-slate-600">
-                    {['Named insurance plans', 'Medicaid MCO names', 'Cash / self-pay rate', 'License & accreditation proof'].map((r) => (
+                    {[
+                      'Reported payment categories',
+                      'Program-listed commercial carrier names',
+                      'Direct intake contact',
+                    ].map((r) => (
                       <div key={r} className="flex items-center justify-between gap-4">
                         <span>{r}</span>
                         <span className="h-3 w-40 rounded bg-slate-200" />
@@ -393,15 +478,13 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
             </div>
             <ul className="grid gap-x-5 gap-y-2.5 px-5 py-4 sm:grid-cols-2">
               {[
-                'Website & online presence',
-                'Admissions email',
-                'Photos & your logo',
-                'Named insurance plans',
-                'Medicaid MCO names',
-                'License & accreditation proof',
-                'Current availability notes',
-                'Cash / self-pay pricing',
-                'Fast-response intake links',
+                'Website & program description',
+                'Specialty and program details',
+                'Photos & video',
+                'Reported payment categories',
+                'Program-listed commercial carrier names',
+                'Residential-bed reports',
+                'Direct intake contact',
               ].map((label) => (
                 <li key={label} className="flex items-start gap-2 text-sm text-slate-700">
                   <svg className="mt-0.5 h-4 w-4 shrink-0 text-teal-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
@@ -427,7 +510,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               <Link href="/for-reps" className="text-sm font-medium text-teal-700 hover:underline">
                 Or add yourself to the team →
               </Link>
-              <span className="text-xs text-slate-500">Free · verified by our team</span>
+              <span className="text-xs text-slate-500">Free · ownership claim reviewed before access</span>
             </div>
           </div>
         </HideForProviders>
@@ -439,10 +522,10 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
   }
 
   const mapQuery = [f.street, f.city, f.state, f.zip].filter(Boolean).join(', ');
-  const anyAccepting = levels.some((l) => {
-    if (!isBedBased(l)) return true;
+  const hasFreshReportedBed = levels.some((l) => {
+    if (!isBedBased(l)) return false;
     const cap = caps.find((c) => c.level_of_care === l);
-    // Only count a bed as "accepting" if it's reported AND recently verified.
+    // A fresh positive report is useful evidence, but never an admission guarantee.
     return !!cap && cap.beds_available > 0 && !availabilityStale(cap.last_updated);
   });
   // True if any bed-based level has a stale/unverified count — drives the disclaimer.
@@ -463,7 +546,6 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
         sourcePage="facility_profile_full"
       />
       <div className="flex gap-4 text-sm text-teal-700">
-        <MatchBackLink className="hover:underline" />
         <Link href="/programs" className="hover:underline">
           Browse all programs
         </Link>
@@ -496,7 +578,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               </p>
               {avg !== null && (
                 <p className="mt-1 text-sm text-amber-500">
-                  {stars(avg)} <span className="text-slate-500">({reviews.length})</span>
+                  {stars(avg)} <span className="text-slate-500">({reviews.length} community-submitted)</span>
                 </p>
               )}
             </div>
@@ -533,16 +615,20 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {(f.accreditations ?? []).map((a: string) => (
-              <span key={a} className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800">
-                {a.toUpperCase()}
+            {credentials.map((credential) => (
+              <span
+                key={`${credential.kind}:${credential.label}`}
+                title="Credential reported in the directory source; confirm current status with the issuing body."
+                className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800"
+              >
+                {credentialLabel(credential)}
               </span>
             ))}
             {f.is_faith_based && (
               <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">Faith-based</span>
             )}
             {f.verified_at && (
-              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs text-emerald-700">Verified</span>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs text-emerald-700">Admin-reviewed listing</span>
             )}
           </div>
 
@@ -555,11 +641,21 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
         </div>
       </div>
 
-      {anyAccepting && (
+      <FacilityTrustPanel
+        claimed={isClaimed}
+        verificationConfidence={f.verification_confidence ?? null}
+        lastVerified={f.last_verified ?? null}
+        verifiedAt={f.verified_at ?? null}
+        verifiedBy={f.verified_by ?? null}
+        sourceUrl={f.source_url ?? null}
+        caps={caps}
+      />
+
+      {hasFreshReportedBed && (
         <div className="mt-5 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
           <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-emerald-500" />
           <span>
-            <strong>Accepting clients now</strong> — contact their intake team to confirm a spot.
+            <strong>Recent positive bed report</strong> — contact the intake team to confirm current availability and admission.
           </span>
         </div>
       )}
@@ -630,14 +726,17 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
                 const fresh = hasBeds && !availabilityStale(cap!.last_updated);
                 let label: string;
                 let tone: 'green' | 'amber' | 'red' | 'muted';
-                if (!isBedBased(l)) {
-                  label = 'outpatient';
+                if (l === 'detox') {
+                  label = 'setting not specified · call to confirm';
+                  tone = 'muted';
+                } else if (!isBedBased(l)) {
+                  label = 'call for scheduling';
                   tone = 'muted';
                 } else if (fresh) {
-                  label = `${cap!.beds_available} beds · ${availabilityAsOf(cap!.last_updated)}`;
+                  label = `${cap!.beds_available} beds reported · ${availabilityAsOf(cap!.last_updated)}`;
                   tone = freshnessTone(cap!.last_updated);
                 } else if (hasBeds) {
-                  // reported, but older than the 30-day window — never show a stale count
+                  // reported, but older than the seven-day window — never show a stale count
                   label = 'Availability not recently verified';
                   tone = 'muted';
                 } else {
@@ -683,7 +782,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
             {populations.length ? (
               populations.map((p) => <li key={p}>• {p.replace(/_/g, ' ')}</li>)
             ) : (
-              <li className="text-slate-400">All adults (confirm specifics)</li>
+              <li className="text-slate-400">Population information not specified — confirm with intake</li>
             )}
           </ul>
         </section>
@@ -695,8 +794,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
               <li key={p.payer_type} className="flex items-center gap-2">
                 <PayerMark brand={payerTypeBrand(p.payer_type as PayerType)} size="md" />
                 <span>
-                  {PAYER_LABELS[p.payer_type as PayerType] ?? p.payer_type}
-                  {p.in_network ? '' : ' (out-of-network)'}
+                  {PAYER_LABELS[p.payer_type as PayerType] ?? p.payer_type} — reported payment option
                 </span>
               </li>
             ))}
@@ -707,27 +805,24 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
                   return (
                     <li key={i} className="flex items-center gap-2">
                       <PayerMark brand={brand} size="md" />
-                      <span>{c}</span>
+                      <span>{c} — reported by the program or directory source</span>
                     </li>
                   );
                 })
               ) : (
                 <li className="flex items-center gap-2">
                   <PayerMark brand={payerTypeBrand('commercial')} size="md" />
-                  <span>Most major commercial insurance (call to confirm)</span>
+                  <span>Commercial insurance category listed (carrier not confirmed)</span>
                 </li>
               ))}
-            {f.cash_rate ? (
-              <li className="flex items-center gap-2">
-                <PayerMark brand={payerTypeBrand('self_pay')} size="md" />
-                <span>Self-pay rate: ${Number(f.cash_rate).toLocaleString()}</span>
-              </li>
-            ) : null}
             {!payers.length && carriers.length === 0 && (
               <li className="text-slate-400">Call to verify coverage</li>
             )}
           </ul>
-          <p className="mt-2 text-xs text-slate-400">Always confirm current in-network status with the program.</p>
+          <p className="mt-2 text-xs text-slate-500">
+            A listed payment option is not a guarantee of in-network status or member benefits. Confirm both with
+            the program and your insurer.
+          </p>
         </section>
       </div>
 
@@ -759,11 +854,16 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
         <h2 className="text-sm font-semibold text-slate-700">
           What people say {avg !== null && <span className="text-amber-500">· {stars(avg)}</span>}
         </h2>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+          Published comments are moderated for safety, but Clear Bed does not verify identity, attendance, or factual
+          claims. They are not medical advice or an endorsement. New submissions are paused while stronger privacy and
+          experience-verification safeguards are developed.
+        </p>
 
         <div className="mt-3 space-y-3">
           {reviews.length === 0 && (
             <p className="text-sm text-slate-500">
-              No comments yet. If you&apos;ve been here, your experience could help someone else decide.
+              No published community comments.
             </p>
           )}
           {reviews.map((r) => (
@@ -776,8 +876,6 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
             </div>
           ))}
         </div>
-
-        <ReviewForm facilityId={f.id} />
       </section>
 
       {f.state && (
@@ -813,7 +911,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
         </section>
       )}
 
-      {/* FAQs — generated from structured fields; emits FAQPage JSON-LD for rich results. */}
+      {/* FAQs — generated from structured fields; JSON-LD mirrors the visible copy. */}
       {faqs.length > 0 && (
         <section id="faqs" className="mt-6 scroll-mt-20">
           <h2 className="h3 mb-2 text-ink">Frequently asked</h2>
@@ -821,7 +919,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
-              __html: JSON.stringify({
+              __html: serializeJsonLd({
                 '@context': 'https://schema.org',
                 '@type': 'FAQPage',
                 mainEntity: faqs.map((item) => ({
@@ -837,24 +935,24 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
 
       {/* Why-trust disclosures — the "explain-it-right-there" boxes, next to the decision. */}
       <section className="mt-6 space-y-2">
-        <DisclosurePanel label="How we verify this listing" tone="trust" icon={<span aria-hidden>🛡️</span>}>
-          This profile starts from the federal SAMHSA treatment directory.{' '}
-          {f.verified_at ? 'Our team has confirmed its core details.' : 'It has not yet been claimed or verified by the program.'}{' '}
-          Where a state licensing registry is available, we check the license directly — not just what a facility tells us.{' '}
+        <DisclosurePanel label="How this listing is sourced" tone="trust" icon={<span aria-hidden>🛡️</span>}>
+          This profile may start from the federal SAMHSA treatment directory and may be updated by an approved
+          program account. {f.verified_at ? 'An administrator has reviewed the listing or ownership claim.' : 'It has not been admin-reviewed.'}{' '}
+          That review is not a clinical endorsement, licensing determination, or guarantee that every field is current.{' '}
           <Link href="/about" className="font-medium text-teal-700 underline">
-            How we vet programs →
+            How directory data works →
           </Link>
         </DisclosurePanel>
         <DisclosurePanel label="How ClearBed makes money" icon={<span aria-hidden>⚖️</span>}>
-          Programs pay a flat listing fee — never per admission or per call. Sponsored programs are clearly labeled and
-          never outrank a better match for you.{' '}
+          Some programs pay a flat subscription for in-app analytics and lead-status workflow. Directory inclusion
+          and need-based match order do not require payment, and fees are never per admission or per call.{' '}
           <Link href="/how-we-make-money" className="font-medium text-teal-700 underline">
             The details →
           </Link>
         </DisclosurePanel>
       </section>
 
-      {/* Mobile sticky contact bar — claimed/paid profiles only (desktop uses the hero buttons) */}
+      {/* Mobile sticky contact bar (desktop uses the hero buttons). */}
       {((showCallIntake && intakePhone) || contact.email) && (
         <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
           {showCallIntake && intakePhone && (

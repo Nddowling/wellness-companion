@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_TYPES, PAYER_LABELS } from '@/lib/constants';
+import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_TYPES, PAYER_LABELS, isBedBased } from '@/lib/constants';
 import { normalizePlan, PLAN_LABEL, type Plan } from '@/lib/facility/plan';
 import {
   adminUpdateFacility,
@@ -73,7 +73,7 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
           <form action={verifyFacility}>
             <input type="hidden" name="facility_id" value={id} />
             <button className="rounded-md border border-slate-300 px-3 py-1.5 text-xs text-slate-600">
-              {f.verified_at ? 'Re-verify' : 'Verify'}
+              {f.verified_at ? 'Review again' : 'Mark reviewed'}
             </button>
           </form>
         </div>
@@ -112,9 +112,10 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
           <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Apply</button>
         </form>
         <p className="text-xs text-slate-500">
-          <strong>Starter</strong> unlocks photos, description, website, the call-intake button &amp; review replies ·{' '}
-          <strong>Growth</strong> adds analytics, in-app seeker contacts, video &amp; featured placement ·{' '}
-          <strong>Anchor</strong> adds full analytics, API bed board &amp; multi-location.
+          An approved free ownership claim unlocks the complete public profile, including photos, video, website, contact actions,
+          and review replies. <strong>Starter</strong> adds basic in-app listing analytics ·{' '}
+          <strong>Growth</strong> adds the lead-status workflow ·{' '}
+          <strong>Anchor</strong> adds the channel-by-channel analytics breakdown. Consented contact access remains free.
         </p>
         <p className="text-xs text-amber-700">
           Grants access immediately — does <strong>not</strong> bill. Use for comped or offline-paid accounts;
@@ -184,8 +185,12 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
 
       {/* Capacity */}
       <section className="space-y-2">
-        <h2 className="text-sm font-semibold text-slate-700">Bed availability</h2>
-        {facLevels.map((lvl) => {
+        <h2 className="text-sm font-semibold text-slate-700">Residential-bed availability</h2>
+        <p className="text-xs text-slate-500">
+          Only residential is currently modeled as bed-based. Other service categories require direct scheduling or
+          setting confirmation.
+        </p>
+        {facLevels.filter(isBedBased).map((lvl) => {
           const cap = capByLevel.get(lvl);
           return (
             <form key={lvl} action={updateCapacity} className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
@@ -198,6 +203,9 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
             </form>
           );
         })}
+        {!facLevels.some(isBedBased) && (
+          <p className="text-sm text-slate-500">This facility does not currently list residential care.</p>
+        )}
       </section>
 
       {/* Members */}

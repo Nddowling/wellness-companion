@@ -15,7 +15,7 @@ export const DEFAULT_TITLE =
   'Clear Bed Recovery — Find Addiction Treatment That Fits';
 
 export const DEFAULT_DESCRIPTION =
-  'Clear Bed Recovery helps you find addiction treatment — including programs for co-occurring mental-health needs — that fits your situation, insurance, and region, with real-time bed availability. We connect you to treatment facilities; we don’t provide treatment ourselves. Free, private, and no account required to start.';
+  'Clear Bed Recovery helps you browse addiction treatment — including programs for co-occurring mental-health needs — by level of care, payment type, region, and dated availability reports. We connect you to facilities; we don’t provide treatment. Free and no account required to start.';
 
 export const DEFAULT_OG_IMAGE = {
   url: '/images/hero.jpg',
@@ -42,16 +42,16 @@ export const organizationJsonLd = {
   name: SITE_NAME,
   alternateName: 'ClearBed',
   url: SITE_URL,
-  logo: absoluteUrl('/images/hero.jpg'),
+  // A crawlable, square brand mark (not the editorial hero photograph).
+  logo: absoluteUrl('/icon-512.png'),
   image: absoluteUrl(DEFAULT_OG_IMAGE.url),
   description: DEFAULT_DESCRIPTION,
-  slogan: 'The live directory behind every good referral.',
   // Public NAP for a hidden-address service-area business: Name + phone + service
   // area. No PostalAddress (the street stays private / GBP-verification only).
   telephone: '+1-904-548-8047',
   email: 'hello@clearbedrecovery.com',
   areaServed: { '@type': 'Country', name: 'United States' },
-  // Topical-authority signal (March-2026 core update rewards focused expertise).
+  // Subjects the organization actually covers across its public directory and guides.
   knowsAbout: [
     'Addiction treatment',
     'Substance use disorder',
@@ -76,7 +76,7 @@ export const organizationJsonLd = {
   // treats sameAs as an entity-trust signal. Leaving empty rather than guessing.
 } as const;
 
-/** schema.org WebSite with a sitelinks search box pointed at the directory. */
+/** schema.org WebSite identity. Public search avoids raw free-text query URLs. */
 export const websiteJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'WebSite',
@@ -84,14 +84,6 @@ export const websiteJsonLd = {
   name: SITE_NAME,
   url: SITE_URL,
   publisher: { '@id': `${SITE_URL}/#organization` },
-  potentialAction: {
-    '@type': 'SearchAction',
-    target: {
-      '@type': 'EntryPoint',
-      urlTemplate: `${SITE_URL}/programs?q={search_term_string}`,
-    },
-    'query-input': 'required name=search_term_string',
-  },
 } as const;
 
 /** BreadcrumbList from an ordered list of {name, path} crumbs. */
@@ -108,11 +100,7 @@ export function breadcrumbJsonLd(crumbs: { name: string; path: string }[]) {
   };
 }
 
-/**
- * ItemList of facilities for a directory/landing page. Helps search + AI engines
- * read the page as a structured list of programs (and is one of the strongest
- * signals for AI-citation per 2026 research).
- */
+/** ItemList matching the visible facilities on a directory/landing page. */
 export function facilityItemListJsonLd(
   items: { id: string; name: string; slug?: string | null; city?: string | null; state?: string | null }[]
 ) {
@@ -133,8 +121,7 @@ export function facilityItemListJsonLd(
   };
 }
 
-/** FAQPage from question/answer pairs. (Rich results deprecated May 2026, but the
- *  markup still aids parsing + AI answer engines.) */
+/** FAQPage matching question/answer pairs that are also visible on the page. */
 export function faqJsonLd(qa: { q: string; a: string }[]) {
   return {
     '@context': 'https://schema.org',

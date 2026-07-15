@@ -10,6 +10,7 @@ import {
   getSavedFacilityIds,
 } from '@/lib/partner/data';
 import { FacilityRow } from '@/components/partner/FacilityRow';
+import { ProgramLookup } from '@/components/partner/ProgramLookup';
 import { getMyReferralStats } from '@/lib/referrals/data';
 
 export default async function PartnerHome() {
@@ -46,22 +47,13 @@ export default async function PartnerHome() {
           {firstName ? `Welcome, ${firstName}` : 'Welcome'}
         </h1>
         <p className="text-sm text-slate-500">
-          Find the right program and hand it off with confidence. Everything here is free — you never pay to help
-          someone into care.
+          Compare published program options, contact programs directly, and confirm suitability, availability, and
+          payment details. Partner tools are free.
         </p>
       </div>
 
       {/* Quick search — the daily entry point */}
-      <form action="/partners/search" className="flex gap-2">
-        <input
-          name="q"
-          placeholder="Search by program name or city…"
-          className="min-w-0 flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm shadow-sm focus:border-teal-400 focus:outline-none"
-        />
-        <button className="rounded-xl bg-teal-700 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-800">
-          Search
-        </button>
-      </form>
+      <ProgramLookup />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {tiles.map((t) => (
@@ -89,11 +81,10 @@ export default async function PartnerHome() {
             View all →
           </Link>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {[
             { label: 'Total', value: refStats.total },
-            { label: 'Reached care', value: refStats.connected },
-            { label: 'Accepted', value: refStats.accepted },
+            { label: 'Routes marked accepted', value: refStats.accepted },
             { label: 'In flight', value: refStats.open },
           ].map((s) => (
             <div key={s.label} className="rounded-xl bg-slate-50 p-3 text-center">

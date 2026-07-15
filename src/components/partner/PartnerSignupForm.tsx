@@ -10,7 +10,8 @@ import { Button, Input, Label } from '@/components/ui';
 /**
  * Lightweight Partner self-signup. Unlike facilities (verified claim only), partners
  * are wide-open: name + email + password + how-you-refer, and they're in. Creates the
- * auth user (tagged role=partner) and the bd_users profile row in one step.
+ * auth user (tagged for post-confirmation provisioning) and the canonical
+ * bd_users profile row. Authorization never trusts the metadata tag by itself.
  */
 export function PartnerSignupForm() {
   const router = useRouter();
@@ -38,8 +39,14 @@ export function PartnerSignupForm() {
       email: form.email,
       password: form.password,
       options: {
-        data: { role: 'partner', full_name: form.name.trim() },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/home`,
+        data: {
+          role: 'partner',
+          full_name: form.name.trim(),
+          partner_type: form.partner_type,
+          professional_title: form.title.trim() || null,
+          employer: form.employer.trim() || null,
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/partners`,
       },
     });
     if (error) {
@@ -53,16 +60,14 @@ export function PartnerSignupForm() {
       setCheck(true);
       return;
     }
-    if (data.user?.id) {
-      await supabase.from('bd_users').upsert(
-        {
-          user_id: data.user.id,
-          partner_type: form.partner_type || null,
-          title: form.title.trim() || null,
-          employer: form.employer.trim() || null,
-        },
-        { onConflict: 'user_id' },
-      );
+    const provisioned = await fetch('/api/auth/provision', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${data.session.access_token}` },
+    });
+    if (!provisioned.ok) {
+      setBusy(false);
+      setError('Your account was created, but the Partner profile could not be completed. Please sign in and try again.');
+      return;
     }
     router.push('/partners');
     router.refresh();
@@ -71,8 +76,8 @@ export function PartnerSignupForm() {
   if (check) {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
-        <strong>Almost there.</strong> We sent a confirmation link to {form.email}. Confirm it, then sign in
-        and you&apos;ll land in your Partner dashboard.
+        <strong>Almost there.</strong> We sent a confirmation link to {form.email}. Open it and you&apos;ll land in
+        your Partner dashboard.
       </div>
     );
   }

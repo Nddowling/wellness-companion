@@ -14,7 +14,7 @@ export type FacilitySummary = {
   state: string | null;
   levels: string[]; // raw level keys
   payers: string[]; // raw payer keys
-  beds: number;
+  beds: number | null;
   freshnessLabel: string;
   contact: { name?: string; email?: string; phone?: string } | null;
 };
@@ -52,21 +52,6 @@ function button(href: string, label: string, color: string = BRAND.teal): string
   )}</a>`;
 }
 
-/** The temporary-credentials card used in every onboarding email. */
-function credsCard(email: string, password?: string): string {
-  const pw = password
-    ? `<div style="font-size:14px;color:${BRAND.ink};margin-top:2px">Temporary password: <strong style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;background:#ffffff;border:1px solid ${BRAND.mistLine};border-radius:6px;padding:2px 6px">${esc(
-        password
-      )}</strong></div>
-      <div style="font-size:12px;color:${BRAND.slate};margin-top:8px">For your security you'll choose your own password right after you sign in.</div>`
-    : `<div style="font-size:13px;color:${BRAND.slate};margin-top:4px">Sign in with your existing Clear Bed Recovery password.</div>`;
-  return `<div style="background:${BRAND.mist};border:1px solid ${BRAND.mistLine};border-radius:10px;padding:16px;margin:16px 0">
-    <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:${BRAND.teal};margin-bottom:8px">Your login</div>
-    <div style="font-size:14px;color:${BRAND.ink}">Email: <strong>${esc(email)}</strong></div>
-    ${pw}
-  </div>`;
-}
-
 /** A compact numbered "how to get started" list. */
 function steps(items: string[]): string {
   const lis = items
@@ -89,7 +74,7 @@ function wrap(title: string, inner: string, footer: string = CRISIS): string {
         <td style="padding-right:10px;vertical-align:middle"><img src="${LOGO_URL}" width="30" height="30" alt="Clear Bed Recovery" style="display:block;border:0"/></td>
         <td style="vertical-align:middle">
           <div style="font-size:18px;font-weight:800;letter-spacing:-.01em;line-height:1.1"><span style="color:#7ad9bb">Clear</span><span style="color:#ffffff">Bed Recovery</span></div>
-          <div style="color:#9fdcc9;font-size:12px;margin-top:3px">Connecting you to treatment that fits</div>
+          <div style="color:#9fdcc9;font-size:12px;margin-top:3px">Clearer addiction-treatment directory options</div>
         </td>
       </tr></table>
     </div>
@@ -112,10 +97,12 @@ function facilityBlockHtml(f: FacilitySummary): string {
   const contact = f.contact
     ? [f.contact.phone, f.contact.email].filter(Boolean).join(' · ')
     : 'Contact on file';
+  const availability =
+    f.beds === null ? f.freshnessLabel : `${f.beds} ${f.beds === 1 ? 'bed' : 'beds'} · ${f.freshnessLabel}`;
   return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin:8px 0">
     <div style="font-weight:600">${esc(f.name)}</div>
     <div style="font-size:13px;color:#64748b">${esc(loc)} · ${esc(levels)}</div>
-    <div style="font-size:13px;color:#64748b">${f.beds} beds · ${esc(f.freshnessLabel)}${payers ? ` · Accepts: ${esc(payers)}` : ''}</div>
+    <div style="font-size:13px;color:#64748b">${esc(availability)}${payers ? ` · Listed payment: ${esc(payers)}` : ''}</div>
     <div style="font-size:13px;margin-top:6px">Reach intake: <strong>${esc(contact)}</strong></div>
   </div>`;
 }
@@ -124,12 +111,14 @@ function facilityBlockText(f: FacilitySummary): string {
   const loc = [f.city, f.state].filter(Boolean).join(', ');
   const levels = f.levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(', ');
   const contact = f.contact ? [f.contact.phone, f.contact.email].filter(Boolean).join(' · ') : 'Contact on file';
-  return `• ${f.name} — ${loc} (${levels}); ${f.beds} beds; reach intake: ${contact}`;
+  const availability =
+    f.beds === null ? f.freshnessLabel : `${f.beds} ${f.beds === 1 ? 'bed' : 'beds'} · ${f.freshnessLabel}`;
+  return `• ${f.name} — ${loc} (${levels}); ${availability}; reach intake: ${contact}`;
 }
 
 // 0) Facility claim invite — cold outreach to a listed-but-unclaimed program.
-// Founder-voice: we already listed them free; claiming unlocks free performance
-// updates; it stays free (optional paid profile upgrades are revealed on-site).
+// Founder-voice: we already listed them free; an approved ownership claim unlocks
+// the complete editable profile. Do not promise recurring reports without a pipeline.
 // CAN-SPAM: pass a real mailing address + working unsubscribe URL.
 export function facilityClaimInviteEmail(p: {
   facilityName: string;
@@ -162,15 +151,15 @@ export function facilityClaimInviteEmail(p: {
     <p>We're a free directory that connects people looking for treatment to real programs near them — matched by level of care, insurance, and location. We're a <strong>connector, not a provider</strong>, and the person seeking help <strong>never pays a cent</strong>.</p>
     <p>Here's why I'm writing: <strong>I've already listed ${esc(p.facilityName)}${esc(where)} — completely free.</strong> Your page is live right now.</p>
     ${cta}
-    <p>If you take two minutes to <strong>claim and verify your listing</strong>, I'll start sending you <strong>free monthly updates on how it's performing</strong> — how many people viewed your program, searched your area, and clicked through. Those updates only start once you've claimed it, so it's worth doing today.</p>
-    <p>After that, it stays <strong>100% free.</strong> No card, no contract, no catch — just me trying to do one good thing with the skill I have.</p>
+    <p>If you submit an <strong>ownership claim</strong>, an administrator will review it before granting dashboard access. Once approved, you can correct directory details, add profile content, and keep your availability reports current.</p>
+    <p>The complete claimed public profile stays <strong>free.</strong> No card or contract is required to manage it.</p>
     <p style="margin-top:16px">In your corner,<br/><strong>${esc(p.fromName)}</strong><br/>Founder, Clear Bed Recovery</p>
     ${canSpam}`;
 
   const innerShort = `
     <p>${esc(hi)}</p>
     <p>I'm in recovery and a developer — I built <strong>Clear Bed Recovery</strong>, a free directory that connects people to treatment near them, to give back. We're a connector, not a provider, and people seeking help never pay.</p>
-    <p><strong>I've already listed ${esc(p.facilityName)}${esc(where)}, free.</strong> Claim it (2 min) and I'll send you <strong>free monthly updates</strong> on how your listing performs. It stays 100% free — no catch.</p>
+    <p><strong>I've already listed ${esc(p.facilityName)}${esc(where)}, free.</strong> Submit an ownership claim so an administrator can review dashboard access. Once approved, you can correct the listing, add profile content, and update availability. The complete claimed public profile stays free.</p>
     ${cta}
     <p style="margin-top:8px">In your corner,<br/><strong>${esc(p.fromName)}</strong> · Founder, Clear Bed Recovery</p>
     ${canSpam}`;
@@ -184,131 +173,91 @@ export function facilityClaimInviteEmail(p: {
 
   const text = (
     p.short
-      ? `${hi}\n\nI'm in recovery and a developer — I built Clear Bed Recovery, a free directory that connects people to treatment near them. We're a connector, not a provider, and people seeking help never pay.\n\nI've already listed ${p.facilityName}${where}, free. Claim it (2 min) and I'll send you free monthly updates on how your listing performs. It stays 100% free — no catch.\n\nView & claim: ${p.listingUrl}\n\nIn your corner,\n${p.fromName} · Founder, Clear Bed Recovery`
-      : `${hi}\n\nI'll be straight with you: I'm a person in long-term recovery, and a software developer. Clear Bed Recovery is what I built to give back — a free directory that connects people looking for treatment to real programs near them, matched by level of care, insurance, and location. We're a connector, not a provider, and the person seeking help never pays a cent.\n\nI've already listed ${p.facilityName}${where} — completely free. Your page is live right now:\n${p.listingUrl}\n\nClaim and verify your listing (2 minutes) and I'll send you free monthly updates on how it's performing — views, searches in your area, and click-throughs. Those only start once you've claimed it. After that it stays 100% free. No card, no contract, no catch.\n\nIn your corner,\n${p.fromName}\nFounder, Clear Bed Recovery`
+      ? `${hi}\n\nI'm in recovery and a developer — I built Clear Bed Recovery, a free directory that connects people to treatment near them. We're a connector, not a provider, and people seeking help never pay.\n\nI've already listed ${p.facilityName}${where}, free. Submit an ownership claim so an administrator can review dashboard access. Once approved, you can correct the listing, add profile content, and update availability. The complete claimed public profile stays free.\n\nView & claim: ${p.listingUrl}\n\nIn your corner,\n${p.fromName} · Founder, Clear Bed Recovery`
+      : `${hi}\n\nI'll be straight with you: I'm a person in long-term recovery, and a software developer. Clear Bed Recovery is what I built to give back — a free directory that connects people looking for treatment to real programs near them, narrowed by listed care level, payment type, and location. We're a connector, not a provider, and the person seeking help never pays.\n\nI've already listed ${p.facilityName}${where} — completely free. Your page is live right now:\n${p.listingUrl}\n\nSubmit an ownership claim so an administrator can review dashboard access. Once approved, you can correct the listing, add profile content, and update availability. The complete claimed public profile stays free; no card or contract is required to manage it.\n\nIn your corner,\n${p.fromName}\nFounder, Clear Bed Recovery`
   ) + `\n\n—\nYou're receiving this once because ${p.facilityName} appears in our public directory. Unsubscribe: ${p.unsubscribeUrl} · ${p.mailingAddress}`;
 
   return { subject, html, text };
 }
 
-// 1) Welcome — sent when a seeker shares contact info + consents to email.
-export function welcomeEmail(name?: string): { subject: string; html: string; text: string } {
-  const hi = name ? `Hi ${name},` : 'Hi,';
-  const subject = 'Welcome to Clear Bed Recovery';
-  const html = wrap('You took a brave first step', `
-    <p>${esc(hi)}</p>
-    <p>Thank you for reaching out. Finding the right treatment can feel overwhelming, and you don't have to do it alone. We'll send you the facilities that fit your needs, and you can reach out to any of them whenever you're ready — there's no pressure and no wrong pace.</p>
-    <p>If you'd like, we'll also check in next week in case it helps to have a gentle reminder.</p>`);
-  const text = `${hi}\n\nThank you for reaching out. We'll send you the facilities that fit your needs, and you can reach out to any of them whenever you're ready.\n\n${CRISIS}`;
-  return { subject, html, text };
-}
-
-// 2) Treatment info — the matched facilities with full details + contact.
+// Treatment info — one consented email containing matched facilities + contact.
 export function treatmentInfoEmail(
   name: string | undefined,
   facilities: FacilitySummary[]
 ): { subject: string; html: string; text: string } {
   const hi = name ? `Hi ${name},` : 'Hi,';
-  const subject = 'The treatment options that fit your needs';
-  const html = wrap('Places that may be a good fit', `
+  const subject = 'Your Clear Bed directory options';
+  const html = wrap('Directory options narrowed from your answers', `
     <p>${esc(hi)}</p>
-    <p>Here are the facilities matched to what you shared. Each has current availability and can take your call directly:</p>
+    <p>Here are directory options narrowed from what you shared. Availability and coverage are not guaranteed; use the listed contact to verify both directly:</p>
     ${facilities.map(facilityBlockHtml).join('')}
     <p>You can reach out to any of them whenever you're ready.</p>`);
-  const text = `${hi}\n\nHere are the facilities matched to your needs:\n\n${facilities
+  const text = `${hi}\n\nHere are directory options narrowed from your answers. Verify availability and coverage directly, and ask a qualified provider to assess level of care and admission:\n\n${facilities
     .map(facilityBlockText)
     .join('\n')}\n\n${CRISIS}`;
   return { subject, html, text };
 }
 
-// 2b) Account — sent to a seeker when an account is created on completion. Their login
-// and the programs matched to them. Takes only a first name — this email deliberately
-// does NOT echo back health details (no "what you shared" summary): an inbox is not a
-// safe channel for that, and we no longer hold it anyway.
-export function seekerAccountEmail(params: {
-  email: string;
-  password: string;
-  loginUrl: string;
-  name?: string;
-  facilities: FacilitySummary[];
-}): { subject: string; html: string; text: string } {
-  const hi = params.name ? `Hi ${params.name.split(' ')[0]},` : 'Hi,';
-  const subject = 'Your Clear Bed Recovery account & matched programs';
-
-  const html = wrap('Welcome — your account is ready', `
-    <p style="margin:0 0 12px;font-size:15px;line-height:1.6">${esc(hi)}</p>
-    <p style="margin:0 0 4px;font-size:15px;line-height:1.6">Thank you for taking this step — that took courage. We saved everything you shared, so your matched programs and your conversation are waiting whenever you come back. No need to start over.</p>
-    ${credsCard(params.email, params.password)}
-    <div style="margin:16px 0">${button(params.loginUrl, 'Sign in & set your password')}</div>
-    <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:${BRAND.ink}">What happens next:</p>
-    ${steps([
-      'Sign in with the email and temporary password above.',
-      'Choose your own password when prompted — it only takes a moment.',
-      'You’re in: your matched programs and saved conversations are all there.',
-    ])}
-    <p style="margin:0 0 12px;font-size:14px;color:${BRAND.slate};line-height:1.6">You don’t have to sign in to keep going — you can reach any of the programs below directly, any time.</p>
-    <h2 style="font-size:15px;color:${BRAND.teal};margin:16px 0 4px">Programs matched to you</h2>
-    ${params.facilities.map(facilityBlockHtml).join('')}
-    <p style="font-size:13px;color:${BRAND.slate};margin-top:12px">Reach out whenever you’re ready — there’s no pressure and no wrong pace.</p>`);
-
-  const text = `${hi}\n\nThank you for taking this step. Your Clear Bed Recovery account is ready — your matches and conversation are saved.\n\nGet started:\n1) Sign in: ${params.loginUrl}\n2) Email: ${params.email}\n3) Temporary password: ${params.password}\n4) Choose your own password when prompted.\n\nYou can also reach any program directly, any time.\n\nPrograms matched to you:\n${params.facilities.map(facilityBlockText).join('\n')}\n\n${CRISIS}`;
-  return { subject, html, text };
-}
-
 // 5) Staff invite — to a colleague added to a facility team. Business email, NOT
-// PHI: no crisis footer, just a sign-in link and (for brand-new accounts) a temp
-// password. Used by both facility self-serve invites and admin "add member".
+// PHI: no crisis footer and no relayed credentials. A new account receives a
+// single-use set-password capability; an existing account receives the login URL.
 export function staffInviteEmail(params: {
   facilityName: string;
-  loginUrl: string;
+  actionUrl: string;
   email: string;
   role: 'owner' | 'staff';
-  password?: string; // present only when a new login was just created
+  newAccount: boolean;
 }): { subject: string; html: string; text: string } {
   const subject = `You've been added to ${params.facilityName} on Clear Bed Recovery`;
   const roleLine =
     params.role === 'owner'
-      ? 'As an <strong>owner</strong>, you can update beds and profile, manage leads, and invite others.'
-      : 'As <strong>staff</strong>, you can update beds and profile and manage incoming referrals.';
+      ? 'As an <strong>owner</strong>, you can update residential-bed reports and profile information, view consented seeker contacts, and invite others.'
+      : 'As <strong>staff</strong>, you can update residential-bed reports and profile information and view consented seeker contacts.';
   const footer =
     'You received this because someone added you to a facility team on Clear Bed Recovery, the addiction-treatment referral directory.';
 
   const html = wrap(
     `Welcome to the ${params.facilityName} team`,
     `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">You've been added to <strong>${esc(
-      params.facilityName
+     params.facilityName
     )}</strong> on Clear Bed Recovery.</p>
      <p style="margin:0 0 4px;font-size:14px;color:${BRAND.slate};line-height:1.6">${roleLine}</p>
-     ${credsCard(params.email, params.password)}
-     <div style="margin:16px 0">${button(params.loginUrl, params.password ? 'Sign in & set your password' : 'Sign in to get started')}</div>
-     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:0">Keeping your bed availability current is what gets your program matched to the right referrals first.</p>`,
+     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6">Account email: <strong>${esc(params.email)}</strong></p>
+     <div style="margin:16px 0">${button(params.actionUrl, params.newAccount ? 'Set your password & sign in' : 'Sign in to get started')}</div>
+     ${
+       params.newAccount
+         ? `<p style="font-size:12px;color:${BRAND.slate};line-height:1.6">This setup link is single-use and expires. If it no longer works, choose “Forgot password” on the sign-in page.</p>`
+         : ''
+     }
+     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:0">Recent bed reports can improve ordering within the same region; they never determine clinical fit or guarantee admission.</p>`,
     footer
   );
 
-  const text = `You've been added to ${params.facilityName} on Clear Bed Recovery (${params.role}).\n\nSign in: ${
-    params.loginUrl
-  }\nEmail: ${params.email}${
-    params.password ? `\nTemporary password: ${params.password} (change it after signing in)` : ''
-  }\n\nKeeping your bed availability current is what gets your program matched to the right referrals first.\n\n${footer}`;
+  const text = `You've been added to ${params.facilityName} on Clear Bed Recovery (${params.role}).\n\n${
+    params.newAccount ? 'Set your password and sign in' : 'Sign in'
+  }: ${params.actionUrl}\nEmail: ${params.email}${
+    params.newAccount
+      ? '\nThis setup link is single-use and expires. If it no longer works, choose "Forgot password" on the sign-in page.'
+      : ''
+  }\n\nRecent bed reports can improve ordering within the same region; they never determine clinical fit or guarantee admission.\n\n${footer}`;
 
   return { subject, html, text };
 }
 
-// Provider claim approved — sent when an admin verifies a facility claim and creates
-// the provider's login. Carries the temp password for first sign-in (they're then
-// forced to set their own password).
+// Provider claim approved — sent when an admin reviews a facility ownership claim
+// and creates the provider login. Carries only a single-use set-password link.
 export function providerClaimApprovedEmail(params: {
   facilityName: string;
   setPasswordUrl: string; // single-use link to /reset where they choose a password
   email: string;
 }): { subject: string; html: string; text: string } {
-  const subject = `You're verified — set your password for ${params.facilityName}`;
+  const subject = `Your claim was approved — set your password for ${params.facilityName}`;
   const footer =
     'You received this because you requested to claim a facility on Clear Bed Recovery, the addiction-treatment referral directory.';
 
   const html = wrap(
-    `You're verified — welcome aboard`,
-    `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">Good news — we've verified your claim for <strong>${esc(
+    `Your ownership claim was approved`,
+    `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">Good news — an administrator approved your ownership claim for <strong>${esc(
       params.facilityName
     )}</strong>. Set your password to finish setting up your account and start managing your program.</p>
      <div style="margin:16px 0">${button(params.setPasswordUrl, 'Set your password & sign in')}</div>
@@ -319,13 +268,13 @@ export function providerClaimApprovedEmail(params: {
      ${steps([
        'Click the button above and choose your password.',
        'Complete your profile and keep your bed availability current.',
-       'Upgrade any time to unlock photos, video, analytics, and featured placement.',
+       'Your full public profile is free; paid plans add in-app analytics and lead-status workflow.',
      ])}
-     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:12px 0 0">Keeping your bed availability current is what gets your program matched to the right referrals first. Flat monthly pricing — never per-lead or per-admission.</p>`,
+     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:12px 0 0">Recent bed reports can improve ordering within the same region. Flat monthly pricing — never per-lead or per-admission.</p>`,
     footer
   );
 
-  const text = `You're verified — welcome to Clear Bed Recovery.\n\nYour claim for ${params.facilityName} is approved.\n\nSet your password to finish: ${params.setPasswordUrl}\n\nYou'll sign in with ${params.email} and the password you choose. The link is single-use and expires; if it stops working, use "Forgot password" on the sign-in page.\n\nThen complete your profile and keep your bed availability current — that's what gets you matched to the right referrals first.\n\n${footer}`;
+  const text = `Your ownership claim was approved.\n\nAn administrator approved access for ${params.facilityName}. This is not a clinical endorsement or licensing determination.\n\nSet your password to finish: ${params.setPasswordUrl}\n\nYou'll sign in with ${params.email} and the password you choose. The link is single-use and expires; if it stops working, use "Forgot password" on the sign-in page.\n\nThen complete your profile and keep bed reports current.\n\n${footer}`;
 
   return { subject, html, text };
 }
@@ -336,7 +285,6 @@ export function providerClaimApprovedEmail(params: {
 export function adminWelcomeEmail(params: {
   email: string;
   loginUrl: string;
-  password?: string;
 }): { subject: string; html: string; text: string } {
   const subject = 'Your Clear Bed Recovery admin access';
   const footer =
@@ -344,39 +292,19 @@ export function adminWelcomeEmail(params: {
   const html = wrap(
     'Welcome — you have admin access',
     `<p style="margin:0 0 12px;font-size:15px;line-height:1.6">You've been set up as the <strong>global administrator</strong> for Clear Bed Recovery. You have full oversight: review and approve facility claims, manage every program, and view seeker records.</p>
-     ${credsCard(params.email, params.password)}
-     <div style="margin:16px 0">${button(params.loginUrl, params.password ? 'Sign in & set your password' : 'Sign in to the admin dashboard')}</div>
+     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6">Account email: <strong>${esc(params.email)}</strong></p>
+     <div style="margin:16px 0">${button(params.loginUrl, 'Sign in to the admin dashboard')}</div>
      <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:${BRAND.ink}">Getting started:</p>
      ${steps([
-       'Sign in with the email and temporary password above.',
-       'Choose your own password when prompted.',
+       'Open the secure sign-in link above.',
+       'Use password recovery if you have not set a password yet.',
        'You’ll land on the admin dashboard — claims, facilities, and seekers are all there.',
        'You can open the seeker AI from your menu (“AI chat (test)”) any time to try it.',
      ])}`,
     footer
   );
-  const text = `Welcome to Clear Bed Recovery — you have global admin access.\n\nGet started:\n1) Sign in: ${
+  const text = `Welcome to Clear Bed Recovery — you have global admin access.\n\nSign in: ${
     params.loginUrl
-  }\n2) Email: ${params.email}${
-    params.password ? `\n3) Temporary password: ${params.password}\n4) Choose your own password when prompted.` : ''
-  }\n\nYou'll land on the admin dashboard — claims, facilities, and seekers.\n\n${footer}`;
-  return { subject, html, text };
-}
-
-// 4) Weekly reminder — to seekers who haven't connected yet.
-export function weeklyReminderEmail(
-  name: string | undefined,
-  facilities: FacilitySummary[]
-): { subject: string; html: string; text: string } {
-  const hi = name ? `Hi ${name},` : 'Hi,';
-  const subject = 'Still here whenever you’re ready';
-  const html = wrap('A gentle check-in', `
-    <p>${esc(hi)}</p>
-    <p>No pressure at all — we just wanted to leave the door open. These are the places you looked at, and they still have availability:</p>
-    ${facilities.map(facilityBlockHtml).join('')}
-    <p>Reaching out is always your call, on your timeline. We're glad you're here.</p>`);
-  const text = `${hi}\n\nNo pressure — just leaving the door open. The places you looked at:\n\n${facilities
-    .map(facilityBlockText)
-    .join('\n')}\n\n${CRISIS}`;
+  }\nEmail: ${params.email}\nUse password recovery if you have not set a password yet.\n\nYou'll land on the admin dashboard — claims, facilities, and seekers.\n\n${footer}`;
   return { subject, html, text };
 }

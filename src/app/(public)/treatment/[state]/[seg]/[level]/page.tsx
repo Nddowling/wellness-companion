@@ -11,9 +11,10 @@ import { computeAreaStats, cityLevelContextLines, type ContextFacility } from '@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { loadFacilityBySlug, facilityCanonicalPath, buildFacilityMetadata } from '@/lib/facility/load';
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
-import { LEVELS_OF_CARE, LEVEL_LABELS, LEVEL_BLURB, type LevelOfCare } from '@/lib/constants';
-import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
+import { LEVELS_OF_CARE, LEVEL_LABELS, LEVEL_BLURB, isBedBased, type LevelOfCare } from '@/lib/constants';
+import { codeFromStateSlug, stateName, stateSlug, slugify } from '@/lib/geo';
 import { landingIndexable, robotsFor } from '@/lib/indexable';
+import { collectPublicRows } from '@/lib/supabase/public-pagination';
 
 export const revalidate = 3600;
 
@@ -49,14 +50,17 @@ async function load(stateParam: string, seg: string, level: string) {
 
 async function loadUncached(code: string, seg: string, level: string) {
   const supabase = createAdminClient();
-  const { data } = await supabase
-    .from('facilities')
-    .select('id, name, slug, city, state, levels_of_care, accreditations, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
-    .eq('is_published', true)
-    .ilike('state', code)
-    .contains('levels_of_care', [level])
-    .order('name');
-  const all = (data ?? []) as FacilityCardData[];
+  const all = (await collectPublicRows('treatment city level', (from, to) =>
+    supabase
+      .from('facilities')
+      .select('id, name, slug, city, state, levels_of_care, accreditations, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
+      .eq('is_published', true)
+      .ilike('state', code)
+      .contains('levels_of_care', [level])
+      .order('name')
+      .order('id')
+      .range(from, to),
+  )) as FacilityCardData[];
   const rows = all.filter((f) => f.city && slugify(f.city) === seg);
   if (rows.length === 0) return null;
   return { code, state: stateName(code), cityName: rows[0].city as string, level: level as LevelOfCare, rows };
@@ -78,14 +82,22 @@ export async function generateMetadata({
 
   const r = await load(state, seg, level);
   if (!r) return { title: 'Treatment not found', robots: { index: false, follow: true } };
+  const canonicalState = stateSlug(r.code);
+  const canonicalCity = slugify(r.cityName);
   const title = `${LEVEL_LABELS[r.level]} in ${r.cityName}, ${r.code}`;
-  const description = `${r.rows.length} ${LEVEL_LABELS[r.level].toLowerCase()} program${r.rows.length === 1 ? '' : 's'} in ${r.cityName}, ${r.code}, with real-time bed availability. Free and private — get matched or browse directly.`;
+  const description = isBedBased(r.level)
+    ? `${r.rows.length} listed ${LEVEL_LABELS[r.level].toLowerCase()} program${r.rows.length === 1 ? '' : 's'} in ${r.cityName}, ${r.code}, with dated residential-bed reports when supplied.`
+    : `${r.rows.length} listed ${LEVEL_LABELS[r.level].toLowerCase()} program${r.rows.length === 1 ? '' : 's'} in ${r.cityName}, ${r.code}, with source-listed services and direct contact details.`;
   return {
     title,
     description,
     robots: robotsFor(landingIndexable(r.rows.length)),
-    alternates: { canonical: `/treatment/${state}/${seg}/${level}` },
-    openGraph: { title: `${title} | ${SITE_NAME}`, description, url: absoluteUrl(`/treatment/${state}/${seg}/${level}`) },
+    alternates: { canonical: `/treatment/${canonicalState}/${canonicalCity}/${r.level}` },
+    openGraph: {
+      title: `${title} | ${SITE_NAME}`,
+      description,
+      url: absoluteUrl(`/treatment/${canonicalState}/${canonicalCity}/${r.level}`),
+    },
   };
 }
 
@@ -112,30 +124,42 @@ export default async function CityLevelOrProfilePage({
 
   const r = await load(state, seg, level);
   if (!r) notFound();
+  const canonicalState = stateSlug(r.code);
+  const canonicalCity = slugify(r.cityName);
+  if (state !== canonicalState || seg !== canonicalCity || level !== r.level) {
+    permanentRedirect(`/treatment/${canonicalState}/${canonicalCity}/${r.level}`);
+  }
 
   const levelLabel = LEVEL_LABELS[r.level];
+  const levelUsesBeds = isBedBased(r.level);
   const faqs = [
     {
       q: `How many ${levelLabel.toLowerCase()} programs are in ${r.cityName}, ${r.code}?`,
-      a: `${r.rows.length} ${levelLabel.toLowerCase()} program${r.rows.length === 1 ? '' : 's'} in ${r.cityName}, ${r.code} ${r.rows.length === 1 ? 'is' : 'are'} listed on ${SITE_NAME}, each showing current bed availability.`,
+      a: `${r.rows.length} ${levelLabel.toLowerCase()} program${r.rows.length === 1 ? '' : 's'} in ${r.cityName}, ${r.code} ${r.rows.length === 1 ? 'is' : 'are'} listed on ${SITE_NAME}, with source-listed services${levelUsesBeds ? ' and dated residential-bed reports when supplied' : ''}.`,
     },
     { q: `What is ${levelLabel.toLowerCase()}?`, a: LEVEL_BLURB[r.level] },
     {
       q: `Does insurance cover ${levelLabel.toLowerCase()} in ${r.cityName}?`,
-      a: `Most health plans cover medically necessary addiction treatment. Many ${r.cityName} programs accept Medicaid, Medicare, commercial insurance, TRICARE, or self-pay — always confirm current in-network status with the program.`,
+      a: `Coverage, authorization, network status, and cost vary by plan. Listings may report Medicaid, Medicare, commercial insurance, TRICARE, or self-pay; confirm benefits with the program and your insurer.`,
     },
     {
-      q: `How do I find a ${levelLabel.toLowerCase()} program with an open bed in ${r.cityName}?`,
-      a: `Each listing shows live bed availability, so you can see who has space now — or answer three quick questions and get matched, free and private.`,
+      q: levelUsesBeds
+        ? `How do I find a ${levelLabel.toLowerCase()} program with an open bed in ${r.cityName}?`
+        : `How do I confirm the setting and admission status for ${levelLabel.toLowerCase()} in ${r.cityName}?`,
+      a: levelUsesBeds
+        ? `Listings may show dated residential-bed reports. Exact counts disappear after seven days, so always call to confirm.`
+        : r.level === 'detox'
+          ? `The imported detox category may describe outpatient, residential, or hospital services. It does not establish an overnight setting or open bed, so confirm the setting, clinical service, and admission status directly.`
+          : `This is a non-residential service category. The directory does not assert current appointment availability; call the program to confirm scheduling and admission requirements.`,
     },
   ];
 
   const schema = [
     breadcrumbJsonLd([
       { name: 'Treatment', path: '/treatment' },
-      { name: r.state, path: `/treatment/${state}` },
-      { name: r.cityName, path: `/treatment/${state}/${seg}` },
-      { name: levelLabel, path: `/treatment/${state}/${seg}/${level}` },
+      { name: r.state, path: `/treatment/${canonicalState}` },
+      { name: r.cityName, path: `/treatment/${canonicalState}/${canonicalCity}` },
+      { name: levelLabel, path: `/treatment/${canonicalState}/${canonicalCity}/${r.level}` },
     ]),
     facilityItemListJsonLd(r.rows),
     faqJsonLd(faqs),
@@ -149,11 +173,11 @@ export default async function CityLevelOrProfilePage({
           Treatment
         </Link>{' '}
         /{' '}
-        <Link href={`/treatment/${state}`} className="text-teal-700 hover:underline">
+        <Link href={`/treatment/${canonicalState}`} className="text-teal-700 hover:underline">
           {r.state}
         </Link>{' '}
         /{' '}
-        <Link href={`/treatment/${state}/${seg}`} className="text-teal-700 hover:underline">
+        <Link href={`/treatment/${canonicalState}/${canonicalCity}`} className="text-teal-700 hover:underline">
           {r.cityName}
         </Link>{' '}
         / <span>{LEVEL_LABELS[r.level]}</span>
@@ -164,18 +188,19 @@ export default async function CityLevelOrProfilePage({
       </h1>
       <p className="mt-2 max-w-xl text-sm text-slate-600">
         {r.rows.length} {LEVEL_LABELS[r.level].toLowerCase()} program{r.rows.length === 1 ? '' : 's'} in {r.cityName},{' '}
-        {r.code}, with live bed availability. {SITE_NAME} connects you to treatment facilities; we don&apos;t provide
-        treatment ourselves.
+        {r.code}, with source-listed services{levelUsesBeds ? ' and dated residential-bed reports where supplied' : ''}.{' '}
+        {r.level === 'detox' ? 'The detox category may include outpatient or overnight settings. ' : ''}
+        {SITE_NAME} connects you to treatment facilities; we don&apos;t provide treatment ourselves.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
         <Link href="/match" className="font-medium text-teal-700 hover:underline">
-          Get matched in 3 quick questions →
+          Narrow directory options in 3 quick questions →
         </Link>
-        <Link href={`/treatment/${state}/${seg}`} className="text-teal-700 hover:underline">
+        <Link href={`/treatment/${canonicalState}/${canonicalCity}`} className="text-teal-700 hover:underline">
           All treatment in {r.cityName}
         </Link>
-        <Link href={`/treatment/${state}/${level}`} className="text-teal-700 hover:underline">
+        <Link href={`/treatment/${canonicalState}/${r.level}`} className="text-teal-700 hover:underline">
           {LEVEL_LABELS[r.level]} across {r.state}
         </Link>
       </div>

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { unstable_cache } from 'next/cache';
 
 import JsonLd from '@/components/JsonLd';
@@ -8,10 +8,12 @@ import { FacilityCard, type FacilityCardData } from '@/components/FacilityCard';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
 import { getPayer } from '@/lib/payers';
-import { codeFromStateSlug, stateName } from '@/lib/geo';
+import { codeFromStateSlug, stateName, stateSlug } from '@/lib/geo';
 import { landingIndexable, robotsFor } from '@/lib/indexable';
+import { collectPublicRows } from '@/lib/supabase/public-pagination';
 
 export const revalidate = 3600;
+const DIRECTORY_PREVIEW_LIMIT = 100;
 export function generateStaticParams() {
   return [];
 }
@@ -23,16 +25,31 @@ async function load(payerSlugParam: string, stateSlugParam: string) {
   const rows = await unstable_cache(
     async () => {
       const supabase = createAdminClient();
-      const { data } = await supabase
-        .from('facilities')
-        .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated), facility_payers!inner(payer_type)')
-        .eq('is_published', true)
-        .ilike('state', code)
-        .eq('facility_payers.payer_type', p.payerType)
-        .order('name');
-      return (data ?? []) as FacilityCardData[];
+      return (await collectPublicRows('insurance payer state', async (from, to) => {
+        const result =
+          p.kind === 'commercial'
+            ? await supabase
+                .from('facilities')
+                .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+                .eq('is_published', true)
+                .ilike('state', code)
+                .contains('carriers_named', [p.name])
+                .order('name')
+                .order('id')
+                .range(from, to)
+            : await supabase
+                .from('facilities')
+                .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated), facility_payers!inner(payer_type)')
+                .eq('is_published', true)
+                .ilike('state', code)
+                .eq('facility_payers.payer_type', p.payerType)
+                .order('name')
+                .order('id')
+                .range(from, to);
+        return { data: result.data as FacilityCardData[] | null, error: result.error };
+      })) as FacilityCardData[];
     },
-    ['insurance-state', code, p.payerType],
+    ['insurance-state', code, p.slug],
     { revalidate: 3600, tags: [`treatment:${code}`] }
   )();
   if (rows.length === 0) return null;
@@ -47,14 +64,19 @@ export async function generateMetadata({
   const { payer, state } = await params;
   const r = await load(payer, state);
   if (!r) return { title: 'Coverage not found', robots: { index: false, follow: true } };
+  const canonicalState = stateSlug(r.code);
   const title = `${r.p.name} Treatment in ${r.state}`;
-  const description = `${r.rows.length} addiction and mental-health programs in ${r.state} that accept ${r.p.name}-type coverage, with real-time bed availability. Verify benefits and get matched — free.`;
+  const description = `${r.rows.length} addiction-treatment programs in ${r.state} listing ${r.p.name} as a payment option, with dated availability reports. Confirm network status and benefits.`;
   return {
     title,
     description,
     robots: robotsFor(landingIndexable(r.rows.length)),
-    alternates: { canonical: `/insurance/${r.p.slug}/${state}` },
-    openGraph: { title: `${title} | ${SITE_NAME}`, description, url: absoluteUrl(`/insurance/${r.p.slug}/${state}`) },
+    alternates: { canonical: `/insurance/${r.p.slug}/${canonicalState}` },
+    openGraph: {
+      title: `${title} | ${SITE_NAME}`,
+      description,
+      url: absoluteUrl(`/insurance/${r.p.slug}/${canonicalState}`),
+    },
   };
 }
 
@@ -66,23 +88,30 @@ export default async function PayerStatePage({
   const { payer, state } = await params;
   const r = await load(payer, state);
   if (!r) notFound();
+  const canonicalState = stateSlug(r.code);
+  if (payer !== r.p.slug || state !== canonicalState) {
+    permanentRedirect(`/insurance/${r.p.slug}/${canonicalState}`);
+  }
+  const previewRows = r.rows.slice(0, DIRECTORY_PREVIEW_LIMIT);
+  const directoryParams = new URLSearchParams({ region: r.code, pay: r.p.payerType });
+  if (r.p.kind === 'commercial') directoryParams.set('q', r.p.name);
 
   const faqs = [
     {
       q: `Does ${r.p.name} cover rehab in ${r.state}?`,
-      a: `Most health plans, including ${r.p.name}, cover medically necessary addiction and mental-health treatment by law. ${r.rows.length} program${r.rows.length === 1 ? '' : 's'} in ${r.state} on ${SITE_NAME} accept ${r.p.name}-type coverage — always confirm current in-network status and benefits with the program.`,
+      a: `${r.p.name} plans may include behavioral-health benefits, but coverage, authorization, network status, and cost vary. ${r.rows.length} program${r.rows.length === 1 ? '' : 's'} in ${r.state} list ${r.p.name} as a payment option; confirm the listing, network, and benefits with the program and your insurer.`,
     },
     {
       q: `How much does treatment cost with ${r.p.name} in ${r.state}?`,
-      a: `Your out-of-pocket cost depends on your specific ${r.p.name} plan, deductible, and the level of care. Many programs are low- or no-cost once ${r.p.name} coverage is applied; the program can run a benefits check before you commit.`,
+      a: `Your out-of-pocket cost depends on your specific ${r.p.name} plan, deductible, network, authorization, and level of care. Ask the program and your insurer for a benefits check and an estimated member cost before you commit.`,
     },
     {
       q: `How do I verify my ${r.p.name} benefits?`,
-      a: `Call the member-services number on your insurance card, or have the program verify benefits on your behalf. You can also answer three quick questions on ${SITE_NAME} to get matched with ${r.state} programs that accept ${r.p.name}-type coverage.`,
+      a: `Call the member-services number on your insurance card, or ask the program to verify benefits. ${SITE_NAME} can show ${r.state} programs whose directory record lists ${r.p.name}, but the listing is not a benefits determination.`,
     },
     {
       q: `How many ${r.p.name} treatment programs are in ${r.state}?`,
-      a: `${r.rows.length} published program${r.rows.length === 1 ? '' : 's'} in ${r.state} accept ${r.p.name}-type coverage, each showing levels of care and current bed availability.`,
+      a: `${r.rows.length} published program${r.rows.length === 1 ? '' : 's'} in ${r.state} list ${r.p.name}-type payment, with levels of care and dated availability reports when supplied.`,
     },
   ];
 
@@ -90,9 +119,9 @@ export default async function PayerStatePage({
     breadcrumbJsonLd([
       { name: 'Insurance', path: '/insurance' },
       { name: r.p.name, path: `/insurance/${r.p.slug}` },
-      { name: r.state, path: `/insurance/${r.p.slug}/${state}` },
+      { name: r.state, path: `/insurance/${r.p.slug}/${canonicalState}` },
     ]),
-    facilityItemListJsonLd(r.rows),
+    facilityItemListJsonLd(previewRows),
     faqJsonLd(faqs),
   ];
 
@@ -114,8 +143,9 @@ export default async function PayerStatePage({
         <span className="italic text-brand">{r.p.name}</span> treatment in {r.state}
       </h1>
       <p className="mt-2 max-w-xl text-sm text-slate-600">
-        {r.rows.length} program{r.rows.length === 1 ? '' : 's'} in {r.state} that accept {r.p.name}-type coverage, with
-        live bed availability. Always confirm current in-network status and benefits with the program. {SITE_NAME}{' '}
+        {r.rows.length} program{r.rows.length === 1 ? '' : 's'} in {r.state} whose directory record lists {r.p.name}{' '}
+        as a payment option, with dated availability reports when supplied. This does not establish network status or
+        member benefits; confirm both with the program and your insurer. {SITE_NAME}{' '}
         connects you to treatment facilities; we don&apos;t provide treatment ourselves.
       </p>
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -125,16 +155,27 @@ export default async function PayerStatePage({
         <Link href={`/insurance/${r.p.slug}`} className="text-teal-700 hover:underline">
           {r.p.name} coverage &amp; cost
         </Link>
-        <Link href={`/treatment/${state}`} className="text-teal-700 hover:underline">
+        <Link href={`/treatment/${canonicalState}`} className="text-teal-700 hover:underline">
           All treatment in {r.state}
         </Link>
       </div>
 
       <div className="mt-7 space-y-2">
-        {r.rows.map((f) => (
+        {previewRows.map((f) => (
           <FacilityCard key={f.id} f={f} />
         ))}
       </div>
+      {r.rows.length > previewRows.length && (
+        <div className="mt-5 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-950">
+          Showing the first {previewRows.length} of {r.rows.length} matching programs to keep this page fast.{' '}
+          <Link
+            href={`/programs?${directoryParams.toString()}`}
+            className="font-semibold text-teal-800 underline underline-offset-2"
+          >
+            Browse all filtered results →
+          </Link>
+        </div>
+      )}
 
       <section className="mt-10 border-t border-slate-200 pt-6">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">

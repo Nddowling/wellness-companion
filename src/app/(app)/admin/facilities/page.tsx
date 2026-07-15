@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { freshnessTone, LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
+import { freshnessTone, isBedBased, LEVEL_LABELS, type LevelOfCare } from '@/lib/constants';
 import { normalizePlan, PLAN_LABEL, type Plan } from '@/lib/facility/plan';
 import { togglePublish } from '../actions';
 
@@ -33,6 +33,7 @@ type FacilityRow = {
   plan: string | null;
   is_published: boolean;
   verified_at: string | null;
+  levels_of_care: string[];
   facility_capacity: CapacityRow[];
 };
 
@@ -55,7 +56,7 @@ export default async function AdminFacilities({
   let req = supabase
     .from('facilities')
     .select(
-      'id, name, city, state, operator_type, priority_tier, plan, is_published, verified_at, facility_capacity(level_of_care, beds_available, last_updated)'
+      'id, name, city, state, operator_type, priority_tier, plan, is_published, verified_at, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)'
     )
     .order('is_published', { ascending: false })
     .order('name');
@@ -142,8 +143,13 @@ export default async function AdminFacilities({
           </p>
         )}
         {facilities.map((f) => {
-          const tone = freshnessTone(oldestUpdate(f.facility_capacity));
-          const totalBeds = f.facility_capacity.reduce((s, c) => s + c.beds_available, 0);
+          const listsResidential = f.levels_of_care.some(isBedBased);
+          const residentialCaps = listsResidential
+            ? f.facility_capacity.filter((capacity) => isBedBased(capacity.level_of_care))
+            : [];
+          const capacityUpdatedAt = oldestUpdate(residentialCaps);
+          const tone = freshnessTone(capacityUpdatedAt);
+          const totalBeds = residentialCaps.reduce((sum, capacity) => sum + capacity.beds_available, 0);
           const admins = adminCount.get(f.id) ?? 0;
           return (
             <div
@@ -160,7 +166,7 @@ export default async function AdminFacilities({
                     {PLAN_LABEL[normalizePlan(f.plan)]}
                   </span>
                   {f.verified_at && (
-                    <span className="rounded bg-teal-50 px-1.5 py-0.5 text-xs text-teal-700">verified</span>
+                    <span className="rounded bg-teal-50 px-1.5 py-0.5 text-xs text-teal-700">admin-reviewed</span>
                   )}
                   {admins > 0 && (
                     <span className="rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-700">
@@ -171,23 +177,35 @@ export default async function AdminFacilities({
                 <div className="truncate text-xs text-slate-500">
                   {[f.city, f.state].filter(Boolean).join(', ') || 'No location set'}
                   {f.operator_type ? ` · ${f.operator_type}` : ''} ·{' '}
-                  {f.facility_capacity
-                    .map((c) => LEVEL_LABELS[c.level_of_care as LevelOfCare] ?? c.level_of_care)
+                  {f.levels_of_care
+                    .map((level) => LEVEL_LABELS[level as LevelOfCare] ?? level)
                     .join(', ') || 'no levels'}
                 </div>
               </Link>
 
               <div className="flex shrink-0 items-center gap-3">
-                <span className="text-sm text-slate-600">{totalBeds} beds</span>
+                <span className="text-sm text-slate-600">
+                  {listsResidential
+                    ? residentialCaps.length
+                      ? `${totalBeds} residential ${totalBeds === 1 ? 'bed' : 'beds'}`
+                      : 'No residential-bed report'
+                    : 'No residential care'}
+                </span>
                 <span className={`rounded px-2 py-1 text-xs font-medium ${TONE_STYLES[tone]}`}>
-                  {tone === 'green' ? 'fresh' : tone === 'amber' ? 'aging' : 'stale'}
+                  {capacityUpdatedAt
+                    ? tone === 'green'
+                      ? 'fresh'
+                      : tone === 'amber'
+                        ? 'aging'
+                        : 'stale'
+                    : 'no report'}
                 </span>
                 <form action={togglePublish}>
                   <input type="hidden" name="facility_id" value={f.id} />
                   <input type="hidden" name="publish" value={String(!f.is_published)} />
                   <button
                     type="submit"
-                    title={f.is_published ? 'Deactivate (hide from seekers)' : 'Activate (recommend to seekers)'}
+                    title={f.is_published ? 'Deactivate (hide from directory)' : 'Activate (show in directory)'}
                     className={
                       'w-24 rounded-md px-3 py-1.5 text-xs font-medium ' +
                       (f.is_published

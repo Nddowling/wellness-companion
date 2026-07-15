@@ -13,6 +13,13 @@ const ROUTE_BADGE: Record<string, string> = {
   declined: 'bg-rose-50 text-rose-700',
 };
 
+const ROUTE_LABEL: Record<string, string> = {
+  sent: 'Sent',
+  viewed: 'Viewed',
+  accepted: 'Marked accepted',
+  declined: 'Marked declined',
+};
+
 function fmtDate(iso: string): string {
   // Fixed locale/'' args keep server + client render identical (no hydration drift).
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -23,9 +30,8 @@ export default async function PartnerReferrals() {
   const [referrals, stats] = await Promise.all([getMyReferrals(user.id), getMyReferralStats(user.id)]);
 
   const tiles = [
-    { label: 'Total referrals', value: stats.total },
-    { label: 'Reached care', value: stats.connected },
-    { label: 'Accepted by facility', value: stats.accepted },
+    { label: 'Referral records', value: stats.total },
+    { label: 'Routes marked accepted', value: stats.accepted },
     { label: 'In flight', value: stats.open },
   ];
 
@@ -34,18 +40,20 @@ export default async function PartnerReferrals() {
       <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Your referrals</h1>
-          <p className="text-sm text-slate-500">Everyone you&apos;ve referred into care, and where each one stands.</p>
+          <p className="text-sm text-slate-500">
+            Limited referral workflow records and the latest program-route status on file.
+          </p>
         </div>
         <Link
           href="/partners/search"
           className="shrink-0 rounded-full bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800"
         >
-          Refer someone →
+          Log a referral →
         </Link>
       </div>
 
       {/* Analytics */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {tiles.map((t) => (
           <div key={t.label} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-2xl font-semibold text-ink">{t.value}</div>
@@ -53,6 +61,10 @@ export default async function PartnerReferrals() {
           </div>
         ))}
       </div>
+      <p className="text-xs text-slate-500">
+        Workflow statuses do not confirm admission, care received, outcomes, benefits, coverage, or clinical
+        suitability. Verify directly with the program, payer, and a qualified professional as appropriate.
+      </p>
 
       {/* History */}
       {referrals.length === 0 ? (
@@ -62,7 +74,7 @@ export default async function PartnerReferrals() {
             <Link href="/partners/search" className="font-medium text-teal-700 hover:underline">
               the directory
             </Link>{' '}
-            and use <span className="font-medium">“Refer a client here.”</span>
+            and use <span className="font-medium">“Log referral.”</span>
           </p>
         </div>
       ) : (
@@ -100,7 +112,7 @@ export default async function PartnerReferrals() {
                           (ROUTE_BADGE[fac.routeStatus] ?? 'bg-slate-100 text-slate-600')
                         }
                       >
-                        {fac.routeStatus}
+                        {ROUTE_LABEL[fac.routeStatus] ?? 'Status unavailable'}
                       </span>
                     </div>
                   ))

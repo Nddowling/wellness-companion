@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
-import { PricingTable } from '@/components/PricingTable';
+import { PricingTable, type BillingFacilityOption } from '@/components/PricingTable';
 import SiteFooter from '@/components/SiteFooter';
+import { hasManagedBilling, isBillingCycle, isBillingPlan, isUuid } from '@/lib/billing/guards';
+import { createClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
   title: 'Pricing — Clear Bed Recovery',
@@ -11,7 +13,46 @@ export const metadata: Metadata = {
   alternates: { canonical: '/pricing' },
 };
 
-export default function PricingPage() {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ plan?: string; cycle?: string; facility?: string }>;
+}) {
+  const query = await searchParams;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let membershipCount = 0;
+  let facilities: BillingFacilityOption[] = [];
+
+  if (user) {
+    const { data: memberships } = await supabase
+      .from('facility_members')
+      .select('facility_id, role')
+      .eq('user_id', user.id);
+    membershipCount = memberships?.length ?? 0;
+    const ownerIds = (memberships ?? [])
+      .filter((membership) => membership.role === 'owner')
+      .map((membership) => membership.facility_id);
+    if (ownerIds.length > 0) {
+      const { data } = await supabase
+        .from('facilities')
+        .select('id, name, plan, plan_status, stripe_subscription_id')
+        .in('id', ownerIds)
+        .order('name');
+      facilities = (data ?? []).map((facility) => ({
+        id: facility.id,
+        name: facility.name,
+        billingManaged: hasManagedBilling(facility),
+      }));
+    }
+  }
+
+  const initialPlan = isBillingPlan(query.plan) ? query.plan : null;
+  const initialCycle = isBillingCycle(query.cycle) ? query.cycle : 'monthly';
+  const initialFacilityId = isUuid(query.facility) ? query.facility : null;
+
   return (
     <>
     <main className="text-slate-800">
@@ -21,8 +62,9 @@ export default function PricingPage() {
           Simple, flat pricing
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-slate-500">
-          Programs pay to be found. People seeking care <strong>never</strong> pay. Start free and upgrade when
-          you&apos;re ready — no contracts, cancel anytime.
+          Programs can claim a complete public profile free. Paid plans add the in-app analytics and lead-status
+          workflow described below.
+          People seeking care <strong>never</strong> pay.
         </p>
         {/* Seeker escape — this is provider pricing; never let someone seeking care think they'd pay. */}
         <p className="mx-auto mt-4 max-w-xl rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-800">
@@ -35,16 +77,23 @@ export default function PricingPage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-6 py-8">
-        <PricingTable />
+        <PricingTable
+          facilities={facilities}
+          initialCycle={initialCycle}
+          initialFacilityId={initialFacilityId}
+          initialPlan={initialPlan}
+          isSignedIn={!!user}
+          membershipCount={membershipCount}
+        />
       </section>
 
       <section className="mx-auto max-w-3xl px-6 py-8">
         <div className="rounded-xl border border-slate-200 bg-mist/60 p-5 text-sm text-slate-600">
           <h3 className="font-semibold text-slate-800">Flat fees — always</h3>
           <p className="mt-1">
-            We never charge per referral, per lead, or per admission, and featured placement is a fixed
-            advertising fee labeled as such. This isn&apos;t just our preference — it&apos;s required by federal
-            law (EKRA, 18 U.S.C. § 220), which protects people seeking treatment from pay-to-play referrals.
+            We never charge per referral, per lead, or per admission. Subscriptions are flat facility fees for the
+            implemented in-app analytics and workflow shown on this page; payment does not affect matching or access
+            to seeker-consented contact details.
           </p>
         </div>
       </section>

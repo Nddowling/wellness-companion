@@ -4,7 +4,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Clear Bed Recovery E2E config.
  *
  * Target selection (priority): QA_TARGET_URL → PLAYWRIGHT_BASE_URL → localhost:3000.
- *   - localhost            → boots `next dev` for you, runs the full suite
+ *   - localhost            → boots a fresh `next dev`; write specs still require QA_ALLOW_WRITES=1
  *   - a Vercel preview URL  → full suite incl. previewOnly() data-writing tests
  *   - clearbedrecovery.com  → previewOnly() tests auto-skip (read-only against prod)
  *
@@ -12,8 +12,9 @@ import { defineConfig, devices } from '@playwright/test';
  * See docs/qa/QA-TEST-CATALOG.md §8.
  */
 const baseURL =
-  process.env.QA_TARGET_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+  process.env.QA_TARGET_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3100';
 const isRemote = baseURL.startsWith('http') && !baseURL.includes('localhost');
+const localPort = /^http:\/\/localhost:(\d+)(?:\/|$)/.exec(baseURL)?.[1] ?? '3100';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -40,9 +41,11 @@ export default defineConfig({
   webServer: isRemote
     ? undefined
     : {
-        command: 'npm run dev',
+        command: `npm run dev -- --port ${localPort}`,
         url: baseURL,
-        reuseExistingServer: !process.env.CI,
+        // Never attach tests to an unknown stale process. This is especially
+        // important when a developer has a server connected to production data.
+        reuseExistingServer: false,
         timeout: 120_000,
       },
 });

@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'June 23, 2026';
+const LAST_UPDATED = 'July 15, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -46,15 +46,17 @@ export default function TermsPage() {
       <Section n={1} title="What the Service is — and isn't">
         <p>
           {SITE_NAME} is a <strong>referral and directory service (a &ldquo;connector&rdquo;)</strong>. We help
-          people seeking care (&ldquo;Seekers&rdquo;) find and reach addiction- and mental-health treatment
-          programs (&ldquo;Providers&rdquo;), and we give Providers tools to keep their listings and availability
-          current.
+          people seeking care (&ldquo;Seekers&rdquo;) find and reach addiction-treatment programs
+          (&ldquo;Providers&rdquo;), including some that document co-occurring mental-health services, and we give
+          Providers tools to keep their listings and availability current. We do not list or match standalone
+          mental-health providers.
         </p>
         <p>
           We are <strong>not a healthcare provider</strong>. We do not provide medical advice, diagnosis,
           treatment, counseling, therapy, or crisis intervention, and nothing on the Service is a substitute for
-          professional care. Conversations with our guided intake assistant are a supportive way to find care —
-          not clinical care. No provider-patient relationship is created by using the Service.
+          professional care. Conversations with our guided intake assistant are a limited way to narrow directory
+          options — not clinical care or a placement assessment. No provider-patient relationship is created by using
+          the Service.
         </p>
       </Section>
 
@@ -75,29 +77,35 @@ export default function TermsPage() {
 
       <Section n={4} title="Your information and consent">
         <p>
-          To match you with programs, we ask for a few details during intake. <strong>We only share your
-          identifying information with a treatment program when you explicitly consent to it</strong>, and we
-          record when you grant or decline that consent. You can decline to share and still see matches. Your consent
-          is <strong>specific to the program(s) you choose</strong>, is limited to connecting you with care, and you
-          may <strong>revoke it at any time</strong> for future sharing. Sensitive health information is handled under
-          applicable law, which for substance-use treatment records may include HIPAA and 42 CFR Part 2; where Part 2
-          applies, a program that receives your records <strong>may not re-disclose them</strong> without your consent,
-          and your substance-use records <strong>may not be used to investigate or prosecute you</strong> without your
-          written consent or a court order.
+          To produce results, we ask for a few limited details during intake. We create a non-contact summary containing
+          your ZIP3 region, directory level, payer type, and coarse scope, and route it to the programs
+          selected and displayed by the matcher <strong>before</strong> asking for contact permission. That summary does
+          not include your name, phone number, email, date of birth, street address, member ID, exact carrier, or a
+          clinical narrative. A supported commercial carrier you volunteer may narrow results
+          transiently, but is not saved with the match or routed to programs.
+          <strong> We only make your phone number or email available to a displayed program when you explicitly consent
+          to it</strong>, and we record when you grant or decline that consent. You can decline and still see results.
+          Your contact consent is <strong>specific to the programs displayed in that match</strong>, is limited to the
+          requested connection, and may be revoked for future in-app access by contacting us. Treatment providers may
+          have separate duties under HIPAA, 42 CFR Part 2, and state law. Whether a law applies depends on the parties
+          and circumstances; the Service does not provide legal advice or determine those duties for you or a Provider.
         </p>
         <p>
-          <strong>Communications and marketing.</strong> When you provide your email address or phone number, you
-          consent to receive communications from Clear Bed Recovery — including treatment options, recovery resources,
-          product offers, newsletters, and other informational or promotional messages — by email, text, or phone.
-          Message and data rates may apply, and message frequency varies. <strong>Reply STOP to any text to opt out</strong>{' '}
-          (or HELP for help); you can opt out of marketing email anytime via the unsubscribe link or by contacting us,
-          though we may still send essential service-related messages. <strong>Consent to receive calls or texts is not a
-          condition</strong> of using the Service or of being matched with care. We use your information consistent with
-          our Privacy Policy and do not sell your personal information to third-party advertisers.
+          <strong>Communications.</strong> Providing a contact method does not itself authorize Clear Bed Recovery to
+          contact you. After matches are shown, you choose separately whether the displayed programs may use one
+          contact method to reach you and whether Clear Bed Recovery may email one copy of those matches. A phone
+          number shared with programs does not authorize marketing calls or texts from us. We do not add matcher
+          contacts to promotional lists, and either permission is optional and not a condition of seeing matches.
         </p>
         <p>
           Our handling of your information is further described in our Privacy Policy. By using the Service, you
           consent to that handling.
+        </p>
+        <p>
+          <strong>Partner shortlists.</strong> Partner workspaces use system-generated, non-identifying shortlist
+          labels and public program information. They do not provide fields for a client name, narrative, or clinical
+          note. Anyone with an active share link can view or print that directory list; disabling sharing invalidates
+          the link. Do not attempt to encode personal or health information into Service fields or URLs.
         </p>
       </Section>
 
@@ -117,9 +125,11 @@ export default function TermsPage() {
           for handling any Seeker information you receive in compliance with applicable law.
         </p>
         <p>
-          Paid plans unlock profile, listing, and workflow features only. <strong>Fees are flat subscription
-          fees</strong> and are never based on the volume or value of referrals, patients, or admissions —
-          consistent with the federal Eliminating Kickbacks in Recovery Act (EKRA) and the Anti-Kickback Statute.
+          Paid plans add only the in-app analytics and lead-status workflow described on our pricing page. The
+          complete claimed public profile and consented contact access remain free. <strong>Fees are flat subscription
+          fees</strong> and are never based on the volume or value of referrals, patients, or admissions. This model
+          is designed around ethical-directory and anti-kickback constraints, but Providers remain responsible for
+          obtaining qualified legal advice about their own arrangements.
           Matching and routing of Seekers is need-based and is never influenced by a Provider&rsquo;s plan or
           payment.
         </p>

@@ -42,13 +42,11 @@ export function AddToListMenu({
             )}
             <form action={createListAction} onSubmit={() => setOpen(false)} className="border-t border-slate-100 p-2">
               <input type="hidden" name="facility_id" value={facilityId} />
-              <input
-                name="title"
-                placeholder="New list name…"
-                className="w-full rounded-md border border-slate-300 px-2 py-1.5 text-sm"
-              />
-              <button className="mt-1.5 w-full rounded-md bg-teal-700 px-2 py-1.5 text-xs font-medium text-white hover:bg-teal-800">
-                Create list &amp; add
+              <p className="px-1 pb-2 text-xs text-slate-500">
+                A dated, numbered shortlist will be created without a client name.
+              </p>
+              <button className="w-full rounded-md bg-teal-700 px-2 py-1.5 text-xs font-medium text-white hover:bg-teal-800">
+                Create shortlist &amp; add
               </button>
             </form>
           </div>

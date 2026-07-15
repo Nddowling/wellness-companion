@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { requireAdmin } from '@/lib/auth';
-import { getSeekerById, getConsentEvents, getSeekerTranscripts } from '@/lib/vault/seekers';
+import { getSeekerById, getConsentEvents } from '@/lib/vault/seekers';
 import { adminUpdateSeeker, adminDeleteSeeker } from '../../actions';
 
 const field = 'rounded border border-slate-300 px-3 py-2 text-sm';
@@ -19,7 +19,6 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
   if (!data) notFound();
   const { seeker, facilities } = data;
   const consentEvents = await getConsentEvents(id);
-  const transcripts = await getSeekerTranscripts(id);
 
   return (
     <div className="space-y-6">
@@ -28,19 +27,21 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
       </Link>
 
       <form action={adminUpdateSeeker} className="space-y-3 rounded-lg border border-slate-200 bg-white p-4">
-        <h1 className="text-lg font-semibold text-slate-800">Edit seeker</h1>
+        <h1 className="text-lg font-semibold text-slate-800">Manage connector contact</h1>
         <input type="hidden" name="seeker_id" value={seeker.id} />
         <div className="grid gap-2 sm:grid-cols-2">
-          <input name="name" defaultValue={seeker.name ?? ''} placeholder="Name" className={field} />
-          <input name="email" defaultValue={seeker.email ?? ''} placeholder="Email" className={field} />
-          <input name="phone" defaultValue={seeker.phone ?? ''} placeholder="Phone" className={field} />
-          <input name="insurance" defaultValue={seeker.insurance ?? ''} placeholder="Insurance" className={field} />
+          <div className={`${field} bg-slate-50 text-slate-600`}>
+            {seeker.email ?? seeker.phone ?? 'No contact method retained'}
+          </div>
           <select name="status" defaultValue={seeker.status} className={field}>
             <option value="active">active</option>
             <option value="connected">connected</option>
             <option value="unsubscribed">unsubscribed</option>
           </select>
         </div>
+        <p className="text-xs text-slate-400">
+          Contact details are read-only for administrators. Only the seeker can update the method they consented to use.
+        </p>
         <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Save</button>
       </form>
 
@@ -88,38 +89,6 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
           ))}
           {facilities.length === 0 && <li className="text-slate-400">No matched programs.</li>}
         </ul>
-      </section>
-
-      <section className="rounded-lg border border-slate-200 bg-white p-4">
-        <h2 className="mb-2 text-sm font-semibold text-slate-700">Conversation</h2>
-        <p className="mb-3 text-xs text-slate-400">
-          The full chat their information was gathered from.
-        </p>
-        {transcripts.length === 0 ? (
-          <p className="text-sm text-slate-400">No saved transcript for this contact.</p>
-        ) : (
-          transcripts.map((t) => (
-            <div key={t.id} className="mb-4 last:mb-0">
-              <p className="mb-2 text-xs text-slate-400">{new Date(t.created_at).toLocaleString()}</p>
-              <div className="space-y-2">
-                {t.messages.map((m, i) => (
-                  <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-                    <div
-                      className={
-                        'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5 text-sm ' +
-                        (m.role === 'user'
-                          ? 'rounded-br-sm bg-teal-700 text-white'
-                          : 'rounded-bl-sm bg-slate-100 text-slate-700')
-                      }
-                    >
-                      {m.content}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
       </section>
 
       <section className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-4">

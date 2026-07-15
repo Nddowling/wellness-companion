@@ -23,7 +23,23 @@ const ALLOWED_AGENTS = [
   "Applebot", // Siri / Apple Intelligence
 ];
 
-const DISALLOW = ["/admin", "/api/", "/me", "/home", "/bd", "/facility", "/get-started", "/login"];
+const DISALLOW = [
+  "/admin",
+  "/api/",
+  "/auth/",
+  "/me",
+  "/home",
+  "/bd",
+  "/facility",
+  "/partners",
+  "/rep",
+  "/conversations",
+  "/go/",
+  "/share/",
+  "/get-started",
+  "/login",
+  "/reset",
+];
 
 export default function robots(): MetadataRoute.Robots {
   return {

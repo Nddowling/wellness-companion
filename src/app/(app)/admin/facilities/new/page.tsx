@@ -56,8 +56,8 @@ export default function NewFacilityPage() {
             ))}
           </div>
           <p className="mt-2 text-xs text-slate-400">
-            A zeroed bed-count row is created for each selected level — update counts on the next
-            screen.
+            Residential creates a bed-capacity row. Detox setting and outpatient scheduling are not represented as
+            bed counts in the current model.
           </p>
         </section>
 

@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { absoluteUrl } from '@/lib/seo';
 import { PartnerSignupForm } from '@/components/partner/PartnerSignupForm';
 
-const TITLE = 'For Partners — the free referral directory for people who place others into care';
+const TITLE = 'For Partners — free tools for comparing published treatment program records';
 const DESCRIPTION =
-  'Discharge planners, social workers, coaches, clergy, and court coordinators: search every treatment program, save your go-to facilities, and build a shortlist to hand a family — free, forever.';
+  'Discharge planners, social workers, coaches, clergy, and court coordinators can compare published program records, save options, and share a non-identifying shortlist for free.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -18,19 +18,19 @@ export const metadata: Metadata = {
 const VALUE = [
   {
     h: 'The whole directory, neutral',
-    p: 'Every program — inpatient and outpatient — searchable by level of care, location, and insurance. No pay-to-rank: results are need-based, always.',
+    p: 'Search all published directory records by level of care, location, and program-listed payment category. Results are alphabetical and provider payment does not change the order.',
   },
   {
-    h: 'Their own direct line',
-    p: 'Every listing shows the facility’s real intake number — never a routed or brokered line. Call who you mean to call.',
+    h: 'Source-listed direct contact',
+    p: 'When a direct facility or intake number is available, the listing shows it rather than substituting a brokered tracking line.',
   },
   {
-    h: 'Save your go-to programs',
-    p: 'Star the places you trust so they’re one tap away the next time you’re placing someone.',
+    h: 'Save programs to revisit',
+    p: 'Star published program records so they are one tap away when you need to compare options again.',
   },
   {
-    h: 'Hand families a shortlist',
-    p: 'Build a clean, printable list of options and share it with a link — your white-glove handoff to a Recovery Friend.',
+    h: 'Share a non-identifying shortlist',
+    p: 'Build a printable list of public program options with a system-generated label. Client names and personal notes are not collected.',
   },
 ];
 
@@ -43,12 +43,11 @@ export default function ForPartnersPage() {
             For Partners
           </span>
           <h1 className="mt-4 text-3xl font-semibold text-slate-800 sm:text-4xl">
-            The directory behind every good referral.
+            A neutral directory for referral research.
           </h1>
           <p className="mt-3 text-lg text-slate-600">
-            You&apos;re the person someone turns to in their hardest moment. Clear Bed gives you a fast, calm way to
-            find the right program and hand it off with confidence — free, because you should never pay to help
-            someone find care.
+            Compare published program options, contact programs directly, and confirm level of care, availability,
+            payment details, and suitability with the appropriate program, payer, and qualified professional.
           </p>
 
           <div className="mt-8 grid gap-5 sm:grid-cols-2">
@@ -59,6 +58,11 @@ export default function ForPartnersPage() {
               </div>
             ))}
           </div>
+
+          <p className="mt-6 text-xs text-slate-500">
+            Program-listed payment options do not guarantee network status, benefits, coverage, admission, or
+            clinical suitability. Clear Bed does not determine fit or recommend one program over another.
+          </p>
 
           <p className="mt-8 text-sm text-slate-500">
             Already have a Partner account?{' '}

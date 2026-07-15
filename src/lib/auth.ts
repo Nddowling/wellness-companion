@@ -22,11 +22,12 @@ export async function isAdmin(): Promise<boolean> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return false;
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('platform_admins')
     .select('user_id')
     .eq('user_id', user.id)
     .maybeSingle();
+  if (error) throw new Error('Account authorization is temporarily unavailable.');
   return !!data;
 }
 
@@ -75,7 +76,9 @@ export async function getRoles(): Promise<Roles> {
       isSeeker: false,
     };
 
-  // Lanes tagged at account creation carry a role in user_metadata; no extra query.
+  // Seeker is the one metadata-defined lane. Provider-side roles require their
+  // canonical, RLS-protected membership rows; user_metadata is user-editable and
+  // must never grant Partner or Rep authorization by itself.
   const metaRole = (user.user_metadata as { role?: string } | null)?.role;
   const isSeeker = metaRole === 'seeker';
 
@@ -86,11 +89,15 @@ export async function getRoles(): Promise<Roles> {
     supabase.from('rep_profiles').select('user_id').eq('user_id', user.id).maybeSingle(),
   ]);
 
-  // Partner (referrer) + Rep (facility-side) lanes: canonical membership is a row
-  // (bd_users / rep_profiles); the metadata tag is a fast-path so routing works the
-  // instant after signup (before the row read settles).
-  const isPartner = !!bdRes.data || metaRole === 'partner';
-  const isRep = !!repRes.data || metaRole === 'rep';
+  // Authorization queries must fail closed. Treating a database/RLS failure as
+  // "role absent" can demote an admin into a secondary facility membership or
+  // otherwise route a multi-role account into the wrong workspace.
+  if (adminRes.error || memberRes.error || bdRes.error || repRes.error) {
+    throw new Error('Account authorization is temporarily unavailable.');
+  }
+
+  const isPartner = !!bdRes.data;
+  const isRep = !!repRes.data;
   return {
     user: { id: user.id, email: user.email },
     isAdmin: !!adminRes.data,
@@ -154,8 +161,32 @@ export async function requireSeeker() {
 export async function requireFacilityMember(): Promise<{ userId: string; facilityIds: string[] }> {
   const roles = await getRoles();
   if (!roles.user) redirect('/login');
-  // Out-of-lane (seeker/admin/none) → their own home base, never another profile's page.
-  if (roles.facilityIds.length === 0) redirect(homePathFor(roles));
+  // A membership row alone does not override the canonical lane priority. In
+  // particular, an administrator who also happens to be a facility member must
+  // use /admin rather than crossing into the provider workspace via a typed URL.
+  if (profileType(roles) !== 'facility') redirect(homePathFor(roles));
+  return { userId: roles.user.id, facilityIds: roles.facilityIds };
+}
+
+/** Gate owner-only team administration for one facility. */
+export async function requireFacilityOwner(
+  facilityId: string
+): Promise<{ userId: string; facilityIds: string[] }> {
+  const roles = await getRoles();
+  if (!roles.user) redirect('/login');
+  if (profileType(roles) !== 'facility' || !roles.facilityIds.includes(facilityId)) {
+    redirect(homePathFor(roles));
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('facility_members')
+    .select('role')
+    .eq('facility_id', facilityId)
+    .eq('user_id', roles.user.id)
+    .maybeSingle();
+  if (error) throw new Error('Facility ownership could not be verified.');
+  if (data?.role !== 'owner') redirect(`/facility/${facilityId}?owner=required`);
   return { userId: roles.user.id, facilityIds: roles.facilityIds };
 }
 

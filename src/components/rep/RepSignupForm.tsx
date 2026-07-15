@@ -6,18 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button, Input, Label } from '@/components/ui';
 
-function slugify(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 40) || 'rep'
-  );
-}
-
-export type InviteContext = { facilityId: string; facilityName: string; inviterId: string } | null;
+export type InviteContext = { token: string; facilityName: string } | null;
 
 /**
  * Free, self-serve Rep signup. Creates the auth user (role=rep), the LinkedIn-style
@@ -43,8 +32,14 @@ export function RepSignupForm({ invite }: { invite?: InviteContext }) {
       email: form.email,
       password: form.password,
       options: {
-        data: { role: 'rep', full_name: form.name.trim(), phone: form.phone.trim() || null },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/home`,
+        data: {
+          role: 'rep',
+          full_name: form.name.trim(),
+          phone: form.phone.trim() || null,
+          headline: form.headline.trim() || null,
+          rep_invite_token: invite?.token ?? null,
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/rep`,
       },
     });
     if (error) {
@@ -57,23 +52,14 @@ export function RepSignupForm({ invite }: { invite?: InviteContext }) {
       setCheck(true);
       return;
     }
-    const userId = data.user?.id;
-    if (userId) {
-      const slug = `${slugify(form.name)}-${crypto.randomUUID().slice(0, 6)}`;
-      await supabase.from('rep_profiles').insert({
-        user_id: userId,
-        slug,
-        display_name: form.name.trim() || 'Recovery professional',
-        headline: form.headline.trim() || null,
-      });
-      if (invite) {
-        await supabase.from('facility_affiliations').insert({
-          user_id: userId,
-          facility_id: invite.facilityId,
-          status: 'pending',
-          invited_by: invite.inviterId,
-        });
-      }
+    const provisioned = await fetch('/api/auth/provision', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${data.session.access_token}` },
+    });
+    if (!provisioned.ok) {
+      setBusy(false);
+      setError('Your account was created, but the Rep profile could not be completed. Please sign in and try again.');
+      return;
     }
     router.push('/rep');
     router.refresh();
@@ -82,8 +68,8 @@ export function RepSignupForm({ invite }: { invite?: InviteContext }) {
   if (check) {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900">
-        <strong>Almost there.</strong> We sent a confirmation link to {form.email}. Confirm it, then sign in to
-        finish your profile.
+        <strong>Almost there.</strong> We sent a confirmation link to {form.email}. Open it to finish your profile
+        and accept the invitation.
       </div>
     );
   }

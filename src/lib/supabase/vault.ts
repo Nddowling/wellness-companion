@@ -13,18 +13,20 @@ import type { Database } from '@/types/database';
  * That gate is represented by HANDOFF_BAA_SIGNED — `assertVaultEnabled()` throws
  * unless it is explicitly set, so PHI can never be written by accident.
  *
- * Connection: uses VAULT_SUPABASE_URL / VAULT_SUPABASE_SERVICE_ROLE_KEY when set
- * (the isolated, BAA-covered project — the production target). Until that project
- * exists it falls back to the Core project, where the vault_* tables are locked
- * down by deny-all RLS and reachable only via this service-role client.
+ * Connection requires the isolated Vault project explicitly. It never falls back
+ * to Core: a partial production configuration must fail closed.
  */
 /** Non-throwing check — for UIs that degrade gracefully when PHI is gated off. */
 export function isVaultEnabled(): boolean {
-  return process.env.HANDOFF_BAA_SIGNED === 'true';
+  return Boolean(
+    process.env.HANDOFF_BAA_SIGNED === 'true' &&
+      process.env.VAULT_SUPABASE_URL &&
+      process.env.VAULT_SUPABASE_SERVICE_ROLE_KEY
+  );
 }
 
 export function assertVaultEnabled(): void {
-  if (process.env.HANDOFF_BAA_SIGNED !== 'true') {
+  if (!isVaultEnabled()) {
     throw new Error(
       'PHI vault is disabled. Storing seeker identity requires a signed BAA + HIPAA add-on + security review + 42 CFR Part 2 / EKRA legal sign-off. Set HANDOFF_BAA_SIGNED=true only once that is in place.'
     );
@@ -33,8 +35,8 @@ export function assertVaultEnabled(): void {
 
 export function createVaultClient() {
   assertVaultEnabled();
-  const url = process.env.VAULT_SUPABASE_URL || process.env.SUPABASE_URL!;
-  const key = process.env.VAULT_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const url = process.env.VAULT_SUPABASE_URL!;
+  const key = process.env.VAULT_SUPABASE_SERVICE_ROLE_KEY!;
   return createClient<Database>(url, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });

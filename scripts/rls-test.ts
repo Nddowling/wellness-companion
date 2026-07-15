@@ -2,8 +2,8 @@
  * Wellness Companion — Project A RLS test suite.
  *
  * The Milestone-1 gate: prove the database itself rejects cross-tenant access,
- * not the app layer. Run AFTER 01_core.sql + 02_rls.sql are applied to a live
- * Project A.
+ * not the app layer. Run after the full Project A migration set is applied to a
+ * disposable branch. The suite creates and deletes auth/data fixtures.
  *
  *   npm run rls-test          (needs the env vars below)
  *
@@ -44,6 +44,19 @@ function rows(resp: Resp): unknown[] {
 function expectNoRows(name: string, resp: Resp) {
   if (resp.error) return record(name, false, `unexpected error: ${resp.error.message}`);
   record(name, rows(resp).length === 0, rows(resp).length ? `leaked ${rows(resp).length} row(s)` : '');
+}
+
+/**
+ * A protected read may be denied either by RLS (zero rows) or by a privilege
+ * revoke (PostgREST error). Both prove that the browser role cannot see data.
+ */
+function expectNoAccess(name: string, resp: Resp) {
+  const denied = resp.error !== null || rows(resp).length === 0;
+  record(
+    name,
+    denied,
+    denied ? '' : `leaked ${rows(resp).length} row(s)`,
+  );
 }
 
 /** A read that must return at least one row (positive control — not vacuous). */
@@ -116,6 +129,8 @@ async function main() {
   const facbOwner = await makeUser('facb-owner');
   const bd1 = await makeUser('bd1');
   const bd2 = await makeUser('bd2');
+  const rep1 = await makeUser('rep1');
+  const claimant = await makeUser('claimant');
   const adminUser = await makeUser('admin');
 
   await admin.from('platform_admins').insert({ user_id: adminUser });
@@ -148,6 +163,17 @@ async function main() {
     { user_id: bd1, employer: 'Acme Referrals' },
     { user_id: bd2, employer: 'Beta Referrals' },
   ]);
+  await admin.from('rep_profiles').insert({
+    user_id: rep1,
+    slug: `${TAG}-rep1`,
+    display_name: 'RLS Test Rep',
+  });
+  const { data: affiliation, error: affiliationError } = await admin
+    .from('facility_affiliations')
+    .insert({ user_id: rep1, facility_id: A, title: 'Admissions', status: 'pending' })
+    .select('id')
+    .single();
+  if (affiliationError || !affiliation) throw new Error(`affiliation seed failed: ${affiliationError?.message}`);
   await admin.from('bd_facility_notes').insert([
     { bd_user_id: bd1, facility_id: A, body: 'bd1 note on A' },
     { bd_user_id: bd2, facility_id: B, body: 'bd2 note on B' },
@@ -171,16 +197,32 @@ async function main() {
   const faca = await userClient('faca-owner');
   const facb = await userClient('facb-owner');
   const bdc1 = await userClient('bd1');
+  const repc1 = await userClient('rep1');
   const adminClient = await userClient('admin');
 
-  // ── ANON: no direct table access ────────────────────────────────────────────
+  // ── ANON: no private/direct-write access ────────────────────────────────────
   console.log('\nanon (no session):');
-  expectNoRows('anon cannot read facilities directory', await anon.from('facilities').select('id'));
+  expectNoAccess('anon cannot read facilities directly', await anon.from('facilities').select('id'));
   expectNoRows('anon cannot read matches', await anon.from('matches').select('id'));
   expectDenied(
     'anon cannot insert a facility',
     await anon.from('facilities').insert({ name: 'rogue' }).select(),
   );
+
+  // Migration 28 removes both policies and table privileges from every vault
+  // table. Test both anonymous and authenticated browser roles; service-role
+  // seeding above is the positive control.
+  console.log('\nvault isolation:');
+  for (const table of [
+    'vault_seekers',
+    'vault_seeker_interest',
+    'vault_email_log',
+    'vault_conversations',
+    'vault_consent_events',
+  ]) {
+    expectNoAccess(`anon cannot read ${table}`, await anon.from(table).select('*').limit(1));
+    expectNoAccess(`authenticated user cannot read ${table}`, await faca.from(table).select('*').limit(1));
+  }
 
   // ── FACILITY tenant isolation ───────────────────────────────────────────────
   console.log('\nfacility A member:');
@@ -202,9 +244,25 @@ async function main() {
     "A member cannot INSERT capacity for B",
     await faca.from('facility_capacity').insert({ facility_id: B, level_of_care: 'op', beds_available: 9 }).select(),
   );
-  expectAllowed(
-    'A member CAN update own capacity',
+  expectDenied(
+    'A member cannot directly update own capacity',
     await faca.from('facility_capacity').update({ beds_available: 3 }).eq('facility_id', A).select(),
+  );
+  expectDenied(
+    'A member cannot directly alter own billing or verification fields',
+    await faca
+      .from('facilities')
+      .update({ plan: 'anchor', plan_status: 'lifetime', is_published: true, verified_at: new Date().toISOString() })
+      .eq('id', A)
+      .select(),
+  );
+  expectDenied(
+    'A member cannot directly write own payer evidence',
+    await faca.from('facility_payers').insert({ facility_id: A, payer_type: 'commercial', in_network: true }).select(),
+  );
+  expectDenied(
+    'A member cannot directly change own routed lead status',
+    await faca.from('match_routes').update({ status: 'accepted' }).eq('match_id', matchId).select(),
   );
 
   // ── MATCH routing visibility ────────────────────────────────────────────────
@@ -234,10 +292,123 @@ async function main() {
     await bdc1.from('match_routes').insert({ match_id: matchId, facility_id: A }).select(),
   );
 
+  // ── CANONICAL LANES + AFFILIATION VERIFICATION ───────────────────────────
+  console.log('\ncanonical provider lanes:');
+  expectDenied(
+    'a Partner cannot self-create a Rep lane',
+    await bdc1.from('rep_profiles').insert({
+      user_id: bd1,
+      slug: `${TAG}-forged-rep`,
+      display_name: 'Forged rep',
+    }).select(),
+  );
+  expectDenied(
+    'a facility member cannot self-create a Partner lane',
+    await faca.from('bd_users').insert({ user_id: facaOwner, employer: 'Forged partner' }).select(),
+  );
+  expectDenied(
+    'a representative cannot self-verify an affiliation',
+    await repc1
+      .from('facility_affiliations')
+      .update({ status: 'verified' })
+      .eq('id', (affiliation as { id: string }).id)
+      .select(),
+  );
+  expectDenied(
+    'even service-role writes cannot cross canonical lanes',
+    await admin.from('bd_users').insert({ user_id: facaOwner, employer: 'Cross lane' }).select(),
+  );
+  expectAllowed(
+    'the canonical facility owner can verify through the status-only RPC',
+    await faca.rpc('set_facility_affiliation_status', {
+      p_affiliation_id: (affiliation as { id: string }).id,
+      p_status: 'verified',
+    }),
+  );
+  expectRows(
+    'owner RPC persisted verified status',
+    await admin
+      .from('facility_affiliations')
+      .select('id')
+      .eq('id', (affiliation as { id: string }).id)
+      .eq('status', 'verified'),
+  );
+
+  // ── ATOMIC CLAIM APPROVAL ─────────────────────────────────────────────────
+  console.log('\nclaim approval transaction:');
+  const { data: validClaim, error: validClaimError } = await admin
+    .from('facility_claims')
+    .insert({
+      facility_id: B,
+      claimant_email: email('claimant'),
+      claimant_name: 'Claimant',
+      status: 'pending',
+    })
+    .select('id')
+    .single();
+  if (validClaimError || !validClaim) throw new Error(`valid claim seed failed: ${validClaimError?.message}`);
+  expectAllowed(
+    'service-only claim RPC approves and links owner atomically',
+    await admin.rpc('approve_facility_claim', {
+      p_claim_id: (validClaim as { id: string }).id,
+      p_user_id: claimant,
+    }),
+  );
+  expectRows(
+    'approved claim has its owner membership',
+    await admin
+      .from('facility_members')
+      .select('id')
+      .eq('facility_id', B)
+      .eq('user_id', claimant)
+      .eq('role', 'owner'),
+  );
+
+  const { data: crossLaneClaim, error: crossLaneClaimError } = await admin
+    .from('facility_claims')
+    .insert({
+      user_id: bd1,
+      facility_id: B,
+      claimant_email: email('bd1'),
+      status: 'pending',
+    })
+    .select('id')
+    .single();
+  if (crossLaneClaimError || !crossLaneClaim) {
+    throw new Error(`cross-lane claim seed failed: ${crossLaneClaimError?.message}`);
+  }
+  expectDenied(
+    'claim RPC rejects a Partner-to-facility lane takeover',
+    await admin.rpc('approve_facility_claim', {
+      p_claim_id: (crossLaneClaim as { id: string }).id,
+      p_user_id: bd1,
+    }),
+  );
+  expectRows(
+    'rejected cross-lane claim remains pending',
+    await admin
+      .from('facility_claims')
+      .select('id')
+      .eq('id', (crossLaneClaim as { id: string }).id)
+      .eq('status', 'pending'),
+  );
+  expectDenied(
+    'an authenticated browser cannot insert an approved claim',
+    await bdc1.from('facility_claims').insert({
+      user_id: bd1,
+      facility_id: A,
+      status: 'approved',
+    }).select(),
+  );
+
   // ── ADMIN positive control ──────────────────────────────────────────────────
   console.log('\nadmin:');
   expectRows('admin reads unpublished facility B', await adminClient.from('facilities').select('id').eq('id', B));
   expectRows('admin reads matches', await adminClient.from('matches').select('id').eq('id', matchId));
+  expectDenied(
+    'admin browser session cannot bypass server-only facility writes',
+    await adminClient.from('facilities').update({ plan: 'anchor' }).eq('id', B).select(),
+  );
 }
 
 async function teardown() {

@@ -4,10 +4,10 @@ import { BedChip } from '@/components/FacilityCard';
 import { AddToListMenu } from '@/components/partner/AddToListMenu';
 import { toggleSaveAction } from '@/app/(app)/partners/actions';
 import {
-  acceptedSummary,
   cityState,
   directPhone,
   levelsLabel,
+  programListedPaymentSummary,
   type FacilitySummary,
 } from '@/lib/partner/data';
 
@@ -36,7 +36,12 @@ export function FacilityRow({
       <div className="mt-0.5 text-xs text-slate-500">
         {cityState(f)} · {levelsLabel(f.levels_of_care)}
       </div>
-      <div className="mt-1 text-xs text-slate-500">Accepts: {acceptedSummary(f)}</div>
+      <div className="mt-1 text-xs text-slate-500">
+        Program-listed payment options: {programListedPaymentSummary(f)}
+      </div>
+      <div className="text-xs text-slate-400">
+        Not a network, benefits, or coverage guarantee. Verify with the program and payer.
+      </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {phone ? (

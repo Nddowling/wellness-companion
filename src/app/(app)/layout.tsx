@@ -1,12 +1,17 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { getRoles, homePathFor, profileType } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { normalizePlan } from '@/lib/facility/plan';
+import { effectivePlan } from '@/lib/facility/plan';
 import { Logo } from '@/components/Logo';
 import { AccountMenu } from '@/components/AccountMenu';
 import { MobileTabBar, type Tab } from '@/components/MobileTabBar';
+
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, noarchive: true },
+};
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const roles = await getRoles();
@@ -18,10 +23,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   // Persistent "Upgrade" pill when the user's facility is on the Free plan.
   let facilityOnFree = false;
+  let ownerFacilityId: string | null = null;
   if (isFacility && facilityIds.length > 0) {
     const supabase = await createClient();
-    const { data } = await supabase.from('facilities').select('plan').eq('id', facilityIds[0]).maybeSingle();
-    facilityOnFree = normalizePlan(data?.plan) === 'free';
+    const [{ data: facility }, { data: memberships }] = await Promise.all([
+      supabase.from('facilities').select('plan, plan_status').eq('id', facilityIds[0]).maybeSingle(),
+      supabase
+        .from('facility_members')
+        .select('facility_id, role')
+        .eq('user_id', user.id)
+        .in('facility_id', facilityIds),
+    ]);
+    facilityOnFree = effectivePlan(facility?.plan, facility?.plan_status) === 'free';
+    ownerFacilityId = (memberships ?? []).find((membership) => membership.role === 'owner')?.facility_id ?? null;
   }
 
   // Nav is built STRICTLY from the canonical profile — each lane sees only its own
@@ -30,10 +44,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const tabs: Tab[] = [];
   if (profile === 'seeker') {
     links.push({ href: '/me', label: 'My care' });
-    links.push({ href: '/conversations', label: 'Conversations' });
     links.push({ href: '/programs', label: 'Browse programs' });
     tabs.push({ href: '/me', label: 'My care', icon: 'care' });
-    tabs.push({ href: '/conversations', label: 'Conversations', icon: 'chat' });
     tabs.push({ href: '/programs', label: 'Programs', icon: 'facility' });
   } else if (profile === 'facility') {
     links.push({ href: '/facility', label: 'My facility' });
@@ -91,7 +103,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             )}
             <AccountMenu
               email={user.email ?? ''}
-              inviteHref={isFacility && facilityIds.length > 0 ? `/facility/${facilityIds[0]}/invite` : null}
+              inviteHref={ownerFacilityId ? `/facility/${ownerFacilityId}/invite` : null}
               // Global admin only — surface the seeker contact list in the dropdown.
               extraItems={
                 profile === 'admin'

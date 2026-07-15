@@ -9,14 +9,16 @@ import SiteFooter from '@/components/SiteFooter';
 import { FindTreatmentSearch } from '@/components/search/FindTreatmentSearch';
 import { LogoCarousel, type LogoItem } from '@/components/LogoCarousel';
 import { commercialCarriers, getPayer } from '@/lib/payers';
+import JsonLd from '@/components/JsonLd';
+import { organizationJsonLd, websiteJsonLd } from '@/lib/seo';
 
-// "Centers by Accepted Insurance" carousel — the public buckets + named commercial
-// carriers, each linking to that filter in the directory. Real logos render from
+// Coverage-guide carousel — each carrier links to an educational page that uses
+// exact named-carrier data where listings are shown. Real logos render from
 // /public/images/insurance/{slug}.svg; until those are added, tiles fall back to the
 // brand mark + name automatically.
 const INSURANCE_LOGOS: LogoItem[] = [getPayer('medicaid'), getPayer('medicare'), getPayer('tricare'), ...commercialCarriers()]
   .filter((p): p is NonNullable<typeof p> => !!p)
-  .map((p) => ({ slug: p.slug, name: p.name, brand: p.brand, href: `/programs?pay=${p.payerType}` }));
+  .map((p) => ({ slug: p.slug, name: p.name, brand: p.brand, href: `/insurance/${p.slug}` }));
 
 export const metadata: Metadata = {
   // Home inherits the layout's default (brand) title + OG; just pin the canonical.
@@ -30,6 +32,7 @@ export default async function LandingPage() {
   const authed = !!roles.user;
   return (
     <>
+    <JsonLd data={[organizationJsonLd, websiteJsonLd]} />
     <main className="text-slate-800">
       {/* ── HERO ─────────────────────────────────────────────── */}
       <section className="relative isolate flex min-h-[88vh] flex-col overflow-hidden">
@@ -68,14 +71,15 @@ export default async function LandingPage() {
         <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-6 pb-24 pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.92fr)] lg:gap-12 lg:pt-0">
           <div className="max-w-2xl animate-fade-up text-white">
             <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wide backdrop-blur">
-              Connecting you to treatment that fits
+              A clearer path through addiction-treatment options
             </span>
             <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
               You don&apos;t have to figure this out alone.
             </h1>
             <p className="mt-4 max-w-xl text-lg text-white/90">
-              A warm, judgment-free guide that listens for a few key things and connects you with treatment that
-              actually fits — your situation, your coverage, your needs. Free and private — no account required to start.
+              A warm, judgment-free guide that uses a few limited answers to narrow directory options by listed care
+              level, reported payment information, and region. A provider determines clinical fit and admission.
+              Free to use — no account required to start.
             </p>
             <div className="mt-7">
               {/* The homepage is the public front door, so the treatment search shows for
@@ -94,7 +98,7 @@ export default async function LandingPage() {
                     </Link>
                   ) : (
                     <>
-                      <span className="text-xs text-white/70">Free · Private · No account required</span>
+                      <span className="text-xs text-white/70">Free · Privacy-first · No account required</span>
                       <Link
                         href="/library"
                         className="rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur transition hover:-translate-y-0.5 hover:bg-white/20"
@@ -143,7 +147,7 @@ export default async function LandingPage() {
       </section>
 
       {/* ── BROWSE BY INSURANCE (slideable logo carousel) ────── */}
-      <LogoCarousel title="Centers by Accepted Insurance" items={INSURANCE_LOGOS} />
+      <LogoCarousel title="Coverage and payment guides" items={INSURANCE_LOGOS} />
 
       {/* ── HOW IT WORKS ─────────────────────────────────────── */}
       <section className="bg-[#eef5f2] py-16">
@@ -151,7 +155,7 @@ export default async function LandingPage() {
           <Reveal className="text-center">
             <h2 className="text-2xl font-semibold text-slate-800">Finding care, made gentle</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-              Three simple steps. Share as much or as little as you like.
+              Three short steps before results. Sharing a contact method is optional.
             </p>
           </Reveal>
 
@@ -166,7 +170,7 @@ export default async function LandingPage() {
               },
               {
                 title: 'Get matched',
-                body: 'We find programs that fit your level of care, coverage, and region — with live bed availability.',
+                body: 'We narrow programs by level of care, payment type, region, and dated availability reports.',
                 icon: (
                   <path d="M12 21s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 11c0 5.5-7 10-7 10z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
                 ),
@@ -206,10 +210,10 @@ export default async function LandingPage() {
             <h2 className="text-2xl font-semibold text-slate-800">Help that meets you where you are</h2>
             <ul className="mt-4 space-y-3 text-sm text-slate-600">
               {[
-                ['Real-time bed availability', 'We surface programs with current openings, not stale listings.'],
-                ['Insurance-aware', 'Matches consider your coverage and whether it&apos;s active right now.'],
+                ['Freshness-dated availability', 'Exact bed counts disappear after seven days; always call to confirm.'],
+                ['Payment-aware', 'Matches use payer categories; programs and insurers confirm network status and benefits.'],
                 ['Private &amp; judgment-free', 'We only ask what we need, and we never store more than we must.'],
-                ['Real photos &amp; reviews', 'See the place and hear from people who&apos;ve been there.'],
+                ['Photos &amp; moderated reviews', 'Provider-supplied media and published community feedback are labeled clearly.'],
               ].map(([t, b]) => (
                 <li key={t} className="flex gap-3">
                   <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-sage" />
@@ -238,7 +242,7 @@ export default async function LandingPage() {
             href="/match"
             className="mt-6 inline-block rounded-md bg-terracotta px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-terracotta-dark"
           >
-            Find care that fits →
+            Find treatment options →
           </Link>
         </Reveal>
       </section>
@@ -259,7 +263,7 @@ export default async function LandingPage() {
               <div className="space-y-1">
                 <div className="font-medium text-white/90">Find care</div>
                 {!providerSide && (
-                  <Link href="/match" className="block text-white/70 hover:text-white">Find care that fits</Link>
+                  <Link href="/match" className="block text-white/70 hover:text-white">Find treatment options</Link>
                 )}
                 <Link href="/programs" className="block text-white/70 hover:text-white">Browse programs</Link>
               </div>

@@ -6,7 +6,7 @@ import { SITE_NAME, absoluteUrl } from '@/lib/seo';
 export const metadata: Metadata = {
   title: 'Contact Clear Bed Recovery',
   description:
-    'Reach Clear Bed Recovery — a free, private directory that connects people to addiction and mental-health treatment. We’re a connector, not a treatment provider. In crisis, call or text 988.',
+    'Reach Clear Bed Recovery — an addiction-treatment directory and connector, including listings that may report co-occurring mental-health services. In crisis, call or text 988.',
   alternates: { canonical: '/contact' },
   openGraph: { title: `Contact | ${SITE_NAME}`, description: 'How to reach Clear Bed Recovery.', url: absoluteUrl('/contact') },
 };
@@ -45,8 +45,8 @@ export default function ContactPage() {
 
       <h1 className="mt-8 font-serif text-3xl text-ink">Contact {SITE_NAME}</h1>
       <p className="mt-3 text-sm leading-relaxed text-slate-600">
-        Clear Bed Recovery is a free, private directory that helps people find addiction and mental-health treatment that
-        fits their situation, insurance, and region. We&apos;re a <strong>connector — we don&apos;t provide treatment
+        Clear Bed Recovery is a free directory that helps people narrow addiction-treatment listings by published care
+        level, payment type, and region, including listings that report co-occurring services. We&apos;re a <strong>connector — we don&apos;t provide treatment
         ourselves</strong>, we never take per-referral or per-admission fees, and we never sell ranking.
       </p>
 
@@ -54,8 +54,9 @@ export default function ContactPage() {
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">Looking for treatment</h2>
           <p className="mt-1 text-sm text-slate-600">
-            The fastest way to get help is our free, private guide — answer a few questions and we&apos;ll surface programs
-            that fit, with real-time availability. No account needed.
+            Our free guide uses a few answers to narrow directory listings by published care level, payment type, and
+            region, with dated availability reports where supplied. The program decides clinical fit and admission. No
+            account is needed.
           </p>
           <Link href="/match" className="mt-2 inline-block text-sm font-medium text-teal-700 hover:underline">
             Find treatment →
@@ -65,8 +66,9 @@ export default function ContactPage() {
         <section>
           <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">Run a treatment program?</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Claim your free profile to manage your listing, keep bed availability current, and receive referrals. We verify
-            every claim before granting access.
+            Submit a free ownership claim to manage your listing, keep bed reports current, and receive seeker-chosen
+            referrals. An administrator reviews the ownership claim before granting dashboard access; that review is not
+            independent verification of every listing fact, license, or clinical service.
           </p>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
             <Link href="/claim" className="font-medium text-teal-700 hover:underline">Claim your facility →</Link>

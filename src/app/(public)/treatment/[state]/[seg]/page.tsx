@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { unstable_cache } from 'next/cache';
 
 import JsonLd from '@/components/JsonLd';
@@ -9,9 +9,10 @@ import { FacilityContextBlock } from '@/components/facility/FacilityContextBlock
 import { computeAreaStats, cityContextLines, type ContextFacility } from '@/lib/facility/context';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { absoluteUrl, SITE_NAME, breadcrumbJsonLd, facilityItemListJsonLd, faqJsonLd } from '@/lib/seo';
-import { LEVELS_OF_CARE, LEVEL_LABELS, LEVEL_BLURB, type LevelOfCare } from '@/lib/constants';
-import { codeFromStateSlug, stateName, slugify } from '@/lib/geo';
+import { LEVELS_OF_CARE, LEVEL_LABELS, LEVEL_BLURB, isBedBased, type LevelOfCare } from '@/lib/constants';
+import { codeFromStateSlug, stateName, stateSlug, slugify } from '@/lib/geo';
 import { landingIndexable, robotsFor } from '@/lib/indexable';
+import { collectPublicRows } from '@/lib/supabase/public-pagination';
 
 export const revalidate = 3600;
 
@@ -50,26 +51,32 @@ async function loadUncached(code: string, seg: string): Promise<Resolved | null>
   const supabase = createAdminClient();
 
   if (isLevel(seg)) {
-    const { data } = await supabase
-      .from('facilities')
-      .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
-      .eq('is_published', true)
-      .ilike('state', code)
-      .contains('levels_of_care', [seg])
-      .order('name');
-    const rows = (data ?? []) as FacilityCardData[];
+    const rows = (await collectPublicRows('treatment state level', (from, to) =>
+      supabase
+        .from('facilities')
+        .select('id, name, slug, city, state, levels_of_care, facility_capacity(level_of_care, beds_available, last_updated)')
+        .eq('is_published', true)
+        .ilike('state', code)
+        .contains('levels_of_care', [seg])
+        .order('name')
+        .order('id')
+        .range(from, to),
+    )) as FacilityCardData[];
     if (rows.length === 0) return null;
     return { code, state: stateName(code), kind: 'level', level: seg, rows, heading: LEVEL_LABELS[seg] };
   }
 
   // City: match on the slug of the stored city name (slug is lossy, so filter here).
-  const { data } = await supabase
-    .from('facilities')
-    .select('id, name, slug, city, state, levels_of_care, accreditations, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
-    .eq('is_published', true)
-    .ilike('state', code)
-    .order('name');
-  const all = (data ?? []) as FacilityCardData[];
+  const all = (await collectPublicRows('treatment city', (from, to) =>
+    supabase
+      .from('facilities')
+      .select('id, name, slug, city, state, levels_of_care, accreditations, facility_payers(payer_type), facility_capacity(level_of_care, beds_available, last_updated)')
+      .eq('is_published', true)
+      .ilike('state', code)
+      .order('name')
+      .order('id')
+      .range(from, to),
+  )) as FacilityCardData[];
   const rows = all.filter((f) => f.city && slugify(f.city) === seg);
   if (rows.length === 0) return null;
   return { code, state: stateName(code), kind: 'city', cityName: rows[0].city ?? seg, rows, heading: rows[0].city ?? seg };
@@ -83,19 +90,28 @@ export async function generateMetadata({
   const { state, seg } = await params;
   const r = await load(state, seg);
   if (!r) return { title: 'Treatment not found', robots: { index: false, follow: true } };
+  const canonicalState = stateSlug(r.code);
+  const canonicalSegment = r.kind === 'level' ? r.level! : slugify(r.cityName!);
   const title =
     r.kind === 'level'
       ? `${LEVEL_LABELS[r.level!]} Treatment in ${r.state}`
       : `Drug & Alcohol Rehab in ${r.cityName}, ${r.code}`;
   const where = r.kind === 'level' ? r.state : `${r.cityName}, ${r.state}`;
   const what = r.kind === 'level' ? LEVEL_LABELS[r.level!].toLowerCase() : 'drug and alcohol rehab';
-  const description = `${r.rows.length} vetted ${what} program${r.rows.length === 1 ? '' : 's'} in ${where}, with real-time bed availability. Free and private — get matched or browse directly.`;
+  const description =
+    r.kind === 'level' && isBedBased(r.level!)
+      ? `${r.rows.length} listed ${what} program${r.rows.length === 1 ? '' : 's'} in ${where}, with dated residential-bed reports when supplied.`
+      : `${r.rows.length} listed ${what} program${r.rows.length === 1 ? '' : 's'} in ${where}, with source-listed services and direct contact details.`;
   return {
     title,
     description,
     robots: robotsFor(landingIndexable(r.rows.length)),
-    alternates: { canonical: `/treatment/${state}/${seg}` },
-    openGraph: { title: `${title} | ${SITE_NAME}`, description, url: absoluteUrl(`/treatment/${state}/${seg}`) },
+    alternates: { canonical: `/treatment/${canonicalState}/${canonicalSegment}` },
+    openGraph: {
+      title: `${title} | ${SITE_NAME}`,
+      description,
+      url: absoluteUrl(`/treatment/${canonicalState}/${canonicalSegment}`),
+    },
   };
 }
 
@@ -107,6 +123,11 @@ export default async function StateSegPage({
   const { state, seg } = await params;
   const r = await load(state, seg);
   if (!r) notFound();
+  const canonicalState = stateSlug(r.code);
+  const canonicalSegment = r.kind === 'level' ? r.level! : slugify(r.cityName!);
+  if (state !== canonicalState || seg !== canonicalSegment) {
+    permanentRedirect(`/treatment/${canonicalState}/${canonicalSegment}`);
+  }
 
   const h1 =
     r.kind === 'level' ? (
@@ -120,6 +141,7 @@ export default async function StateSegPage({
     );
 
   const levelLabel = r.kind === 'level' ? LEVEL_LABELS[r.level!] : '';
+  const levelUsesBeds = r.kind === 'level' && isBedBased(r.level!);
   const cityLevelText =
     r.kind === 'city'
       ? LEVELS_OF_CARE.filter((l) => r.rows.some((f) => (f.levels_of_care ?? []).includes(l)))
@@ -132,42 +154,48 @@ export default async function StateSegPage({
       ? [
           {
             q: `How many ${levelLabel.toLowerCase()} programs are in ${r.state}?`,
-            a: `${r.rows.length} ${levelLabel.toLowerCase()} program${r.rows.length === 1 ? '' : 's'} in ${r.state} ${r.rows.length === 1 ? 'is' : 'are'} listed on ${SITE_NAME}, each showing location and current bed availability.`,
+            a: `${r.rows.length} ${levelLabel.toLowerCase()} program${r.rows.length === 1 ? '' : 's'} in ${r.state} ${r.rows.length === 1 ? 'is' : 'are'} listed on ${SITE_NAME}, with source-listed services${levelUsesBeds ? ' and dated residential-bed reports when supplied' : ''}.`,
           },
           { q: `What is ${levelLabel.toLowerCase()}?`, a: LEVEL_BLURB[r.level!] },
           {
             q: `Does insurance cover ${levelLabel.toLowerCase()} in ${r.state}?`,
-            a: `Most health plans cover medically necessary addiction treatment. Many ${r.state} programs accept Medicaid, Medicare, commercial insurance, TRICARE, or self-pay — always confirm current in-network status with the program.`,
+            a: `Coverage, authorization, network status, and cost vary by plan. Listings may report Medicaid, Medicare, commercial insurance, TRICARE, or self-pay; confirm benefits with the program and your insurer.`,
           },
           {
-            q: `How do I find a ${levelLabel.toLowerCase()} program with an open bed in ${r.state}?`,
-            a: `Every listing shows live bed availability, so you can see who has space now — or answer three quick questions and get matched, free and private.`,
+            q: levelUsesBeds
+              ? `How do I find a ${levelLabel.toLowerCase()} program with an open bed in ${r.state}?`
+              : `How do I confirm the setting and admission status for ${levelLabel.toLowerCase()} in ${r.state}?`,
+            a: levelUsesBeds
+              ? `Listings may show dated residential-bed reports. Exact counts are hidden after seven days, so call to confirm before relying on an opening.`
+              : r.level === 'detox'
+                ? `The imported detox category may describe outpatient, residential, or hospital services. It does not establish an overnight setting or open bed, so confirm the setting, clinical service, and admission status directly.`
+                : `This is a non-residential service category. The directory does not assert current appointment availability; call the program to confirm scheduling and admission requirements.`,
           },
         ]
       : [
           {
             q: `How many addiction treatment programs are in ${r.cityName}, ${r.code}?`,
-            a: `${r.rows.length} published program${r.rows.length === 1 ? '' : 's'} in ${r.cityName}${cityLevelText ? `, covering ${cityLevelText.toLowerCase()}` : ''}. Each listing shows levels of care and current bed availability.`,
+            a: `${r.rows.length} published program${r.rows.length === 1 ? '' : 's'} in ${r.cityName}${cityLevelText ? `, covering ${cityLevelText.toLowerCase()}` : ''}. Listings show levels of care and dated availability reports when supplied.`,
           },
           {
-            q: `What levels of care are available in ${r.cityName}?`,
-            a: `${r.cityName} programs include ${cityLevelText.toLowerCase() || 'a range of addiction treatment options'}. Detox and residential are overnight, bed-based care; PHP, IOP, and outpatient are day programs you live at home for.`,
+            q: `What treatment services and levels of care are listed in ${r.cityName}?`,
+            a: `${r.cityName} records include ${cityLevelText.toLowerCase() || 'a range of addiction treatment options'}. Residential is overnight and bed-based. PHP, IOP, and outpatient are non-residential. The imported detox category may describe outpatient, residential, or hospital services, so confirm the setting directly.`,
           },
           {
             q: `Does insurance cover rehab in ${r.cityName}?`,
-            a: `Most health plans cover addiction and mental-health treatment by law. Many ${r.cityName} programs accept Medicaid, Medicare, commercial insurance, TRICARE, or self-pay — confirm benefits directly with the program.`,
+            a: `Many plans include behavioral-health benefits, but coverage, authorization, network status, and cost vary. Confirm benefits with the program and your insurer.`,
           },
           {
             q: `How do I find a program with an open bed in ${r.cityName}?`,
-            a: `Each ${r.cityName} listing shows live bed availability, or get matched to programs that fit your situation, coverage, and region in three quick questions.`,
+            a: `Residential listings may show dated bed reports, and exact counts disappear after seven days. Detox service records do not by themselves establish an overnight setting or detox bed. Call to confirm before relying on an opening.`,
           },
         ];
 
   const schema = [
     breadcrumbJsonLd([
       { name: 'Treatment', path: '/treatment' },
-      { name: r.state, path: `/treatment/${state}` },
-      { name: r.heading, path: `/treatment/${state}/${seg}` },
+      { name: r.state, path: `/treatment/${canonicalState}` },
+      { name: r.heading, path: `/treatment/${canonicalState}/${canonicalSegment}` },
     ]),
     facilityItemListJsonLd(r.rows),
     faqJsonLd(faqs),
@@ -181,7 +209,7 @@ export default async function StateSegPage({
           Treatment
         </Link>{' '}
         /{' '}
-        <Link href={`/treatment/${state}`} className="text-teal-700 hover:underline">
+        <Link href={`/treatment/${canonicalState}`} className="text-teal-700 hover:underline">
           {r.state}
         </Link>{' '}
         / <span>{r.heading}</span>
@@ -191,8 +219,9 @@ export default async function StateSegPage({
       <p className="mt-2 max-w-xl text-sm text-slate-600">
         {r.rows.length} program{r.rows.length === 1 ? '' : 's'}
         {r.kind === 'level' ? ` offering ${LEVEL_LABELS[r.level!].toLowerCase()}` : ''} in{' '}
-        {r.kind === 'level' ? r.state : `${r.cityName}, ${r.state}`}, with live bed availability. {SITE_NAME}{' '}
-        connects you to treatment facilities; we don&apos;t provide treatment ourselves.
+        {r.kind === 'level' ? r.state : `${r.cityName}, ${r.state}`}, with source-listed services
+        {levelUsesBeds ? ' and dated residential-bed reports where supplied' : ''}. {r.level === 'detox' ? 'The detox category may include outpatient or overnight settings. ' : ''}
+        {SITE_NAME} connects you to treatment facilities; we don&apos;t provide treatment ourselves.
       </p>
 
       {r.kind === 'city' && (
@@ -204,7 +233,7 @@ export default async function StateSegPage({
 
       <div className="mt-4">
         <Link href="/match" className="text-sm font-medium text-teal-700 hover:underline">
-          Not sure which fits? Get matched in 3 quick questions →
+          Not sure where to start? Narrow directory options in 3 quick questions →
         </Link>
       </div>
 
@@ -224,7 +253,7 @@ export default async function StateSegPage({
                 {cities.map(([city, n]) => (
                   <Link
                     key={city}
-                    href={`/treatment/${state}/${slugify(city)}/${r.level}`}
+                    href={`/treatment/${canonicalState}/${slugify(city)}/${r.level}`}
                     className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-sm text-slate-700 transition hover:border-teal-300"
                   >
                     {city} ({n})
@@ -244,13 +273,13 @@ export default async function StateSegPage({
           return (
             <section className="mt-6">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">
-                By level of care in {r.cityName}
+                By listed service or level in {r.cityName}
               </h2>
               <div className="mt-2 flex flex-wrap gap-2">
                 {levels.map((l) => (
                   <Link
                     key={l}
-                    href={`/treatment/${state}/${seg}/${l}`}
+                    href={`/treatment/${canonicalState}/${canonicalSegment}/${l}`}
                     className="rounded-full border border-teal-200 bg-teal-50 px-3.5 py-1.5 text-sm font-medium text-teal-800 transition hover:bg-teal-100"
                   >
                     {LEVEL_LABELS[l as LevelOfCare]} ({levelCounts.get(l)})

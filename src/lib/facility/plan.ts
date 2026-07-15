@@ -1,9 +1,9 @@
 // Single source of truth for the facility subscription tiers, what each unlocks,
 // and the seat model. Mirrors /pricing (Free / Starter / Growth / Anchor).
 //
-// EKRA guardrail: paid tiers unlock PROFILE richness, ANALYTICS, TOOLS, and
-// clearly-labeled ad PLACEMENT only — NEVER preferential treatment in the
-// patient-matching algorithm. Matching stays need-based for every tier.
+// Paid tiers unlock only in-app analytics and workflow that the product currently
+// enforces. They never affect matching, inclusion, or access to contact details a
+// seeker explicitly chose to share with a program.
 
 export type Plan = 'free' | 'starter' | 'growth' | 'anchor';
 
@@ -24,14 +24,28 @@ export function normalizePlan(value: string | null | undefined): Plan {
   return 'free';
 }
 
+/**
+ * Resolve the plan that may actually authorize paid tooling. Stored tier names are
+ * inert unless billing is active or the account has an explicit lifetime grant.
+ * Missing and legacy statuses fail closed to Free.
+ */
+export function effectivePlan(
+  value: string | null | undefined,
+  status: string | null | undefined,
+): Plan {
+  const plan = normalizePlan(value);
+  if (plan === 'free') return 'free';
+  const normalizedStatus = status?.trim().toLowerCase();
+  return normalizedStatus === 'active' || normalizedStatus === 'lifetime' ? plan : 'free';
+}
+
 // Each gated feature → the minimum plan that unlocks it.
 //
 // New model: the FULL PROFILE is free. Claiming a facility (at no cost) unlocks every
 // profile-content feature — description, photos, video, website, maps/directions, call
-// button, review responses — "the whole nine." Paid tiers exist ONLY for growth tooling
-// and lead access (analytics, follow-up, consented seeker contacts, labeled placement,
-// data integrations), never for basic profile richness. Matching stays need-based for
-// every tier (EKRA).
+// button, and review responses. Paid tiers exist only for implemented in-app
+// analytics and lead-status workflow, never for profile richness or a seeker's
+// explicitly consented contact method.
 export const FEATURE_MIN_PLAN = {
   // Profile content — free (unlocked by a free claim).
   photos: 'free',
@@ -40,14 +54,12 @@ export const FEATURE_MIN_PLAN = {
   callIntake: 'free',
   respondReviews: 'free',
   video: 'free',
-  // Growth tooling + lead access — paid.
-  basicAnalytics: 'growth',
+  // A seeker chose the program before consenting; payment cannot buy or block access.
+  seekerContacts: 'free',
+  // Implemented paid tooling.
+  basicAnalytics: 'starter',
   followUpWorkflow: 'growth',
-  seekerContacts: 'growth', // see matched seekers' consented contact details in-app
-  featuredPlacement: 'growth',
   fullAnalytics: 'anchor',
-  apiBedBoard: 'anchor',
-  multiLocation: 'anchor',
 } as const satisfies Record<string, Plan>;
 
 export type Feature = keyof typeof FEATURE_MIN_PLAN;
@@ -56,23 +68,31 @@ export function planAllows(plan: Plan, feature: Feature): boolean {
   return PLAN_RANK[plan] >= PLAN_RANK[FEATURE_MIN_PLAN[feature]];
 }
 
+type FacilityClaimMarker = { status: string | null };
+
+/** Only an admin-approved ownership claim unlocks the complete public profile. */
+export function hasFullPublicProfile(
+  claims: readonly FacilityClaimMarker[] | null | undefined,
+): boolean {
+  return claims?.some((claim) => claim.status === 'approved') ?? false;
+}
+
 /** The plan a feature requires (for "Upgrade to X" copy). */
 export function requiredPlan(feature: Feature): Plan {
   return FEATURE_MIN_PLAN[feature];
 }
 
-/** How many photos a plan may publish. A free claim already includes a full gallery. */
+/** A complete claimed profile gets the same gallery allowance on every plan. */
 export function photoLimit(plan: Plan): number {
-  return plan === 'anchor' ? 30 : plan === 'growth' ? 20 : 10; // free/starter: 10
+  void plan; // Keep the plan-shaped API while enforcing a payment-neutral limit.
+  return 10;
 }
 
 // ── Seats ────────────────────────────────────────────────────────────────────
 // Every tier (incl. Free) includes 2 seats: the Admin/owner + 1 BD/other person.
-// Additional seats are a flat $69.99/mo add-on, billed per seat regardless of tier.
 export const INCLUDED_SEATS = 2;
-export const EXTRA_SEAT_PRICE_MONTHLY = 69.99;
 
-/** Total seats a facility may fill = the 2 included + any purchased extras. */
+/** Extra seats exist only when a documented custom arrangement sets the stored allowance. */
 export function seatLimit(extraSeats: number | null | undefined): number {
   return INCLUDED_SEATS + Math.max(0, extraSeats ?? 0);
 }

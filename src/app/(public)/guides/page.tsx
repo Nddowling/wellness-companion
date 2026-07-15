@@ -8,7 +8,7 @@ import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 export const metadata: Metadata = {
   title: 'Treatment Guides: Paying for Care, Levels of Care & How to Choose',
   description:
-    'Clear, judgment-free guides to finding addiction and mental-health treatment — how to pay for it, what the levels of care mean, how to choose a program, and how to help a loved one.',
+    'Clear, judgment-free guides to addiction treatment — how to ask about payment, understand listed levels of care, compare programs, and help a loved one.',
   alternates: { canonical: '/guides' },
   openGraph: {
     title: 'Treatment Guides | Clear Bed Recovery',

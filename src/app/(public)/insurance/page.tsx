@@ -3,17 +3,17 @@ import Link from 'next/link';
 
 import JsonLd from '@/components/JsonLd';
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
-import { PAYERS, SELF_PAY_RANGES, type PayerKind } from '@/lib/payers';
+import { PAYERS, type PayerKind } from '@/lib/payers';
 import { PayerMark } from '@/components/PayerLogo';
 
 export const metadata: Metadata = {
-  title: 'Treatment by Insurance: Coverage & Costs (Medicaid, Aetna, BCBS, Cigna & More)',
+  title: 'Insurance & Payment Guides for Addiction Treatment',
   description:
-    'See which insurance plans cover addiction and mental-health treatment — Medicaid, Medicare, TRICARE, Aetna, Blue Cross Blue Shield, Cigna, UnitedHealthcare, Humana, and more — plus typical self-pay costs.',
+    'General guides to insurance and payment questions for addiction treatment, including Medicaid, Medicare, TRICARE, commercial plans, and self-pay.',
   alternates: { canonical: '/insurance' },
   openGraph: {
     title: 'Treatment by Insurance | Clear Bed Recovery',
-    description: 'Coverage and cost info for the major insurers — plus typical self-pay ranges.',
+    description: 'General insurance and payment questions to verify with a plan and treatment program.',
     url: absoluteUrl('/insurance'),
   },
 };
@@ -41,9 +41,9 @@ export default function InsuranceIndex() {
       <h1 className="font-serif text-3xl leading-tight text-ink sm:text-4xl">
         Treatment by <span className="italic text-brand">insurance</span>
       </h1>
-      <p className="mt-2 max-w-xl text-sm text-slate-600">
-        Most plans cover addiction and mental-health treatment by law — often at little or no out-of-pocket cost.
-        Pick your coverage to see what&apos;s typically covered and how to verify your benefits.
+  <p className="mt-2 max-w-xl text-sm text-slate-600">
+        Coverage depends on the plan, medical-necessity rules, network, authorization, and the service requested.
+        Pick a coverage guide to learn what to ask and how to verify your own benefits.
       </p>
 
       {GROUPS.map((g) => {
@@ -63,7 +63,7 @@ export default function InsuranceIndex() {
                       <PayerMark brand={p.brand} size="lg" />
                       <span className="truncate font-medium text-slate-800">{p.name}</span>
                     </span>
-                    <span className="shrink-0 text-xs text-slate-400">Coverage &amp; cost →</span>
+                    <span className="shrink-0 text-xs text-slate-400">What to verify →</span>
                   </Link>
                 </li>
               ))}
@@ -72,22 +72,14 @@ export default function InsuranceIndex() {
         );
       })}
 
-      {/* Self-pay ballpark — the one place real numbers exist */}
+      {/* Self-pay guidance without an unsourced universal price range. */}
       <section className="mt-9 rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-ink">Typical self-pay costs (general estimates)</h2>
+        <h2 className="text-sm font-semibold text-ink">If you are considering self-pay</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Ballpark ranges to set expectations — <strong>not a quote</strong>. Actual cost depends on the program,
-          length of stay, and amenities, and should be confirmed with the facility. With insurance, you typically pay
-          far less.
+          There is no single reliable price for a level of care. Ask the program for a written estimate that says what
+          services and time period it covers, whether additional clinical or medication charges may apply, and what
+          payment-assistance and refund policies are available.
         </p>
-        <div className="mt-3 divide-y divide-slate-100">
-          {SELF_PAY_RANGES.map((r) => (
-            <div key={r.level} className="flex flex-col gap-0.5 py-2 sm:flex-row sm:justify-between">
-              <span className="text-sm font-medium text-slate-700">{r.label}</span>
-              <span className="text-sm text-slate-500 sm:text-right">{r.range}</span>
-            </div>
-          ))}
-        </div>
         <Link href="/guides/how-to-pay-for-addiction-treatment" className="mt-3 inline-block text-sm font-medium text-teal-700 hover:underline">
           Read: How to pay for treatment →
         </Link>

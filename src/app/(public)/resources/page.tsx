@@ -4,7 +4,6 @@ import Link from 'next/link';
 import JsonLd from '@/components/JsonLd';
 import SiteFooter from '@/components/SiteFooter';
 import { SITE_NAME, absoluteUrl, breadcrumbJsonLd } from '@/lib/seo';
-import { amazonSearch } from '@/lib/affiliate';
 
 const TITLE = 'Recovery Books & Tools — Resources for Recovery and Families';
 const DESCRIPTION =
@@ -48,7 +47,7 @@ const SECTIONS: Section[] = [
       { title: 'Sobriety journals', note: 'Track days, triggers, and wins.', query: 'sobriety journal' },
       { title: 'Recovery workbooks', note: 'Guided exercises and reflection.', query: 'addiction recovery workbook' },
       { title: 'Daily reflections', note: 'A page a day for early recovery.', query: 'daily reflections recovery meditation book' },
-      { title: 'Gratitude journals', note: 'A simple, proven daily practice.', query: 'gratitude journal' },
+      { title: 'Gratitude journals', note: 'A simple daily reflection practice.', query: 'gratitude journal' },
     ],
   },
   {
@@ -63,7 +62,7 @@ const SECTIONS: Section[] = [
     heading: 'Calm & self-care',
     blurb: 'Tools that help with the hard early days — no medical claims, just comfort.',
     items: [
-      { title: 'Weighted blankets', note: 'Many find them calming for anxiety.', query: 'weighted blanket' },
+      { title: 'Weighted blankets', note: 'A comfort item some people choose.', query: 'weighted blanket' },
       { title: 'Meditation & breathing tools', note: 'Support a daily practice.', query: 'meditation cushion set' },
     ],
   },
@@ -89,7 +88,8 @@ export default function ResourcesPage() {
         <h1 className="mt-2 font-serif text-3xl leading-tight text-ink sm:text-4xl">Recovery books &amp; tools</h1>
         <p className="mt-3 text-base leading-relaxed text-slate-700">
           A small, honest shelf of resources that help — in treatment, supporting someone you love, or rebuilding after.
-          We only list things we believe genuinely help; these are never paid placements.
+          These are editorial suggestions, not paid placements or medical recommendations. Look for them through a
+          library, local bookseller, or retailer you trust.
         </p>
 
         <div className="mt-8 space-y-9">
@@ -99,29 +99,22 @@ export default function ResourcesPage() {
               <p className="mt-1 text-sm text-slate-500">{s.blurb}</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {s.items.map((it) => (
-                  <a
-                    key={it.title}
-                    href={amazonSearch(it.query)}
-                    target="_blank"
-                    rel="noopener noreferrer sponsored"
-                    className="block rounded-lg border border-slate-200 bg-white p-4 transition hover:border-teal-300"
-                  >
+                  <div key={it.title} className="rounded-lg border border-slate-200 bg-white p-4">
                     <div className="font-medium text-slate-800">{it.title}</div>
                     <div className="mt-0.5 text-xs text-slate-500">{it.note}</div>
-                    <div className="mt-2 text-xs font-medium text-teal-700">View on Amazon ↗</div>
-                  </a>
+                    <div className="mt-2 text-xs text-slate-400">Search title: {it.query}</div>
+                  </div>
                 ))}
               </div>
             </section>
           ))}
         </div>
 
-        {/* FTC-required affiliate disclosure */}
+        {/* Editorial and health-information disclosure. */}
         <p className="mt-10 rounded-lg border border-slate-200 bg-slate-50 p-4 text-xs leading-relaxed text-slate-500">
-          As an Amazon Associate, {SITE_NAME} earns from qualifying purchases — at no extra cost to you. We choose these
-          resources because we think they help, not because anyone paid for placement. {SITE_NAME} is a directory, not a
-          treatment provider, and nothing here is medical advice. In a crisis, call 988 or the Georgia Crisis &amp;
-          Access Line at 1-800-715-4225.
+          {SITE_NAME} does not earn a commission from these suggestions. Inclusion is not an endorsement of an author,
+          seller, or treatment approach. {SITE_NAME} is a directory, not a treatment provider, and nothing here is
+          medical advice. In a crisis, call or text 988.
         </p>
       </main>
       <SiteFooter />

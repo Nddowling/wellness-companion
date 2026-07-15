@@ -59,13 +59,13 @@ export function RepProfileForm({ profile, defaultName }: { profile: RepProfile |
           >
             {preview ? 'Change photo' : 'Choose photo'}
           </label>
-          {/* accept=image/* opens the photo library / camera on iOS + Android and the file picker on desktop */}
+          {/* Keep the picker aligned with the byte-validated, browser-safe server allowlist. */}
           <input
             ref={fileRef}
             id="photo"
             name="photo"
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/avif"
             onChange={onPick}
             className="hidden"
           />
@@ -78,7 +78,9 @@ export function RepProfileForm({ profile, defaultName }: { profile: RepProfile |
               Remove
             </button>
           )}
-          <p className="mt-1 text-xs text-slate-400">A clear headshot works best. JPG or PNG, up to 8MB.</p>
+          <p className="mt-1 text-xs text-slate-400">
+            A clear headshot works best. JPEG, PNG, WebP, or AVIF, up to 4MB.
+          </p>
         </div>
         {removed && <input type="hidden" name="remove_photo" value="1" />}
       </div>

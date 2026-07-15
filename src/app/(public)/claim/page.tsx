@@ -11,7 +11,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 export const metadata: Metadata = {
   title: 'Claim your facility — Clear Bed Recovery',
   description:
-    'Run a treatment program? Claim your facility to manage your profile, beds, and referrals. We verify every claim before granting access.',
+    'Run a treatment program? Submit an ownership claim to manage your profile, bed reports, and referrals. An administrator reviews claims before granting access.',
+  alternates: { canonical: '/claim' },
+  // This is an account-access form with status/query variants, not durable
+  // informational content. Provider discovery pages link to it directly.
+  robots: { index: false, follow: true, noarchive: true },
 };
 
 const field = 'w-full rounded border border-slate-300 px-3 py-2 text-sm';
@@ -50,15 +54,15 @@ export default async function ClaimPage({
       </h1>
       <p className="mt-2 text-sm text-slate-600">
         Manage your program&apos;s profile, keep bed availability current, and receive referrals. Tell us
-        a little about you and your program — we verify every claim and reach out before granting access.
+        a little about you and your program. An administrator reviews each ownership claim before granting access;
+        we may contact you if the submitted information is not enough.
         Once you&apos;re approved, we&apos;ll email you a link to set your password and sign in.
       </p>
 
       {submitted && (
         <div className="mt-6 rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          ✓ Thanks — your claim is in. We review every claim (usually within{' '}
-          <strong>1–2 business days</strong>) and email you a link to set your password and sign in once
-          you&apos;re approved. Already verified? <Link href="/login" className="font-medium underline">Provider login</Link>.
+          ✓ Thanks — your claim is in. An administrator will review it and email you a link to set your password
+          if it is approved. Already have access? <Link href="/login" className="font-medium underline">Provider login</Link>.
         </div>
       )}
       {error && (
@@ -86,10 +90,10 @@ export default async function ClaimPage({
           />
 
           <button className="w-full rounded-md bg-teal-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-800">
-            Submit claim for verification
+            Submit ownership claim
           </button>
           <p className="text-center text-xs text-slate-500">
-            We&apos;ll review and reach out within 1–2 business days. Already verified?{' '}
+            An administrator reviews claims before access is granted. Already have access?{' '}
             <Link href="/login" className="font-medium text-teal-700 underline">Provider login</Link>
           </p>
         </form>

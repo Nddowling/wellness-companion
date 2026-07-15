@@ -1,16 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/Logo';
-import { COMMON_PAYER_CHIPS, payerBrandForLabel } from '@/lib/payers';
-import { PayerMark } from '@/components/PayerLogo';
+import { Dialog } from '@/components/ui';
+import {
+  PAYER_LABELS,
+  type LevelOfCare,
+  type PayerType,
+} from '@/lib/constants';
+import { COMMERCIAL_CARRIER_NAMES } from '@/lib/payers';
+import { createClient } from '@/lib/supabase/client';
 
-type Role = 'user' | 'assistant';
-type Message = { role: Role; content: string };
+type ConcernCategory = 'substance_use' | 'mental_health' | 'co_occurring' | 'unsure';
+type Phase = 'intake' | 'matching' | 'results' | 'connect';
+type ConnectChoice = 'programs' | 'email' | 'both' | 'neither';
+type ContactMethod = 'phone' | 'email';
 
 type MatchedFacility = {
   id: string;
@@ -21,186 +27,217 @@ type MatchedFacility = {
   bed_based: boolean;
   beds_available: number;
   freshness: 'green' | 'amber' | 'red';
-  in_network: boolean;
+  provider_reported: boolean;
+  region_match: boolean;
   referral_contact: { name?: string; email?: string; phone?: string } | null;
 };
 
-// The four guided steps. Each is AI-backed: a tap or free text is sent to
-// /api/intake for that step, which either asks one gentle follow-up or records
-// the step's fields and advances. Keys match STEP_ORDER in lib/intake/prompt.
-// Bump when the acknowledgment-gate / Terms consent text changes — anyone who
-// accepted an older version is re-prompted so they see (and agree to) the current one.
-const TERMS_VERSION = '2026-06-12';
+type Choice<T extends string> = {
+  value: T;
+  label: string;
+  detail: string;
+};
 
-const STEPS = [
+// Bump when the acknowledgment-gate / Terms consent text changes. Anyone who
+// accepted an older version is re-prompted to review the current disclosure.
+const TERMS_VERSION = '2026-07-15T17:21:00.000Z';
+
+const LEVEL_CHOICES: readonly Choice<LevelOfCare>[] = [
   {
-    key: 'contact',
-    label: 'Start with you',
-    opener: "Hey — I'm really glad you reached out. Before we look at programs, what's your first name?",
-    encouragement: 'This stays private. It just lets a real program follow up, and it saves your place so nothing gets lost.',
-    chips: [],
-    placeholder: 'First name',
+    value: 'detox',
+    label: 'Detox services',
+    detail: 'A directory category for withdrawal-management services; confirm the setting directly.',
   },
   {
-    key: 'need',
-    label: 'What you need',
-    opener: 'What kind of support are you looking for?',
-    encouragement: "You don't have to have it all figured out. One step at a time is exactly the right pace.",
-    chips: ['Outpatient', 'Residential', 'Detox', 'Not sure'],
-    placeholder: 'Outpatient, residential, detox…',
+    value: 'residential',
+    label: 'Residential',
+    detail: 'Programs where a person stays overnight.',
   },
   {
-    key: 'location',
-    label: 'Where you are',
-    opener: 'Got it. Roughly where are you? A ZIP code, or a city and state, is plenty.',
-    encouragement: 'This just helps me find programs near you. Nothing here is shared without your say-so.',
-    chips: [],
-    placeholder: 'ZIP code or city, state',
+    value: 'php',
+    label: 'Day program (PHP)',
+    detail: 'Structured daytime treatment while living elsewhere.',
   },
   {
-    key: 'coverage',
-    label: 'Coverage',
-    opener: 'Thank you. How would care be paid for?',
-    encouragement: "Coverage can be confusing — “not sure” is a perfectly fine answer.",
-    chips: COMMON_PAYER_CHIPS,
-    placeholder: 'Medicaid, Blue Cross, Aetna, self-pay…',
+    value: 'iop',
+    label: 'Intensive outpatient (IOP)',
+    detail: 'Scheduled treatment several times per week.',
   },
   {
-    key: 'identity',
-    label: 'Connect (optional)',
-    opener: 'Great — what’s the best phone number to reach you?',
-    encouragement: 'Your details stay private and are only used to connect you with care you choose.',
-    chips: [],
-    placeholder: 'Phone number',
+    value: 'op',
+    label: 'Outpatient',
+    detail: 'Regular scheduled visits while living at home.',
   },
+];
+
+const CONCERN_CHOICES: readonly Choice<ConcernCategory>[] = [
+  {
+    value: 'substance_use',
+    label: 'Substance-use treatment',
+    detail: 'Browse addiction-treatment programs without describing substances, symptoms, or history.',
+  },
+  {
+    value: 'co_occurring',
+    label: 'Co-occurring support',
+    detail: 'Only show addiction programs that document co-occurring mental-health services.',
+  },
+  {
+    value: 'mental_health',
+    label: 'Standalone mental-health care',
+    detail: 'Clear Bed does not currently match standalone mental-health providers, but we will show next steps.',
+  },
+  {
+    value: 'unsure',
+    label: 'Not sure',
+    detail: 'Use the broad addiction-treatment directory without making a clinical assumption.',
+  },
+];
+
+const PAYER_CHOICES: readonly Choice<PayerType>[] = [
+  { value: 'medicaid', label: PAYER_LABELS.medicaid, detail: 'State Medicaid or a Medicaid managed-care plan.' },
+  { value: 'medicare', label: PAYER_LABELS.medicare, detail: 'Original Medicare or Medicare Advantage.' },
+  {
+    value: 'commercial',
+    label: 'Employer or private insurance',
+    detail: 'Optionally choose a supported carrier; never enter policy or member details.',
+  },
+  { value: 'tricare', label: PAYER_LABELS.tricare, detail: 'Military health coverage.' },
+  { value: 'self_pay', label: PAYER_LABELS.self_pay, detail: 'Paying directly, including when uninsured.' },
+];
+
+const FILTER_STEPS = [
+  { label: 'Program type', encouragement: 'Choose a directory filter. A provider determines the appropriate clinical level.' },
+  { label: 'General focus', encouragement: 'Choose one broad category. We do not need a treatment or medical narrative.' },
+  { label: 'ZIP region', encouragement: 'Enter a ZIP code. Only its first three digits remain after you continue.' },
+  { label: 'Payment', encouragement: 'Choose a general payment category. Never enter member or policy numbers.' },
 ] as const;
 
 const FRESH_LABEL = {
-  green: 'Beds confirmed recently',
-  amber: 'Availability updated this week',
+  green: 'Bed report updated recently',
+  amber: 'Bed report updated this week',
   red: 'Call to confirm current availability',
 } as const;
 
-// Availability reads differently for overnight (beds) vs outpatient (accepting) care.
-function availability(f: MatchedFacility): { chip: string; tone: 'green' | 'amber' | 'red'; detail: string } {
-  if (!f.bed_based) {
-    return { chip: 'Accepting clients', tone: 'green', detail: 'Outpatient · no beds needed' };
-  }
-  if (f.beds_available > 0) {
+function availability(facility: MatchedFacility): {
+  chip: string;
+  tone: 'green' | 'amber' | 'red';
+  detail: string;
+} {
+  if (facility.level === 'detox') {
     return {
-      chip: FRESH_LABEL[f.freshness],
-      tone: f.freshness,
-      detail: `${f.beds_available} bed${f.beds_available === 1 ? '' : 's'} open`,
+      chip: 'Call to confirm setting',
+      tone: 'amber',
+      detail: 'Detox setting and scheduling are not specified in this directory category',
     };
   }
-  return { chip: 'Call to confirm', tone: 'red', detail: 'Beds not available right now — call to confirm' };
+  if (!facility.bed_based) {
+    return {
+      chip: 'Call for scheduling',
+      tone: 'amber',
+      detail: 'Outpatient level listed · current openings not reported',
+    };
+  }
+  if (facility.beds_available > 0 && facility.freshness !== 'red') {
+    return {
+      chip: facility.provider_reported ? FRESH_LABEL[facility.freshness] : 'Recent directory report',
+      tone: facility.freshness,
+      detail: `${facility.beds_available} bed${facility.beds_available === 1 ? '' : 's'} reported · call to confirm`,
+    };
+  }
+  return { chip: 'Call to confirm', tone: 'red', detail: 'Availability is not recently confirmed' };
 }
 
-// The model ends a follow-up question with a hidden quick-reply line:
-//   [[chips]] Alcohol | Opioids | A mix | Not sure
-// Split an assistant message into the visible text + its suggested chips, hiding
-// any in-progress marker so the raw "[[chips]]" never flashes mid-stream.
-// Robust to model variance: [[chips]], [[ chips ]], single brackets, any case.
-const CHIP_RE = /\[\[?\s*chips\s*\]?\]/i;
-function parseChips(content: string): { text: string; chips: string[] } {
-  const m = content.match(CHIP_RE);
-  if (!m || m.index === undefined) {
-    // Hide a partially-streamed marker at the very end (e.g. "\n[[chi").
-    const partial = content.match(/\n*\[\[?\s*c?h?i?p?s?\s*\]?\]?$/i);
-    return { text: (partial ? content.slice(0, partial.index) : content).trimEnd(), chips: [] };
-  }
-  const chips = content
-    .slice(m.index + m[0].length)
-    // options up to the end of that line, split on | (or commas as a fallback)
-    .split('\n')[0]
-    .split(/[|]/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 5);
-  return { text: content.slice(0, m.index).trimEnd(), chips };
+function ChoiceCards<T extends string>({
+  name,
+  choices,
+  selected,
+  onChange,
+}: {
+  name: string;
+  choices: readonly Choice<T>[];
+  selected: T | null;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {choices.map((choice) => (
+        <label
+          key={choice.value}
+          className={
+            'flex min-h-20 cursor-pointer items-start gap-3 rounded-xl border p-3 transition ' +
+            (selected === choice.value
+              ? 'border-teal-600 bg-teal-50 ring-1 ring-teal-600'
+              : 'border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/40')
+          }
+        >
+          <input
+            type="radio"
+            name={name}
+            value={choice.value}
+            checked={selected === choice.value}
+            onChange={() => onChange(choice.value)}
+            className="mt-1 h-4 w-4 shrink-0 accent-teal-700"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-ink">{choice.label}</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">{choice.detail}</span>
+          </span>
+        </label>
+      ))}
+    </div>
+  );
 }
 
 export default function MatchPage() {
-  // Warm acknowledgment gate before the conversation begins.
-  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [acknowledged, setAcknowledged] = useState(false);
   const [ackChecked, setAckChecked] = useState(false);
 
+  const [phase, setPhase] = useState<Phase>('intake');
   const [stepIdx, setStepIdx] = useState(0);
-  const [messages, setMessages] = useState<Message[]>([{ role: 'assistant', content: STEPS[0].opener }]);
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [careLevel, setCareLevel] = useState<LevelOfCare | null>(null);
+  const [concernCategory, setConcernCategory] = useState<ConcernCategory | null>(null);
+  const [zipInput, setZipInput] = useState('');
+  const [regionZip3, setRegionZip3] = useState<string | null>(null);
+  const [payerType, setPayerType] = useState<PayerType | null>(null);
+  const [payerCarrier, setPayerCarrier] = useState('');
 
-  // Accumulated face sheet, merged from each step's recorded fields.
-  const [faceSheet, setFaceSheet] = useState<Record<string, unknown>>({});
-
-  // intake  → the 3 de-identified questions that produce matches
-  // matching → running the match
-  // results → showing matches (the value moment — before any personal info)
-  // connect → the OPTIONAL follow-on: name/phone/consent so programs can reach out
-  const [phase, setPhase] = useState<'intake' | 'matching' | 'results' | 'connect'>('intake');
   const [matches, setMatches] = useState<MatchedFacility[] | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
-  const [seekerName, setSeekerName] = useState<string | undefined>(undefined);
+  const [connectChoice, setConnectChoice] = useState<ConnectChoice | null>(null);
+  const [contactMethod, setContactMethod] = useState<ContactMethod | null>(null);
+  const [contactValue, setContactValue] = useState('');
+  const [connectCompleted, setConnectCompleted] = useState(false);
+  const [contactSaved, setContactSaved] = useState<boolean | null>(null);
   const [shared, setShared] = useState(false);
-  // True when the handoff minted a brand-new login for this (previously anonymous)
-  // seeker — so we can tell them an account now exists and to check their inbox.
-  const [accountCreated, setAccountCreated] = useState(false);
+  const [emailSent, setEmailSent] = useState<boolean | null>(null);
+  const [emailCopyAvailable, setEmailCopyAvailable] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Anonymous visitors can use the whole funnel; an account is created at handoff.
-  // Live per-turn autosave only runs for signed-in seekers — anonymous transcripts
-  // are persisted in one shot when the account is created (see runHandoff).
-  const [loggedIn, setLoggedIn] = useState(false);
 
-  const supabase = createClient();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  // A phrase handed over from the homepage "search the way you speak" bar
-  // (/match?q=…). We hold it and pre-fill it at the "what you need" step so the AI
-  // can resolve its synonyms/geo — never auto-sent, never treated as the name.
-  const seedRef = useRef<string | null>(null);
-  const seededRef = useRef(false);
+  const zipRef = useRef<HTMLInputElement>(null);
+  const contactRef = useRef<HTMLInputElement>(null);
+  const matchRequestKeyRef = useRef<string | null>(null);
 
-  // Server-side conversation row id (created on first save). Kept in a ref so the
-  // debounced autosave always targets the same row without re-render churn.
-  const conversationIdRef = useRef<string | null>(null);
-  // The early lead row (name+email) captured at the start — threaded into the hand-off
-  // so it updates that same vault row instead of creating a duplicate.
-  const contactIdRef = useRef<string | null>(null);
-  const savingRef = useRef(false);
-  const dirtyRef = useRef(false);
-  // Latest snapshot for autosave — refs avoid stale closures inside async saves.
-  const dataRef = useRef({ messages, matches, matchId, faceSheet });
-  dataRef.current = { messages, matches, matchId, faceSheet };
+  const step = FILTER_STEPS[stepIdx] ?? FILTER_STEPS[FILTER_STEPS.length - 1];
+  const progressPct = Math.round(((stepIdx + 1) / FILTER_STEPS.length) * 100);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages, phase]);
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [phase, stepIdx]);
 
-  // Keep the cursor in the box so people can keep typing without re-clicking.
   useEffect(() => {
-    if (
-      acknowledged &&
-      !busy &&
-      (phase === 'intake' || phase === 'connect') &&
-      window.matchMedia('(min-width: 640px)').matches
-    ) {
-      inputRef.current?.focus();
-    }
-  }, [acknowledged, busy, phase]);
+    if (acknowledged && phase === 'intake' && stepIdx === 2) zipRef.current?.focus();
+    if (phase === 'connect' && connectChoice && connectChoice !== 'neither') contactRef.current?.focus();
+  }, [acknowledged, connectChoice, phase, stepIdx]);
 
-  // Terms are accepted once per ACCOUNT (not per browser): skip the gate if this
-  // user already accepted. The chat itself always starts fresh on load/login — we
-  // never resume a prior conversation here; past ones live on /conversations.
   useEffect(() => {
     let active = true;
     supabase.auth.getUser().then(({ data }) => {
       if (!active) return;
-      setLoggedIn(!!data.user);
       const accepted = (data.user?.user_metadata as { terms_accepted_at?: string } | undefined)
         ?.terms_accepted_at;
-      // Only skip the gate if they accepted the CURRENT terms — a prior acceptance
-      // from before the consent changed re-prompts (ISO timestamps compare lexically).
       if (accepted && accepted >= TERMS_VERSION) setAcknowledged(true);
     });
     return () => {
@@ -208,526 +245,340 @@ export default function MatchPage() {
     };
   }, [supabase]);
 
-  // Restore an in-tab results session so "view a profile → back" returns to the
-  // matches instead of restarting the flow (and re-showing the consent gate).
-  // sessionStorage is tab-scoped, so a brand-new visit still starts clean.
   useEffect(() => {
-    // Deliberate post-hydration restore from a browser-only store: render the
-    // default (SSR-matching) state first, then swap in the saved results. Reading
-    // sessionStorage in a lazy initializer instead would cause a hydration mismatch.
-    /* eslint-disable react-hooks/set-state-in-effect */
-    try {
-      const raw = sessionStorage.getItem('wc_match_session');
-      if (!raw) return;
-      const s = JSON.parse(raw) as {
-        messages?: Message[];
-        matches?: MatchedFacility[];
-        matchId?: string | null;
-        faceSheet?: Record<string, unknown>;
-        shared?: boolean;
-        accountCreated?: boolean;
-        seekerName?: string;
-      };
-      if (!s || !s.matchId || !Array.isArray(s.matches)) return;
-      if (Array.isArray(s.messages)) setMessages(s.messages);
-      setMatches(s.matches);
-      setMatchId(s.matchId);
-      setFaceSheet(s.faceSheet ?? {});
-      setShared(!!s.shared);
-      setAccountCreated(!!s.accountCreated);
-      setSeekerName(s.seekerName);
-      setStepIdx(4);
-      setPhase('results');
-      setAcknowledged(true);
-    } catch {
-      /* ignore a corrupt snapshot */
-    }
-    /* eslint-enable react-hooks/set-state-in-effect */
+    let active = true;
+    fetch('/api/handoff', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((data) => {
+        if (active) setEmailCopyAvailable(data.emailCopyAvailable === true);
+      })
+      .catch(() => {
+        if (active) setEmailCopyAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Capture the handoff phrase from the URL once, on mount (window read avoids the
-  // useSearchParams Suspense requirement — it's a one-time client-only read).
-  useEffect(() => {
-    try {
-      const q = new URLSearchParams(window.location.search).get('q');
-      if (q) seedRef.current = q.trim().slice(0, 200);
-    } catch {
-      /* no-op */
-    }
-  }, []);
+  function resetConnect() {
+    setConnectChoice(null);
+    setContactMethod(null);
+    setContactValue('');
+    setConnectCompleted(false);
+    setContactSaved(null);
+    setShared(false);
+    setEmailSent(null);
+  }
 
-  // When the conversation reaches the "what you need" step (index 1), drop the seed
-  // phrase into the composer so the seeker can review and send it. Guarded so it
-  // fires once and never clobbers text they've already typed.
-  useEffect(() => {
-    if (seededRef.current || !seedRef.current) return;
-    if (acknowledged && stepIdx === 1 && phase === 'intake' && !busy && input === '') {
-      seededRef.current = true;
-      setInput(seedRef.current);
-    }
-  }, [acknowledged, stepIdx, phase, busy, input]);
+  function startOver() {
+    matchRequestKeyRef.current = null;
+    setPhase('intake');
+    setStepIdx(0);
+    setCareLevel(null);
+    setConcernCategory(null);
+    setZipInput('');
+    setRegionZip3(null);
+    setPayerType(null);
+    setPayerCarrier('');
+    setMatches(null);
+    setMatchId(null);
+    setError(null);
+    resetConnect();
+  }
 
-  // Mirror the results state into that tab-scoped session whenever it changes, so a
-  // profile round-trip can restore it (see the rehydrate effect above). startOver clears it.
-  useEffect(() => {
-    if (phase !== 'results' || !matches || !matchId) return;
-    try {
-      sessionStorage.setItem(
-        'wc_match_session',
-        JSON.stringify({ messages, matches, matchId, faceSheet, shared, accountCreated, seekerName })
-      );
-    } catch {
-      /* ignore quota/availability errors */
-    }
-  }, [phase, matches, matchId, faceSheet, shared, accountCreated, seekerName, messages]);
-
-  // Persist the transcript to the seeker's private history (best-effort, debounced).
-  // Only once there's real user content, so we never create empty rows.
-  async function saveConversation() {
-    const d = dataRef.current;
-    const firstUser = d.messages.find((m) => m.role === 'user');
-    if (!firstUser) return;
-    if (savingRef.current) {
-      dirtyRef.current = true; // a newer save is needed once this one lands
+  function continueSelection() {
+    setError(null);
+    if (stepIdx === 0) {
+      if (!careLevel) return setError('Choose a program type to continue.');
+      setStepIdx(1);
       return;
     }
-    savingRef.current = true;
-    try {
-      const res = await fetch('/api/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: conversationIdRef.current,
-          title: firstUser.content.slice(0, 80),
-          messages: d.messages,
-          match_id: d.matchId,
-          matched_facilities: (d.matches ?? []).map((f) => ({
-            id: f.id,
-            name: f.name,
-            city: f.city,
-            state: f.state,
-          })),
-          face_sheet: d.faceSheet,
-        }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { id?: string };
-      if (j.id) conversationIdRef.current = j.id;
-    } catch {
-      /* best-effort — a failed history save never breaks the live chat */
-    } finally {
-      savingRef.current = false;
-      if (dirtyRef.current) {
-        dirtyRef.current = false;
-        void saveConversation();
-      }
+    if (stepIdx === 1) {
+      if (!concernCategory) return setError('Choose a general focus to continue.');
+      setStepIdx(2);
     }
   }
 
-  // Debounced autosave on any meaningful change once the conversation has begun.
-  // Only for signed-in seekers — anonymous transcripts are saved at handoff instead.
-  useEffect(() => {
-    if (!acknowledged || !loggedIn) return;
-    if (!messages.some((m) => m.role === 'user')) return;
-    const t = setTimeout(() => void saveConversation(), 800);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, matches, matchId, shared, acknowledged, loggedIn]);
-
-  // Phase 1 is just the first 3 steps (need, location, coverage) — they produce
-  // matches. Identity (STEPS[4]) is the optional "connect" phase, after results.
-  const MATCH_STEPS = 4;
-  const step = STEPS[stepIdx];
-
-  // A step can ask more than one question (e.g. "need" asks level, then concern), so
-  // the bar must move on every answer — not just when a step completes — or it looks
-  // frozen. Fill = completed steps + partial credit for answers within the current step.
-  const openerPos = messages.map((m) => m.content).lastIndexOf(step.opener);
-  const answersInStep =
-    openerPos === -1 ? 0 : messages.slice(openerPos + 1).filter((m) => m.role === 'user').length;
-  const withinStep = Math.min(answersInStep, 2) / 2; // 0 → 0.5 → 1 toward the next step
-  const progressPct =
-    phase === 'results'
-      ? 100
-      : Math.max(6, Math.min(96, Math.round(((stepIdx + withinStep) / MATCH_STEPS) * 100)));
-  const connectAnswers = phase === 'connect' ? messages.filter((m) => m.role === 'user').length : 0;
-  const connectQuestionNumber = Math.min(connectAnswers + 1, 3);
-  const connectProgressPct = (connectQuestionNumber / 3) * 100;
-
-  // Chips track the question actually on screen: the model's own suggestions for a
-  // follow-up if it offered any, otherwise the step opener's curated chips, else none.
-  const lastAssistant = [...messages].reverse().find((m) => m.role === 'assistant');
-  const modelChips = lastAssistant ? parseChips(lastAssistant.content).chips : [];
-  const activeChips =
-    modelChips.length > 0
-      ? modelChips
-      : lastAssistant?.content === step.opener
-        ? [...step.chips]
-        : [];
-
-  // The placeholder should track the question actually on screen, not just the step:
-  // during a step's follow-up sub-questions the step default ("Outpatient, residential…")
-  // would mislead, so fall back to a neutral hint until the next step opens.
-  const composerHint =
-    lastAssistant && lastAssistant.content !== step.opener ? 'Type your answer…' : step.placeholder;
-
-  // Persist the lead (name + email) the moment the first step completes, so the contact
-  // is saved even if they don't finish. Best-effort — never blocks the conversation.
-  async function captureContact(sheet: Record<string, unknown>) {
-    try {
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: sheet.full_name, email: sheet.email }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (d.contact_id) contactIdRef.current = d.contact_id as string;
-    } catch {
-      /* best-effort lead capture */
+  function saveZipRegion(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    const normalized = zipInput.trim();
+    if (!/^\d{5}(?:-?\d{4})?$/.test(normalized)) {
+      setError('Enter a valid 5-digit ZIP code.');
+      return;
     }
+    // The full ZIP exists only in this input while the person is on this step.
+    // Retain only ZIP3 for the next screen and the /api/match request.
+    setRegionZip3(normalized.slice(0, 3));
+    setZipInput('');
+    setStepIdx(3);
   }
 
-  // PHASE 1 → results. Match on the de-identified subset only (no identity yet) and
-  // show real programs immediately. The handoff (sharing personal details) is a
-  // separate, opt-in step from the results screen — see runHandoff().
-  async function runMatch(sheet: Record<string, unknown>) {
+  async function runMatch() {
+    if (!careLevel || !concernCategory || !regionZip3 || !payerType) {
+      setError('Complete each directory filter before finding options.');
+      return;
+    }
     setPhase('matching');
+    setBusy(true);
     setError(null);
     try {
-      const res = await fetch('/api/match', {
+      const requestKey = matchRequestKeyRef.current ?? crypto.randomUUID();
+      matchRequestKeyRef.current = requestKey;
+      const payload: Record<string, string> = {
+        care_level_needed: careLevel,
+        concern_category: concernCategory,
+        region_zip3: regionZip3,
+        payer_type: payerType,
+      };
+      if (payerType === 'commercial' && payerCarrier) payload.payer_carrier = payerCarrier;
+
+      const response = await fetch('/api/match', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sheet),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': requestKey,
+        },
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Could not find matches');
-
-      const facilities: MatchedFacility[] = data.facilities ?? [];
-      setMatches(facilities);
-      setMatchId(data.match_id ?? null);
-
-      try {
-        // Keep only the de-identified match_id for outbound-click attribution
-        // (GoToWebsiteButton reads it). The transcript is saved server-side.
-        if (data.match_id) localStorage.setItem('wc_matches', JSON.stringify({ match_id: data.match_id }));
-      } catch {
-        /* ignore */
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Could not find directory options');
       }
+
+      setMatches(Array.isArray(data.facilities) ? data.facilities : []);
+      setMatchId(typeof data.match_id === 'string' ? data.match_id : null);
       setPhase('results');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not finish up');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Could not find directory options');
       setPhase('intake');
+    } finally {
+      setBusy(false);
     }
   }
 
-  // PHASE 2 (opt-in) → share the seeker's details with the matched programs so their
-  // intake teams can reach out. Runs after the "connect" conversation records identity.
-  async function runHandoff(identitySheet: Record<string, unknown>) {
-    const name =
-      typeof identitySheet.full_name === 'string' ? identitySheet.full_name.split(' ')[0] : undefined;
-    setSeekerName(name);
+  function submitPayer(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    if (!payerType) {
+      setError('Choose a payment category to continue.');
+      return;
+    }
+    void runMatch();
+  }
 
-    if (!matchId || !matches || matches.length === 0) {
+  function startConnect() {
+    setError(null);
+    setPhase('connect');
+  }
+
+  async function runHandoff(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!matchId || !matches?.length) {
       setPhase('results');
       return;
     }
+    if (!connectChoice) {
+      setError('Choose one connection option.');
+      return;
+    }
+
+    const consentShare = connectChoice === 'programs' || connectChoice === 'both';
+    const consentEmail = connectChoice === 'email' || connectChoice === 'both';
+    if (consentEmail && !emailCopyAvailable) {
+      setError('Email copies are temporarily unavailable. You can still let programs contact you or reach out directly.');
+      return;
+    }
+    const requiredMethod: ContactMethod | null =
+      connectChoice === 'neither' ? null : consentEmail ? 'email' : contactMethod;
+    const value = contactValue.trim();
+
+    if (connectChoice !== 'neither' && !requiredMethod) {
+      setError('Choose whether the programs may use a phone number or email address.');
+      return;
+    }
+    if (requiredMethod === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    if (requiredMethod === 'phone') {
+      const digits = value.replace(/\D/g, '');
+      if (digits.length < 7 || digits.length > 15) {
+        setError('Enter a valid phone number.');
+        return;
+      }
+    }
+
+    setBusy(true);
+    setError(null);
     try {
-      const h = await fetch('/api/handoff', {
+      const contact =
+        requiredMethod === 'email'
+          ? { email: value }
+          : requiredMethod === 'phone'
+            ? { phone: value }
+            : {};
+      const response = await fetch('/api/handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           match_id: matchId,
-          contact_id: contactIdRef.current ?? undefined,
-          facility_ids: matches.map((f) => f.id),
-          face_sheet: identitySheet,
-          consents: {
-            email: identitySheet.consent_contact === true,
-            share: identitySheet.consent_share === true,
-          },
-          // The transcript so far, so it's saved to the seeker's history the moment
-          // their account is created (anonymous chats have no per-turn autosave).
-          messages: dataRef.current.messages,
-          matched_facilities: (dataRef.current.matches ?? []).map((f) => ({
-            id: f.id,
-            name: f.name,
-            city: f.city,
-            state: f.state,
-          })),
+          contact,
+          // These booleans come directly from the checked radio option above.
+          // No model, natural-language parser, or inferred payload can grant consent.
+          consents: { email: consentEmail, share: consentShare },
         }),
       });
-      const hd = await h.json().catch(() => ({}));
-      const didShare = !!hd.shared;
-      setShared(didShare);
-      setAccountCreated(!!hd.accountCreated);
-    } catch {
-      setError(
-        'We saved your matches, but had trouble sharing your details just now. You can still reach the programs directly below.'
-      );
-    }
-    setPhase('results');
-  }
-
-  // Enter the optional connect (identity + consent) conversation from the results.
-  function startConnect() {
-    setStepIdx(4);
-    setError(null);
-    setMessages([{ role: 'assistant', content: STEPS[4].opener }]);
-    setPhase('connect');
-  }
-
-  // Begin a fresh conversation. The current transcript is already saved to history;
-  // clearing the row id means the next autosave creates a new history entry.
-  function startOver() {
-    conversationIdRef.current = null;
-    try {
-      localStorage.removeItem('wc_matches');
-      sessionStorage.removeItem('wc_match_session');
-    } catch {
-      /* ignore */
-    }
-    setFaceSheet({});
-    setMatches(null);
-    setMatchId(null);
-    setShared(false);
-    setAccountCreated(false);
-    setSeekerName(undefined);
-    setStepIdx(0);
-    setError(null);
-    setMessages([{ role: 'assistant', content: STEPS[0].opener }]);
-    setPhase('intake');
-  }
-
-  async function send(text: string) {
-    const trimmed = text.trim();
-    if (!trimmed || busy || (phase !== 'intake' && phase !== 'connect')) return;
-
-    const prior = messages; // snapshot to roll back to if this turn fails
-    const history = [...messages, { role: 'user' as const, content: trimmed }];
-    setMessages(history);
-    setInput('');
-    setBusy(true);
-    setError(null);
-    // Streaming assistant bubble.
-    setMessages((m) => [...m, { role: 'assistant', content: '' }]);
-
-    let stepData: Record<string, unknown> | null = null;
-    let errored = false;
-
-    // Hard stop so a stalled stream can never leave the UI frozen on "…".
-    const ctrl = new AbortController();
-    const timeout = setTimeout(() => ctrl.abort(), 30_000);
-
-    try {
-      const res = await fetch('/api/intake', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step: step.key, messages: history }),
-        signal: ctrl.signal,
-      });
-      if (!res.ok || !res.body) throw new Error('Intake is unavailable right now');
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        let nl;
-        while ((nl = buffer.indexOf('\n\n')) !== -1) {
-          const frame = buffer.slice(0, nl);
-          buffer = buffer.slice(nl + 2);
-          const line = frame.split('\n').find((l) => l.startsWith('data: '));
-          if (!line) continue;
-          const evt = JSON.parse(line.slice(6));
-          if (evt.type === 'text') {
-            setMessages((m) => {
-              const copy = [...m];
-              copy[copy.length - 1] = {
-                role: 'assistant',
-                content: copy[copy.length - 1].content + evt.text,
-              };
-              return copy;
-            });
-          } else if (evt.type === 'step') {
-            stepData = evt.data as Record<string, unknown>;
-          } else if (evt.type === 'error') {
-            errored = true;
-            setError(evt.message ?? 'Something interrupted us — please try that again.');
-          }
-        }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof data.error === 'string' ? data.error : 'Could not complete that connection choice');
       }
-    } catch {
-      errored = true;
-      setError('Something interrupted us — please try that again.');
+
+      setShared(data.shared === true);
+      setContactSaved(data.contactSaved === true);
+      setEmailSent(typeof data.emailSent === 'boolean' ? data.emailSent : null);
+      setConnectCompleted(true);
+      setContactValue('');
+      setPhase('results');
+    } catch (cause) {
+      setError(
+        `${cause instanceof Error ? cause.message : 'Could not complete that connection choice'}. ` +
+          'You can still contact the programs directly below.',
+      );
     } finally {
-      clearTimeout(timeout);
       setBusy(false);
     }
-
-    // On failure, roll the turn back so the person can simply re-tap their answer
-    // (and we never leave a half-streamed or empty bubble behind).
-    if (errored) {
-      setMessages(prior);
-      setInput(trimmed);
-      return;
-    }
-
-    // Drop the streaming bubble if it ended up empty (model only called the tool).
-    setMessages((m) => {
-      if (m.length && m[m.length - 1].role === 'assistant' && m[m.length - 1].content === '') {
-        return m.slice(0, -1);
-      }
-      return m;
-    });
-
-    if (stepData) {
-      const merged = { ...faceSheet, ...stepData };
-      setFaceSheet(merged);
-      if (step.key === 'contact') void captureContact(merged);
-      if (phase === 'connect') {
-        // Identity + consent gathered → share with the matched programs.
-        await runHandoff(merged);
-      } else if (stepIdx < MATCH_STEPS - 1) {
-        // Still gathering the 3 de-identified questions (need → location → coverage).
-        const next = stepIdx + 1;
-        setStepIdx(next);
-        setMessages((m) => [...m, { role: 'assistant', content: STEPS[next].opener }]);
-      } else {
-        // Conversation done. With a precise ZIP, send them to the neutral nearby map
-        // (everyone within range, by distance, no favoritism); record the de-identified
-        // demand fire-and-forget. Without one (city/state only), keep the in-page flow.
-        const fullZip = typeof merged.zip === 'string' ? (merged.zip.match(/\d{5}/) || [])[0] : undefined;
-        const city = typeof merged.city === 'string' ? merged.city.trim() : '';
-        const st = typeof merged.state === 'string' ? merged.state.trim() : '';
-        if (fullZip || (city && st)) {
-          try {
-            void fetch('/api/match', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(merged),
-            });
-          } catch {
-            /* demand analytics is best-effort */
-          }
-          const q = fullZip ? `zip=${fullZip}` : `city=${encodeURIComponent(city)}&state=${encodeURIComponent(st)}`;
-          router.push(`/match/nearby?${q}`);
-        } else {
-          await runMatch(merged);
-        }
-      }
-    }
   }
+
+  const activeChoiceReady =
+    (stepIdx === 0 && Boolean(careLevel)) || (stepIdx === 1 && Boolean(concernCategory));
 
   return (
     <main className="grid h-[100dvh] min-h-0 overflow-hidden lg:grid-cols-[minmax(0,22rem)_1fr]">
-      {/* ── Acknowledgment gate ─────────────────────────────── */}
-      {!acknowledged && (
-        <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-sm sm:items-center">
-          <div className="my-auto w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-2xl">🤝</div>
-            <h2 className="h2 text-ink">Hi, I&apos;m your Clear Bed Recovery companion</h2>
-            <p className="mt-2 text-sm text-slate-600">
-              Think of me as a caring guide — not a doctor or counselor. I&apos;m here to listen for a few key
-              things and help connect you with treatment programs that fit you.
-            </p>
-            <ul className="mt-3 space-y-2 text-sm text-slate-600">
-              <li className="flex gap-2">
-                <span className="text-teal-600">•</span>
-                <span>
-                  Our conversation isn&apos;t medical care, therapy, or crisis treatment — it&apos;s a warm way to
-                  reach the people who can help.
-                </span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-teal-600">•</span>
-                <span>I&apos;ll only ask a handful of simple questions. Share as much or as little as you&apos;d like.</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="text-teal-600">•</span>
-                <span>
-                  If you&apos;re ever in danger or crisis, please call <strong>911</strong>, or call or text{' '}
-                  <strong>988</strong> — they&apos;re there for you right now.
-                </span>
-              </li>
-            </ul>
-            <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={ackChecked}
-                onChange={(e) => setAckChecked(e.target.checked)}
-                className="mt-0.5 h-4 w-4 accent-teal-700"
-              />
+      <Dialog
+        open={!acknowledged}
+        onClose={() => undefined}
+        title="Hi, I’m your Clear Bed Recovery companion"
+        placement="center"
+        className="!max-w-md"
+        hideClose
+        closeOnEscape={false}
+        closeOnBackdrop={false}
+      >
+        <div className="p-6">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-teal-50 text-2xl">🤝</div>
+          <p className="text-sm text-slate-600">
+            This is a treatment-directory guide, not a doctor or counselor. You will choose a few limited filters
+            and see programs to review and verify.
+          </p>
+          <ul className="mt-3 space-y-2 text-sm text-slate-600">
+            <li className="flex gap-2">
+              <span className="text-teal-600">•</span>
               <span>
-                I understand this is a supportive guide to help me find care — not medical or crisis treatment — and
-                I&apos;ve reviewed and agree to the{' '}
-                <a
-                  href="/terms"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-teal-700 underline underline-offset-2"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Terms of Service
-                </a>{' '}
-                &amp;{' '}
-                <a
-                  href="/privacy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-teal-700 underline underline-offset-2"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  Privacy Policy
-                </a>
-                .
+                Clear Bed does not provide medical care, clinical placement, therapy, or crisis treatment. A
+                qualified provider determines level of care, suitability, and admission.
               </span>
-            </label>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
-              By continuing, you agree Clear Bed Recovery may email or text you about treatment options, resources, and
-              offers. You can unsubscribe anytime.
-            </p>
-            <button
-              onClick={async () => {
-                if (!ackChecked) return;
-                // Remember acceptance on the account so it's never asked again.
-                try {
-                  await supabase.auth.updateUser({
-                    data: { terms_accepted_at: new Date().toISOString() },
-                  });
-                } catch {
-                  /* non-fatal — they can still proceed this session */
-                }
-                setAcknowledged(true);
-              }}
-              disabled={!ackChecked}
-              className="mt-4 w-full rounded-md bg-teal-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              I understand — let&apos;s begin
-            </button>
-          </div>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-teal-600">•</span>
+              <span>
+                The form does not ask for a treatment narrative, diagnosis, medical history, or insurance member
+                information.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-teal-600">•</span>
+              <span>
+                In immediate danger or a medical emergency, call <strong>911</strong>. For suicide, self-harm, or
+                emotional crisis, call or text <strong>988</strong> now.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-teal-600">•</span>
+              <span>
+                Matching sends only ZIP3 region, directory level, payer category, coarse focus, and an optional
+                supported carrier. No name, phone, or email is required to see results.
+              </span>
+            </li>
+          </ul>
+          <label className="mt-4 flex cursor-pointer items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={ackChecked}
+              onChange={(event) => setAckChecked(event.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-teal-700"
+            />
+            <span>
+              I understand this is a directory guide—not medical, placement, or crisis care—and I reviewed and
+              agree to the{' '}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-teal-700 underline underline-offset-2"
+                onClick={(event) => event.stopPropagation()}
+              >
+                Terms of Service
+              </a>{' '}
+              &amp;{' '}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-teal-700 underline underline-offset-2"
+                onClick={(event) => event.stopPropagation()}
+              >
+                Privacy Policy
+              </a>
+              .
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={async () => {
+              if (!ackChecked) return;
+              try {
+                await supabase.auth.updateUser({
+                  data: { terms_accepted_at: new Date().toISOString() },
+                });
+              } catch {
+                // Account metadata is a convenience; the explicit session gate still applies.
+              }
+              setAcknowledged(true);
+            }}
+            disabled={!ackChecked}
+            className="mt-4 w-full rounded-md bg-teal-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            I understand — let&apos;s begin
+          </button>
         </div>
-      )}
+      </Dialog>
 
-      {/* ── Left: brand + guide + stepper ───────────────────── */}
       <aside className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-b from-ink via-brand to-teal-800 p-8 text-white lg:flex">
         <Link href="/" aria-label="Clear Bed Recovery — home">
           <Logo tone="light" className="text-2xl" />
         </Link>
 
         <div className="flex flex-col items-center text-center">
-          <div className="max-w-[16rem] rounded-2xl bg-white/95 px-5 py-4 text-sm text-ink shadow-lg">
-            {step.encouragement}
+          <div className="max-w-[17rem] rounded-2xl bg-white/95 px-5 py-4 text-sm text-ink shadow-lg">
+            {phase === 'connect'
+              ? 'Contact is optional and comes after results. Your checked choice controls the permissions.'
+              : phase === 'results'
+                ? 'These are filter-based directory options—not personal or clinical recommendations.'
+                : step.encouragement}
           </div>
         </div>
 
-        <ol className="space-y-1">
-          {STEPS.map((s, i) => {
-            const done =
-              i < stepIdx || (phase === 'results' && i < MATCH_STEPS) || (i === 4 && shared);
-            const current =
-              (phase === 'intake' && i === stepIdx) || (phase === 'connect' && i === 4);
+        <ol className="space-y-1" aria-label="Directory guide steps">
+          {FILTER_STEPS.map((item, index) => {
+            const done = index < stepIdx || phase === 'matching' || phase === 'results' || phase === 'connect';
+            const current = phase === 'intake' && index === stepIdx;
             return (
-              <li key={s.key} className="flex items-center gap-3 border-t border-white/10 py-3 first:border-t-0">
+              <li
+                key={item.label}
+                aria-current={current ? 'step' : undefined}
+                className="flex items-center gap-3 border-t border-white/10 py-3 first:border-t-0"
+              >
                 <span
                   className={
                     'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ' +
@@ -738,295 +589,580 @@ export default function MatchPage() {
                         : 'border border-white/30 text-white/50')
                   }
                 >
-                  {done ? '✓' : i + 1}
+                  {done ? '✓' : index + 1}
                 </span>
                 <span className={current ? 'font-semibold' : done ? 'text-white/80' : 'text-white/45'}>
-                  {s.label}
+                  {item.label}
                 </span>
               </li>
             );
           })}
+          <li
+            aria-current={phase === 'connect' ? 'step' : undefined}
+            className="flex items-center gap-3 border-t border-white/10 py-3"
+          >
+            <span
+              className={
+                'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ' +
+                (connectCompleted
+                  ? 'bg-sage text-ink'
+                  : phase === 'connect'
+                    ? 'bg-white text-ink'
+                    : 'border border-white/30 text-white/50')
+              }
+            >
+              {connectCompleted ? '✓' : 5}
+            </span>
+            <span className={phase === 'connect' ? 'font-semibold' : 'text-white/45'}>Connect (optional)</span>
+          </li>
         </ol>
       </aside>
 
-      {/* ── Right: conversation ─────────────────────────────── */}
       <section className="flex min-h-0 min-w-0 flex-col bg-[#eef5f2]">
-        <div className="mx-auto flex h-[100dvh] min-h-0 w-full max-w-2xl flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:py-6 lg:px-8">
-          {/* Conversation-first phone toolbar */}
+        <div className="mx-auto flex h-[100dvh] min-h-0 w-full max-w-3xl flex-col px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:py-6 lg:px-8">
           <div className="mb-2 flex items-center justify-between gap-3 pr-16 sm:hidden">
             <Link href="/" aria-label="Clear Bed Recovery — home">
               <Logo className="text-lg" />
             </Link>
             <button
+              type="button"
               onClick={startOver}
               className="min-h-11 shrink-0 rounded-full border border-teal-200 bg-white px-3 py-2 text-xs font-semibold text-teal-700 shadow-sm transition hover:border-teal-300 hover:bg-teal-50"
             >
-              New chat
+              Start over
             </button>
           </div>
 
-          {/* Tablet logo; desktop uses the left rail */}
           <Link href="/" aria-label="Clear Bed Recovery — home" className="mb-4 hidden sm:block lg:hidden">
             <Logo className="text-xl" />
           </Link>
 
           <div className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 sm:mb-4 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm">
             <span className="sm:hidden">
-              <strong>Emergency: 911.</strong> Crisis:{' '}
-              <a href="tel:988" className="font-semibold underline underline-offset-2">
-                call or text 988
-              </a>
-              .
+              <strong>Emergency: </strong>
+              <a href="tel:911" className="font-semibold underline underline-offset-2">911</a>. Crisis:{' '}
+              <a href="tel:988" className="font-semibold underline underline-offset-2">call or text 988</a>.
             </span>
             <span className="hidden sm:inline">
-              <strong>In an emergency, call 911.</strong> In crisis or having thoughts of suicide, call or text{' '}
-              <strong>988</strong> (Suicide &amp; Crisis Lifeline) right now.
+              <strong>In an emergency, call </strong>
+              <a href="tel:911" className="font-semibold underline underline-offset-2">911</a>. In crisis or having
+              thoughts of suicide, <a href="tel:988" className="font-semibold underline underline-offset-2">call or text 988</a>{' '}
+              (Suicide &amp; Crisis Lifeline) now.
             </span>
           </div>
 
           <div className="hidden items-start justify-between gap-3 sm:flex">
-            <h1 className="font-serif text-3xl leading-tight text-ink sm:text-4xl">
-              Let&apos;s find care{' '}
-              <span className="italic text-brand">that actually fits.</span>
-            </h1>
-            <div className="flex shrink-0 flex-col items-end gap-1.5 pt-1">
-              <button
-                onClick={startOver}
-                className="rounded-full border border-teal-200 bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 shadow-sm transition hover:border-teal-300 hover:bg-teal-50"
-              >
-                ＋ New conversation
-              </button>
-              {loggedIn && (
-                <Link href="/conversations" className="text-xs text-slate-500 underline hover:text-teal-700">
-                  Past conversations →
-                </Link>
-              )}
+            <div>
+              <h1 className="font-serif text-3xl leading-tight text-ink sm:text-4xl">
+                Narrow the directory <span className="italic text-brand">without a clinical intake.</span>
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+                Make four explicit choices, see programs, then decide whether to share any contact method. The form
+                does not send a narrative or contact information to an AI model.
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={startOver}
+              className="shrink-0 rounded-full border border-teal-200 bg-white px-3 py-1.5 text-xs font-semibold text-teal-700 shadow-sm transition hover:border-teal-300 hover:bg-teal-50"
+            >
+              Start over
+            </button>
           </div>
-          <p className="mt-2 hidden text-sm text-slate-600 sm:block">
-            We start with your name and email so a program can follow up, then a few quick questions — and we&apos;ll show
-            you real programs near you right away, matched to your coverage and what you&apos;re looking for. You choose
-            whether to share more for them to reach out. We connect you to treatment facilities; we don&apos;t provide
-            treatment ourselves.
-          </p>
 
-          {/* Progress — only the 3 de-identified questions before results */}
           {phase === 'intake' && (
             <div className="mt-1 sm:mt-5">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-teal-700">
                 <span>{step.label}</span>
-                <span className="text-slate-400">{progressPct}%</span>
+                <span className="text-slate-400">Step {stepIdx + 1} of {FILTER_STEPS.length}</span>
               </div>
-              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-teal-100">
+              <div
+                role="progressbar"
+                aria-label="Directory questions progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progressPct}
+                aria-valuetext={`${step.label}: step ${stepIdx + 1} of ${FILTER_STEPS.length}`}
+                className="mt-1.5 h-2 overflow-hidden rounded-full bg-teal-100"
+              >
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-sage to-brand transition-all duration-500"
+                  className="h-full rounded-full bg-gradient-to-r from-sage to-brand transition-all duration-300"
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
             </div>
           )}
 
-          {/* Connect (opt-in) banner */}
           {phase === 'connect' && (
-            <div className="mt-1 rounded-xl border border-teal-100 bg-teal-50 px-3 py-2.5 sm:mt-5">
-              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-teal-800">
-                <span>Question {connectQuestionNumber} of 3</span>
-                <button onClick={() => setPhase('results')} className="shrink-0 underline hover:text-teal-900">
-                  ← Back to matches
-                </button>
-              </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-teal-100">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-sage to-brand transition-all duration-500"
-                  style={{ width: `${connectProgressPct}%` }}
-                />
-              </div>
+            <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-teal-100 bg-teal-50 px-3 py-2.5 sm:mt-5">
+              <span className="text-xs font-semibold text-teal-800">Optional connection choice</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  setPhase('results');
+                }}
+                className="shrink-0 text-xs font-semibold text-teal-800 underline hover:text-teal-900"
+              >
+                Back to matches
+              </button>
             </div>
           )}
 
-          {/* Conversation / results */}
           <div
             ref={scrollRef}
-            className="mt-2 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain rounded-2xl bg-white p-3 shadow-sm sm:mt-4 sm:p-4"
+            role="region"
+            aria-label="Clear Bed directory guide"
+            aria-live="polite"
+            aria-busy={busy || phase === 'matching'}
+            className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-sm sm:mt-4 sm:p-5"
           >
-            {messages.map((m, i) => (
-              <div key={i} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-                <div
-                  className={
-                    m.role === 'user'
-                      ? 'max-w-[90%] whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-teal-700 px-4 py-2 text-sm text-white sm:max-w-[80%]'
-                      : 'max-w-[94%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-mist px-4 py-2 text-sm text-ink sm:max-w-[85%]'
-                  }
+            {phase === 'intake' && stepIdx === 0 && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  continueSelection();
+                }}
+              >
+                <fieldset>
+                  <legend className="text-lg font-semibold text-ink">What kind of program are you looking for?</legend>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    This is a directory filter, not a recommendation or assessment. If you are unsure, choose the
+                    closest browsing category and confirm the setting with a qualified provider.
+                  </p>
+                  <div className="mt-4">
+                    <ChoiceCards
+                      name="care-level"
+                      choices={LEVEL_CHOICES}
+                      selected={careLevel}
+                      onChange={(value) => {
+                        setCareLevel(value);
+                        setError(null);
+                      }}
+                    />
+                  </div>
+                </fieldset>
+                <button
+                  type="submit"
+                  disabled={!activeChoiceReady}
+                  className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
-                  {(m.role === 'assistant' ? parseChips(m.content).text : m.content) ||
-                    (busy && i === messages.length - 1 ? '…' : '')}
-                </div>
-              </div>
-            ))}
+                  Continue
+                </button>
+              </form>
+            )}
 
-            {/* Quick-reply chips for the question currently on screen */}
-            {(phase === 'intake' || phase === 'connect') && !busy && activeChips.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {activeChips.map((c) => {
-                  const brand = payerBrandForLabel(c);
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => send(c)}
-                      className="flex min-h-11 items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-4 py-2.5 text-sm font-medium text-teal-800 transition hover:border-teal-300 hover:bg-teal-100 sm:min-h-0 sm:px-3.5 sm:py-1.5"
+            {phase === 'intake' && stepIdx === 1 && (
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  continueSelection();
+                }}
+              >
+                <fieldset>
+                  <legend className="text-lg font-semibold text-ink">What broad directory focus should we use?</legend>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    No details about substances, symptoms, diagnoses, or treatment history are needed.
+                  </p>
+                  <div className="mt-4">
+                    <ChoiceCards
+                      name="concern-category"
+                      choices={CONCERN_CHOICES}
+                      selected={concernCategory}
+                      onChange={(value) => {
+                        setConcernCategory(value);
+                        setError(null);
+                      }}
+                    />
+                  </div>
+                </fieldset>
+                <button
+                  type="submit"
+                  disabled={!activeChoiceReady}
+                  className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  Continue
+                </button>
+              </form>
+            )}
+
+            {phase === 'intake' && stepIdx === 2 && (
+              <form onSubmit={saveZipRegion}>
+                <fieldset>
+                  <legend className="text-lg font-semibold text-ink">What ZIP code should set the search region?</legend>
+                  <p id="zip-privacy" className="mt-1 text-sm leading-relaxed text-slate-600">
+                    Enter a 5-digit ZIP code. When you continue, the full ZIP is discarded; only the first three
+                    digits are kept and sent for regional matching.
+                  </p>
+                  <label htmlFor="match-zip" className="mt-5 block text-sm font-semibold text-ink">
+                    ZIP code
+                  </label>
+                  <input
+                    ref={zipRef}
+                    id="match-zip"
+                    name="postal-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="postal-code"
+                    value={zipInput}
+                    onChange={(event) => {
+                      setZipInput(event.target.value.replace(/[^\d-]/g, '').slice(0, 10));
+                      setError(null);
+                    }}
+                    aria-describedby="zip-privacy"
+                    placeholder="e.g. 30301"
+                    maxLength={10}
+                    required
+                    className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-sm"
+                  />
+                </fieldset>
+                <button
+                  type="submit"
+                  disabled={!zipInput.trim()}
+                  className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  Keep only my ZIP3 and continue
+                </button>
+              </form>
+            )}
+
+            {phase === 'intake' && stepIdx === 3 && (
+              <form onSubmit={submitPayer}>
+                <fieldset>
+                  <legend className="text-lg font-semibold text-ink">How would care be paid for?</legend>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    Choose a general category. Do not enter a policy, member, group, or subscriber number.
+                  </p>
+                  {regionZip3 && (
+                    <p className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      Regional search: ZIP3 {regionZip3}. The full ZIP is no longer kept in this form.
+                    </p>
+                  )}
+                  <div className="mt-4">
+                    <ChoiceCards
+                      name="payer-type"
+                      choices={PAYER_CHOICES}
+                      selected={payerType}
+                      onChange={(value) => {
+                        setPayerType(value);
+                        if (value !== 'commercial') setPayerCarrier('');
+                        setError(null);
+                      }}
+                    />
+                  </div>
+                </fieldset>
+
+                {payerType === 'commercial' && (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <label htmlFor="payer-carrier" className="block text-sm font-semibold text-ink">
+                      Exact carrier (optional)
+                    </label>
+                    <p id="carrier-help" className="mt-1 text-xs leading-relaxed text-slate-500">
+                      Choosing one requires a program to list that carrier. It does not prove network status or
+                      coverage. Skip it if you are unsure.
+                    </p>
+                    <select
+                      id="payer-carrier"
+                      value={payerCarrier}
+                      onChange={(event) => setPayerCarrier(event.target.value)}
+                      aria-describedby="carrier-help"
+                      className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-ink focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100 sm:max-w-md"
                     >
-                      {brand && <PayerMark brand={brand} size="sm" />}
-                      {c}
-                    </button>
-                  );
-                })}
-              </div>
+                      <option value="">No exact carrier / skip</option>
+                      {COMMERCIAL_CARRIER_NAMES.map((carrier) => (
+                        <option key={carrier} value={carrier}>{carrier}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={!payerType || busy}
+                  className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                >
+                  Find directory options
+                </button>
+              </form>
             )}
 
             {phase === 'matching' && (
-              <p className="text-sm text-slate-500">Pulling together the places that fit…</p>
+              <div role="status" className="flex min-h-40 items-center justify-center text-center">
+                <div>
+                  <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-teal-100 border-t-teal-700" />
+                  <p className="mt-3 text-sm font-medium text-slate-600">Applying your choices to the directory…</p>
+                </div>
+              </div>
+            )}
+
+            {phase === 'connect' && (
+              <form onSubmit={runHandoff}>
+                <fieldset>
+                  <legend className="text-lg font-semibold text-ink">What would you like to happen next?</legend>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">
+                    Contact is optional. Choose one exact permission; no AI model interprets or changes this choice.
+                    {!emailCopyAvailable && ' Email copies are not currently available, so that option is hidden.'}
+                  </p>
+                  <div className="mt-4 space-y-2">
+                    {([
+                      ['programs', 'Programs displayed in this match may contact me'],
+                      ...(emailCopyAvailable
+                        ? ([
+                            ['email', 'Email me one copy of these matches'],
+                            ['both', 'Both: programs may contact me and email my matches'],
+                          ] as const)
+                        : []),
+                      ['neither', 'Neither: keep my contact details private'],
+                    ] as readonly (readonly [ConnectChoice, string])[]).map(([value, label]) => (
+                      <label
+                        key={value}
+                        className={
+                          'flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition ' +
+                          (connectChoice === value
+                            ? 'border-teal-600 bg-teal-50 ring-1 ring-teal-600'
+                            : 'border-slate-200 hover:border-teal-300')
+                        }
+                      >
+                        <input
+                          type="radio"
+                          name="connect-choice"
+                          value={value}
+                          checked={connectChoice === value}
+                          onChange={() => {
+                            setConnectChoice(value);
+                            setContactMethod(value === 'email' || value === 'both' ? 'email' : null);
+                            setContactValue('');
+                            setError(null);
+                          }}
+                          className="h-4 w-4 shrink-0 accent-teal-700"
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+
+                {connectChoice === 'programs' && (
+                  <fieldset className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <legend className="px-1 text-sm font-semibold text-ink">Which one contact method may they use?</legend>
+                    <div className="mt-2 flex flex-wrap gap-3">
+                      {(['phone', 'email'] as const).map((method) => (
+                        <label key={method} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm">
+                          <input
+                            type="radio"
+                            name="contact-method"
+                            value={method}
+                            checked={contactMethod === method}
+                            onChange={() => {
+                              setContactMethod(method);
+                              setContactValue('');
+                              setError(null);
+                            }}
+                            className="h-4 w-4 accent-teal-700"
+                          />
+                          {method === 'phone' ? 'Phone number' : 'Email address'}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                )}
+
+                {connectChoice && connectChoice !== 'neither' && (connectChoice !== 'programs' || contactMethod) && (
+                  <div className="mt-4">
+                    <label htmlFor="contact-value" className="block text-sm font-semibold text-ink">
+                      {connectChoice === 'email' || connectChoice === 'both' || contactMethod === 'email'
+                        ? 'Email address'
+                        : 'Phone number'}
+                    </label>
+                    <input
+                      ref={contactRef}
+                      id="contact-value"
+                      type={connectChoice === 'email' || connectChoice === 'both' || contactMethod === 'email' ? 'email' : 'tel'}
+                      autoComplete={connectChoice === 'email' || connectChoice === 'both' || contactMethod === 'email' ? 'email' : 'tel'}
+                      value={contactValue}
+                      onChange={(event) => {
+                        setContactValue(event.target.value.slice(0, 200));
+                        setError(null);
+                      }}
+                      required
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-md"
+                    />
+                  </div>
+                )}
+
+                <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    type="submit"
+                    disabled={!connectChoice || busy}
+                    className="rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {busy ? 'Saving your choice…' : connectChoice === 'neither' ? 'Confirm no contact' : 'Confirm this permission'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null);
+                      setPhase('results');
+                    }}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancel and keep browsing
+                  </button>
+                </div>
+              </form>
             )}
 
             {phase === 'results' && matches && (
               <div className="space-y-3">
-                <h2 className="text-sm font-semibold text-ink">
-                  {seekerName ? `Thank you, ${seekerName}. ` : ''}
-                  {matches.length > 0 ? 'Here are places that may fit' : 'No open matches right now'}
+                <h2 className="text-lg font-semibold text-ink">
+                  {matches.length ? 'Directory options based on your choices' : 'No directory matches for these choices'}
                 </h2>
 
-                {matches.length > 0 && shared && (
-                  <div className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                    ✓ We&apos;ve shared your details with these programs so their intake team has what they need —
-                    they may reach out to you. You&apos;re always welcome to contact them directly too.
+                {matches.length > 0 && payerType === 'commercial' && payerCarrier && (
+                  <p className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+                    These programs list {payerCarrier} as a payment option. That does not confirm current network
+                    participation, eligibility, authorization, or what your plan will pay. Verify with the program
+                    and insurer.
+                  </p>
+                )}
+
+                {matches.length > 0 && payerType === 'commercial' && !payerCarrier && (
+                  <p className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+                    These programs list commercial insurance, but an exact carrier and network status were not
+                    confirmed. Verify both with the program and insurer.
+                  </p>
+                )}
+
+                {matches.some((facility) => !facility.region_match) && (
+                  <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+                    Programs in ZIP3 {regionZip3} are ranked first. Options labeled outside that region are broader
+                    directory fallbacks based on the other filters—not nearby matches. Confirm location and travel
+                    needs directly with each program.
+                  </p>
+                )}
+
+                {shared && (
+                  <div role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                    ✓ Your chosen contact method is available in Clear Bed to the programs displayed in this match.
+                    Their authorized users may see it and may reach out; Clear Bed cannot confirm that anyone viewed it.
                   </div>
                 )}
 
-                {accountCreated && (
-                  <div className="rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
-                    📬 We&apos;ve also created a private account for you and emailed a sign-in link — log in anytime to
-                    revisit these matches and pick up where you left off.
+                {contactSaved === true && !shared && connectChoice !== 'neither' && (
+                  <div role="status" className="rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
+                    ✓ Your requested contact choice was saved for this match.
                   </div>
                 )}
 
-                {/* Opt-in connect: only after they've seen value (the matches) */}
-                {matches.length > 0 && !shared && (
+                {emailSent === true && (
+                  <div role="status" className="rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
+                    📬 A copy of these matches is on its way to the email address you chose.
+                  </div>
+                )}
+
+                {emailSent === false && (
+                  <div role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    The email copy could not be sent. Your matches remain below, and you can contact each program directly.
+                  </div>
+                )}
+
+                {matches.length > 0 && !connectCompleted && (
                   <div className="rounded-xl border border-teal-200 bg-teal-50 p-3">
                     <p className="text-sm text-ink">
-                      Want these programs to reach out to <em>you</em>? Add your contact details and we&apos;ll share
-                      them so their intake team can call — your choice, takes about a minute.
+                      Results come first. If you want, you may now give one explicit permission for program contact
+                      {emailCopyAvailable ? ', one emailed copy, both, or neither.' : ', or choose neither.'}
                     </p>
                     <button
+                      type="button"
                       onClick={startConnect}
                       className="mt-2 w-full rounded-md bg-teal-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-800 sm:w-auto sm:py-2"
                     >
-                      Have them reach out to me →
+                      Choose how to connect →
                     </button>
                     <p className="mt-1.5 text-xs text-slate-500">
-                      Prefer to reach out yourself? Each program&apos;s intake line is below.
+                      Prefer to reach out yourself? Each available program intake contact appears below.
                     </p>
+                  </div>
+                )}
+
+                {connectCompleted && connectChoice === 'neither' && (
+                  <div className="rounded-md bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                    No contact details were provided, saved, or shared. You can use the direct program contacts below.
                   </div>
                 )}
 
                 {matches.length === 0 && (
-                  <p className="text-sm text-slate-500">
-                    We couldn&apos;t find an open bed matching your needs this moment. Call <strong>988</strong> or{' '}
-                    <strong>SAMHSA&apos;s helpline at 1-800-662-4357</strong> — they can help you find options 24/7.
+                  <p className="text-sm leading-relaxed text-slate-600">
+                    {concernCategory === 'mental_health'
+                      ? 'Clear Bed is an addiction-treatment directory, including some programs that document co-occurring services. It does not list or match standalone mental-health providers.'
+                      : 'No directory options matched this combination of ZIP3 region, listed program level, broad focus, and reported payment information.'}{' '}
+                    You can broaden the search or call <strong>SAMHSA&apos;s National Helpline at 1-800-662-4357</strong>.
+                    In immediate danger call <strong>911</strong>; for crisis support call or text <strong>988</strong>.
                   </p>
                 )}
 
-                {matches.map((f) => {
-                  const a = availability(f);
+                {matches.map((facility) => {
+                  const currentAvailability = availability(facility);
                   return (
-                    <div key={f.id} className="rounded-lg border border-slate-200 p-3">
+                    <article key={facility.id} className="rounded-lg border border-slate-200 p-3">
                       <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-                        <Link
-                          href={`/programs/${f.id}`}
-                          className="font-medium text-teal-700 hover:underline"
-                        >
-                          {f.name}
+                        <Link href={`/programs/${facility.id}`} className="font-medium text-teal-700 hover:underline">
+                          {facility.name}
                         </Link>
                         <span
                           className={
                             'shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs ' +
-                            (a.tone === 'green'
+                            (currentAvailability.tone === 'green'
                               ? 'bg-green-100 text-green-800'
-                              : a.tone === 'amber'
+                              : currentAvailability.tone === 'amber'
                                 ? 'bg-amber-100 text-amber-800'
                                 : 'bg-slate-100 text-slate-600')
                           }
                         >
-                          {a.chip}
+                          {currentAvailability.chip}
                         </span>
                       </div>
                       <p className="text-xs text-slate-500">
-                        {[f.city, f.state].filter(Boolean).join(', ')}
-                        {f.in_network ? ' · In-network' : ''} · {a.detail}
+                        {[facility.city, facility.state].filter(Boolean).join(', ')}
+                        {[facility.city, facility.state].filter(Boolean).length ? ' · ' : ''}
+                        Payment option listed—verify benefits · {currentAvailability.detail}
                       </p>
-                      {f.referral_contact && (f.referral_contact.phone || f.referral_contact.email) && (
+                      {!facility.region_match && (
+                        <p className="mt-1 text-xs font-semibold text-amber-800">Outside your requested ZIP3 region</p>
+                      )}
+                      {facility.referral_contact && (facility.referral_contact.phone || facility.referral_contact.email) && (
                         <p className="mt-2 text-sm text-slate-700">
                           Reach their intake team
-                          {f.referral_contact.name ? ` (${f.referral_contact.name})` : ''}:{' '}
-                          {f.referral_contact.phone && <span className="font-medium">{f.referral_contact.phone}</span>}
-                          {f.referral_contact.phone && f.referral_contact.email ? ' · ' : ''}
-                          {f.referral_contact.email && (
-                            <a className="font-medium text-teal-700 underline" href={`mailto:${f.referral_contact.email}`}>
-                              {f.referral_contact.email}
+                          {facility.referral_contact.name ? ` (${facility.referral_contact.name})` : ''}:{' '}
+                          {facility.referral_contact.phone && <span className="font-medium">{facility.referral_contact.phone}</span>}
+                          {facility.referral_contact.phone && facility.referral_contact.email ? ' · ' : ''}
+                          {facility.referral_contact.email && (
+                            <a className="font-medium text-teal-700 underline" href={`mailto:${facility.referral_contact.email}`}>
+                              {facility.referral_contact.email}
                             </a>
                           )}
                         </p>
                       )}
-                      <Link
-                        href={`/programs/${f.id}`}
-                        className="mt-2 inline-block text-xs font-medium text-teal-700 hover:underline"
-                      >
+                      <Link href={`/programs/${facility.id}`} className="mt-2 inline-block text-xs font-medium text-teal-700 hover:underline">
                         View profile, photos &amp; reviews →
                       </Link>
-                    </div>
+                    </article>
                   );
                 })}
 
                 <div className="flex flex-wrap items-center gap-3 pt-1">
-                  <Link
-                    href="/programs"
-                    className="text-sm font-medium text-teal-700 hover:underline"
-                  >
+                  <Link href="/programs" className="text-sm font-medium text-teal-700 hover:underline">
                     Browse all programs →
                   </Link>
-                  <button onClick={startOver} className="text-xs text-slate-500 underline">
-                    Start a new conversation
+                  <button type="button" onClick={startOver} className="text-xs text-slate-500 underline">
+                    Start a new search
                   </button>
                 </div>
               </div>
             )}
           </div>
 
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-
-          {/* Composer */}
-          {(phase === 'intake' || phase === 'connect') && (
-            <form
-              className="mt-2 flex gap-2 sm:mt-3"
-              onSubmit={(e) => {
-                e.preventDefault();
-                send(input);
-              }}
-            >
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={`Or type something… (${composerHint})`}
-                className="min-w-0 flex-1 rounded-xl bg-ink px-4 py-3 text-sm text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-brand/50"
-              />
-              <button
-                type="submit"
-                disabled={busy || !input.trim()}
-                className="rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50 sm:px-5"
-              >
-                {busy ? '…' : 'Send'}
-              </button>
-            </form>
-          )}
+          {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
         </div>
       </section>
     </main>

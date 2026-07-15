@@ -3,13 +3,13 @@ import { notFound } from 'next/navigation';
 
 import { requirePartner } from '@/lib/auth';
 import {
-  acceptedSummary,
   cityState,
   directPhone,
   getFacilitySummaries,
   getPartnerLists,
   getSavedFacilityIds,
   levelsLabel,
+  programListedPaymentSummary,
 } from '@/lib/partner/data';
 import { AddToListMenu } from '@/components/partner/AddToListMenu';
 import { RecordView } from '@/components/partner/RecordView';
@@ -49,8 +49,13 @@ export default async function PartnerFacility({ params }: { params: Promise<{ id
             <dd className="text-slate-700">{levelsLabel(f.levels_of_care)}</dd>
           </div>
           <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Insurance accepted</dt>
-            <dd className="text-slate-700">{acceptedSummary(f)}</dd>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Program-listed payment options
+            </dt>
+            <dd className="text-slate-700">{programListedPaymentSummary(f)}</dd>
+            <dd className="mt-1 text-xs text-slate-500">
+              Not a network, benefits, or coverage guarantee. Verify directly with the program and payer.
+            </dd>
           </div>
           <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-slate-400">Direct intake line</dt>
@@ -93,12 +98,13 @@ export default async function PartnerFacility({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Refer a client — records a de-identified referral to the partner's dashboard. */}
+      {/* Log a limited, non-contact referral to the partner's dashboard. */}
       <form action={submitReferralAction} className="rounded-2xl border border-teal-200 bg-teal-50/60 p-6">
         <input type="hidden" name="facility_id" value={f.id} />
-        <h2 className="text-sm font-semibold text-ink">Refer a client to this program</h2>
+        <h2 className="text-sm font-semibold text-ink">Log this program as a referral option</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Logs a de-identified referral to your dashboard so you can track it. No client names are stored.
+          This records a limited workflow entry. It does not confirm admission, care received, or clinical suitability,
+          and no client names or contact details are stored.
         </p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div>
@@ -116,7 +122,7 @@ export default async function PartnerFacility({ params }: { params: Promise<{ id
           </div>
           <div>
             <label htmlFor="payer_type" className="text-xs font-medium text-slate-600">
-              Coverage (optional)
+              Payment category (optional)
             </label>
             <select id="payer_type" name="payer_type" className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-700">
               <option value="">Any / not sure</option>
@@ -129,7 +135,7 @@ export default async function PartnerFacility({ params }: { params: Promise<{ id
           </div>
         </div>
         <button className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-teal-700 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          Refer a client here →
+          Log referral →
         </button>
       </form>
 

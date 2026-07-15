@@ -1,104 +1,162 @@
 import 'server-only';
 
-import crypto from 'node:crypto';
+import type Stripe from 'stripe';
 
+import { isUuid, normalizeStripeSubscriptionStatus, stripeKeyLivemode } from '@/lib/billing/guards';
+import { getStripe, planForPriceId } from '@/lib/billing/stripe-server';
+import { invalidateFacilityPublic } from '@/lib/facility/invalidate';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { postgresNullableText } from '@/lib/supabase/rpc';
 
-// Stripe webhook: keeps a facility's plan in sync with its subscription. Verifies
-// the signature with STRIPE_WEBHOOK_SECRET (raw body + HMAC-SHA256, Stripe's scheme).
+const WEBHOOK_TOLERANCE_SECONDS = 300;
+const HANDLED_EVENTS = new Set<Stripe.Event.Type>([
+  'checkout.session.completed',
+  'customer.subscription.updated',
+  'customer.subscription.deleted',
+]);
 
-function verify(raw: string, sigHeader: string | null, secret: string): boolean {
-  if (!sigHeader) return false;
-  const parts = Object.fromEntries(sigHeader.split(',').map((p) => p.split('=')));
-  const t = parts['t'];
-  const v1 = parts['v1'];
-  if (!t || !v1) return false;
-  const expected = crypto.createHmac('sha256', secret).update(`${t}.${raw}`).digest('hex');
-  try {
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(v1));
-  } catch {
-    return false;
-  }
+function objectId(value: string | { id: string } | null | undefined): string | null {
+  if (!value) return null;
+  return typeof value === 'string' ? value : value.id;
 }
 
-// "GOD MODE" = lifetime free membership. It's a Stripe coupon (100% off, forever)
-// whose id is in STRIPE_LIFETIME_COUPON, surfaced through a one-use, samba-locked
-// promotion code. When a completed checkout applied that coupon we mark the facility
-// lifetime (Anchor, never downgraded). Returns false unless the coupon truly matches.
-async function appliedLifetimeCoupon(sessionId: string): Promise<boolean> {
-  const lifetime = process.env.STRIPE_LIFETIME_COUPON;
-  const key = process.env.STRIPE_SECRET_KEY;
-  if (!lifetime || !key || !sessionId) return false;
-  try {
-    const res = await fetch(
-      `https://api.stripe.com/v1/checkout/sessions/${sessionId}?expand[]=total_details.breakdown.discounts`,
-      { headers: { Authorization: `Bearer ${key}` } }
-    );
-    const data = await res.json();
-    const discounts: { discount?: { coupon?: string | { id?: string } } }[] =
-      data?.total_details?.breakdown?.discounts ?? [];
-    return discounts.some((d) => {
-      const c = d.discount?.coupon;
-      const id = typeof c === 'string' ? c : c?.id;
-      return id === lifetime;
-    });
-  } catch {
-    return false;
+function metadataUuid(value: string | null | undefined): string | null {
+  return isUuid(value) ? value : null;
+}
+
+function verifyEvent(stripe: Stripe, raw: string, signature: string): Stripe.Event | null {
+  // Stripe can emit multiple v1 signatures while a signing secret is rolling.
+  // constructEvent checks every signature and enforces timestamp tolerance. An
+  // optional previous secret lets deployments overlap a deliberate rotation.
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_WEBHOOK_SECRET_PREVIOUS]
+    .map((secret) => secret?.trim())
+    .filter((secret): secret is string => !!secret);
+  for (const secret of secrets) {
+    try {
+      return stripe.webhooks.constructEvent(raw, signature, secret, WEBHOOK_TOLERANCE_SECONDS);
+    } catch {
+      // Try the other active signing secret without logging the payload/header.
+    }
   }
+  return null;
+}
+
+async function retrieveCurrentSubscription(stripe: Stripe, subscriptionId: string): Promise<Stripe.Subscription> {
+  return stripe.subscriptions.retrieve(subscriptionId);
 }
 
 export async function POST(request: Request) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) return new Response('Stripe webhook not configured', { status: 503 });
-
-  const raw = await request.text();
-  if (!verify(raw, request.headers.get('stripe-signature'), secret)) {
-    return new Response('Invalid signature', { status: 400 });
+  const stripe = getStripe();
+  const hasWebhookSecret = !!process.env.STRIPE_WEBHOOK_SECRET?.trim();
+  const expectedLivemode = stripeKeyLivemode(process.env.STRIPE_SECRET_KEY);
+  if (!stripe || !hasWebhookSecret || expectedLivemode === null) {
+    return new Response('Stripe webhook not configured', { status: 503 });
   }
 
-  let event: { type: string; data: { object: Record<string, unknown> } };
+  // This must remain the exact raw body. Parsing before constructEvent breaks the
+  // signature guarantee and must never be reintroduced.
+  const raw = await request.text();
+  const signature = request.headers.get('stripe-signature');
+  if (!signature) return new Response('Invalid signature', { status: 400 });
+  const event = verifyEvent(stripe, raw, signature);
+  if (!event) return new Response('Invalid signature', { status: 400 });
+  if (event.livemode !== expectedLivemode) {
+    return new Response('Stripe mode mismatch', { status: 400 });
+  }
+
+  if (!HANDLED_EVENTS.has(event.type)) return Response.json({ received: true });
+
+  let objectIdValue: string;
+  let subscriptionId: string | null = null;
+  let customerId: string | null = null;
+  let facilityId: string | null = null;
+  let checkoutAttemptId: string | null = null;
+  let plan: string | null = null;
+  let planStatus = 'incomplete';
+
   try {
-    event = JSON.parse(raw);
-  } catch {
-    return new Response('Bad payload', { status: 400 });
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      objectIdValue = session.id;
+      subscriptionId = objectId(session.subscription);
+      customerId = objectId(session.customer);
+      facilityId = metadataUuid(session.metadata?.facility_id) ?? metadataUuid(session.client_reference_id);
+      checkoutAttemptId = metadataUuid(session.metadata?.checkout_attempt_id);
+      plan = null;
+
+      if (subscriptionId) {
+        const current = await retrieveCurrentSubscription(stripe, subscriptionId);
+        customerId = objectId(current.customer) ?? customerId;
+        plan = planForPriceId(current.items.data[0]?.price.id);
+        planStatus = normalizeStripeSubscriptionStatus(current.status);
+      }
+    } else {
+      const delivered = event.data.object as Stripe.Subscription;
+      objectIdValue = delivered.id;
+      const current =
+        event.type === 'customer.subscription.updated'
+          ? await retrieveCurrentSubscription(stripe, delivered.id)
+          : delivered;
+      subscriptionId = current.id;
+      customerId = objectId(current.customer);
+      facilityId = metadataUuid(current.metadata?.facility_id);
+      checkoutAttemptId = metadataUuid(current.metadata?.checkout_attempt_id);
+      plan = planForPriceId(current.items.data[0]?.price.id);
+      planStatus =
+        event.type === 'customer.subscription.deleted'
+          ? 'canceled'
+          : normalizeStripeSubscriptionStatus(current.status);
+    }
+  } catch (error) {
+    // Stripe recommends retrieving the current object when event order matters.
+    // A transient retrieval failure returns non-2xx so Stripe safely retries.
+    console.error('[stripe] could not retrieve current subscription state', {
+      eventId: event.id,
+      type: error instanceof Error ? error.name : 'unknown',
+    });
+    return Response.json({ error: 'Could not verify current subscription state' }, { status: 500 });
   }
 
   const supabase = createAdminClient();
-  const obj = event.data.object;
-  const meta = (obj.metadata ?? {}) as Record<string, string>;
-
-  if (event.type === 'checkout.session.completed') {
-    const facilityId = (obj.client_reference_id as string) || meta.facility_id;
-    const plan = meta.plan;
-    if (facilityId && plan) {
-      // GOD MODE: a lifetime coupon grants top-tier (Anchor) forever, flagged so no
-      // later subscription event can downgrade it.
-      const lifetime = await appliedLifetimeCoupon(obj.id as string);
-      await supabase
-        .from('facilities')
-        .update({
-          plan: lifetime ? 'anchor' : plan,
-          plan_status: lifetime ? 'lifetime' : 'active',
-          stripe_customer_id: (obj.customer as string) ?? null,
-          stripe_subscription_id: (obj.subscription as string) ?? null,
-        })
-        .eq('id', facilityId);
-    }
-  } else if (event.type === 'customer.subscription.updated') {
-    const status = obj.status as string; // active, past_due, canceled, ...
-    const planStatus = status === 'active' || status === 'trialing' ? 'active' : status === 'past_due' ? 'past_due' : 'canceled';
-    await supabase
-      .from('facilities')
-      .update({ plan_status: planStatus })
-      .eq('stripe_subscription_id', obj.id as string)
-      .neq('plan_status', 'lifetime'); // never touch a lifetime grant
-  } else if (event.type === 'customer.subscription.deleted') {
-    await supabase
-      .from('facilities')
-      .update({ plan: 'free', plan_status: 'canceled' })
-      .eq('stripe_subscription_id', obj.id as string)
-      .neq('plan_status', 'lifetime'); // lifetime survives cancellation
+  const { data, error } = await supabase.rpc('apply_stripe_billing_event', {
+    p_api_version: postgresNullableText(event.api_version),
+    p_checkout_attempt_id: postgresNullableText(checkoutAttemptId),
+    p_customer_id: postgresNullableText(customerId),
+    p_event_created: event.created,
+    p_event_id: event.id,
+    p_event_type: event.type,
+    p_facility_id: postgresNullableText(facilityId),
+    p_livemode: event.livemode,
+    p_object_id: objectIdValue,
+    p_plan: postgresNullableText(plan),
+    p_plan_status: planStatus,
+    p_subscription_id: postgresNullableText(subscriptionId),
+  });
+  if (error) {
+    console.error('[stripe] durable webhook transaction failed', {
+      eventId: event.id,
+      code: error.code,
+    });
+    return Response.json({ error: 'Could not apply billing event' }, { status: 500 });
   }
 
-  return Response.json({ received: true });
+  const result = data?.[0];
+  if (
+    result?.changed_facility_id &&
+    (result.result === 'applied' || result.result === 'duplicate')
+  ) {
+    try {
+      await invalidateFacilityPublic(result.changed_facility_id);
+    } catch (error) {
+      // The billing transaction is already durable. Return a controlled 500 so
+      // Stripe retries; duplicate events return the stored facility ID and can
+      // safely repeat this cache purge without applying entitlement twice.
+      console.error('[stripe] post-billing cache invalidation failed', {
+        eventId: event.id,
+        type: error instanceof Error ? error.name : 'unknown',
+      });
+      return Response.json({ error: 'Could not refresh billing caches' }, { status: 500 });
+    }
+  }
+  return Response.json({ received: true, result: result?.result ?? 'ignored' });
 }

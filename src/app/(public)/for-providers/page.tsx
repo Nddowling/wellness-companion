@@ -6,30 +6,30 @@ import { absoluteUrl } from '@/lib/seo';
 import SiteFooter from '@/components/SiteFooter';
 
 export const metadata: Metadata = {
-  title: 'For Providers — List Your Program & Reach Patients Who Fit',
+  title: 'For Providers — List Your Addiction-Treatment Program',
   description:
-    'Clear Bed Recovery connects treatment programs and referrers with patients who actually fit — by level of care, coverage, and region, with live bed availability. Flat monthly pricing, never per-lead.',
+    'Clear Bed Recovery connects treatment programs and referrers through need-based discovery, dated availability updates, and flat monthly tools — never per-lead pricing.',
   alternates: { canonical: '/for-providers' },
   openGraph: {
     title: 'For Providers — List Your Program on Clear Bed Recovery',
     description:
-      'Reach patients who fit your program — by level of care, coverage, and region. Flat monthly pricing, never per-lead.',
+      'Make documented services, payment information, and dated availability easier to find. Flat monthly pricing, never per-lead.',
     url: absoluteUrl('/for-providers'),
   },
 };
 
 const VALUE_PROPS: [string, string][] = [
   [
-    'Reach patients who actually fit',
-    'We match on level of care, coverage, and region — so the people who reach you are ones you can genuinely help, not noise.',
+    'Receive relevant directory matches',
+    'We narrow on listed level of care, reported payment category, and region. Your admissions team still verifies coverage, clinical appropriateness, and admission.',
   ],
   [
-    'Your live bed availability, front and center',
-    'Keep openings current and we surface you first. Freshness is the moat — stale directories lose to programs that show real openings.',
+    'Your dated availability updates, front and center',
+    'Keep bed reports current and freshness can improve order within the same region. Exact counts disappear after seven days and never guarantee admission.',
   ],
   [
     'Own your profile',
-    'Photos, specialties, accepted insurance, reviews, and a direct intake line — a profile that reflects your program, not a scraped listing.',
+    'Provider-supplied photos, documented specialties, reported payment options, reviews, and a direct intake line — with source and freshness cues.',
   ],
 ];
 
@@ -48,13 +48,12 @@ const TIERS: Tier[] = [
     name: 'Starter',
     price: '$499',
     cadence: 'per facility / month',
-    blurb: 'Outpatient, OTP & smaller programs.',
+    blurb: 'Basic in-app listing analytics.',
     features: [
-      'Claimed profile + photos',
-      'Bed board listing & live availability',
-      'Payer-matched applications',
-      'Basic referral tracking',
-      'Reviews',
+      '30-day profile contact-action total',
+      'All-time website referral count',
+      'Two included team seats',
+      'Larger teams require a documented custom arrangement',
     ],
     cta: { label: 'Start Starter', href: '/pricing' },
   },
@@ -62,13 +61,12 @@ const TIERS: Tier[] = [
     name: 'Growth',
     price: '$999',
     cadence: 'per facility / month',
-    blurb: 'Mid-size residential & PHP.',
+    blurb: 'Analytics plus lead-status workflow.',
     features: [
       'Everything in Starter',
-      '2 referrer (BD) seats',
-      'Attribution tracking',
-      'Follow-up workflow',
-      'Priority placement in matches',
+      'Mark leads viewed, accepted, or declined',
+      'Two included team seats',
+      'Larger teams require a documented custom arrangement',
     ],
     cta: { label: 'Start Growth', href: '/pricing' },
     featured: true,
@@ -77,13 +75,12 @@ const TIERS: Tier[] = [
     name: 'Anchor',
     price: '$1,999',
     cadence: 'per facility / month',
-    blurb: 'Multi-bed residential & hospital systems.',
+    blurb: 'Detailed in-app analytics and workflow.',
     features: [
       'Everything in Growth',
-      'Unlimited referrer seats',
-      'Dedicated onboarding',
-      'Census analytics dashboard',
-      'White-glove intake training',
+      '30-day website, call, directions, and email breakdown',
+      'Two included team seats',
+      'Larger teams require a documented custom arrangement',
     ],
     cta: { label: 'Start Anchor', href: '/pricing' },
   },
@@ -102,12 +99,12 @@ export default function ForProvidersPage() {
               For treatment providers &amp; referrers
             </span>
             <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-              Get found by the patients you can actually help.
+              Help people discover your program with clearer information.
             </h1>
             <p className="mt-4 max-w-xl text-lg text-white/90">
-              Clear Bed Recovery is a connector — we route people to treatment by level of care, coverage, and
-              region, and we put programs with real openings first. You keep your beds and profile current; we
-              bring you the right referrals.
+              Clear Bed Recovery is a connector — we narrow directory options by listed level of care, reported
+              payment category, region, and dated bed reports. You keep your profile current; your team determines
+              coverage, clinical appropriateness, and admission.
             </p>
             <div className="mt-7 flex flex-wrap items-center gap-3">
               <Link
@@ -152,8 +149,8 @@ export default function ForProvidersPage() {
           <Reveal className="text-center">
             <h2 className="text-3xl font-semibold text-slate-800">Simple, flat pricing</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-              Priced as a placement channel, not software. One admission is worth $20k–$50k to you — your
-              subscription is a rounding error. Founding programs get 50% off their first year.
+              Flat subscriptions support the in-app analytics and lead-status workflow described below; they are not
+              tied to referrals or admissions.
             </p>
           </Reveal>
 
@@ -168,7 +165,7 @@ export default function ForProvidersPage() {
                 >
                   {t.featured && (
                     <span className="mb-3 inline-block w-fit rounded-full bg-teal-700 px-2.5 py-0.5 text-xs font-medium text-white">
-                      Most popular
+                      Includes lead-status workflow
                     </span>
                   )}
                   <h3 className="text-lg font-semibold text-slate-800">{t.name}</h3>
@@ -202,8 +199,9 @@ export default function ForProvidersPage() {
           </div>
 
           <p className="mx-auto mt-8 max-w-2xl text-center text-xs text-slate-400">
-            Listed programs must be licensed and LegitScript-certified. Pricing is flat and decoupled from referral
-            volume or outcomes by design. Featured placement is a fixed fee, clearly labeled as advertising.
+            Programs are responsible for accurate licensing, accreditation, and service information; Clear Bed shows
+            source and verification status so users know what has and has not been confirmed. Pricing is flat and
+            decoupled from referral volume or outcomes. Payment never changes need-based matching.
           </p>
         </div>
       </section>
@@ -212,10 +210,10 @@ export default function ForProvidersPage() {
       <section className="relative isolate overflow-hidden py-20">
         <div className="absolute inset-0 -z-10 bg-brand/90" />
         <Reveal className="mx-auto max-w-3xl px-6 text-center text-white">
-          <h2 className="text-3xl font-semibold">Put your openings in front of the right people</h2>
+          <h2 className="text-3xl font-semibold">Make current program information easier to find</h2>
           <p className="mx-auto mt-3 max-w-xl text-white/90">
-            Claim your facility in a few minutes. We verify every program; once you&apos;re approved you&apos;ll
-            get a login. Start free — upgrade when you&apos;re ready.
+            Claim your facility in a few minutes. We verify your authority to manage the listing before granting a
+            login. Claiming and completing the public profile is free; paid plans add operational tools.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link

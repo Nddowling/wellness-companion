@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { requireFacilityMember } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { freshnessTone } from '@/lib/constants';
+import { freshnessTone, isBedBased } from '@/lib/constants';
 
 const TONE_STYLES = {
   green: 'bg-emerald-100 text-emerald-800',
@@ -52,14 +52,16 @@ export default async function FacilityHome() {
       <div>
         <h1 className="text-xl font-semibold text-slate-800">My facility</h1>
         <p className="text-sm text-slate-500">
-          Keep your bed counts current — fresh availability is what gets you matched.
+          Keep residential-bed reports current. Freshness may improve ordering within the same region, but every
+          match still depends on the listed directory filters.
         </p>
       </div>
 
       <div className="space-y-2">
         {facilities.map((f) => {
-          const tone = freshnessTone(oldest(f.facility_capacity));
-          const beds = f.facility_capacity.reduce((s, c) => s + c.beds_available, 0);
+          const residentialCaps = f.facility_capacity.filter((cap) => isBedBased(cap.level_of_care));
+          const tone = freshnessTone(oldest(residentialCaps));
+          const beds = residentialCaps.reduce((s, c) => s + c.beds_available, 0);
           const leads = openLeads.get(f.id) ?? 0;
           return (
             <Link
@@ -75,7 +77,8 @@ export default async function FacilityHome() {
                   )}
                 </div>
                 <div className="text-xs text-slate-500">
-                  {[f.city, f.state].filter(Boolean).join(', ') || 'No location set'} · {beds} beds
+                  {[f.city, f.state].filter(Boolean).join(', ') || 'No location set'} ·{' '}
+                  {residentialCaps.length ? `${beds} residential ${beds === 1 ? 'bed' : 'beds'} reported` : 'no residential-bed report'}
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -84,9 +87,11 @@ export default async function FacilityHome() {
                     {leads} new lead{leads === 1 ? '' : 's'}
                   </span>
                 )}
-                <span className={`rounded px-2 py-1 text-xs font-medium ${TONE_STYLES[tone]}`}>
-                  {tone === 'green' ? 'fresh' : tone === 'amber' ? 'aging' : 'stale'}
-                </span>
+                {residentialCaps.length > 0 && (
+                  <span className={`rounded px-2 py-1 text-xs font-medium ${TONE_STYLES[tone]}`}>
+                    {tone === 'green' ? 'fresh' : tone === 'amber' ? 'aging' : 'stale'}
+                  </span>
+                )}
               </div>
             </Link>
           );

@@ -24,8 +24,7 @@ export type Referral = {
 
 export type ReferralStats = {
   total: number;
-  connected: number; // reached care
-  accepted: number; // a facility accepted the route
+  accepted: number; // routes currently carrying the "accepted" workflow status
   open: number; // still in flight
 };
 
@@ -125,7 +124,6 @@ export async function getMyReferralStats(userId: string): Promise<ReferralStats>
     .eq('bd_user_id', userId);
 
   const total = matches?.length ?? 0;
-  const connected = matches?.filter((m) => m.status === 'connected').length ?? 0;
   const open = matches?.filter((m) => m.status === 'open' || m.status === 'routed').length ?? 0;
 
   let accepted = 0;
@@ -141,5 +139,5 @@ export async function getMyReferralStats(userId: string): Promise<ReferralStats>
     accepted = count ?? 0;
   }
 
-  return { total, connected, accepted, open };
+  return { total, accepted, open };
 }

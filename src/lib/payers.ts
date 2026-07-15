@@ -5,9 +5,8 @@ import type { PayerType } from '@/lib/constants';
 // maps a named carrier onto one of the 5 matchable types in facility_payers.
 //
 // ACCURACY NOTE (YMYL): per-plan insurance pricing is NOT public — it depends on
-// the member's deductible/coinsurance/in-network status. So coverage copy is the
-// general, parity-law-backed truth, and the only real numbers we show are the
-// publicly-reported SELF-PAY ranges below, always framed as estimates to confirm.
+// the member's deductible/coinsurance/in-network status. Coverage copy therefore
+// stays general and directs people to confirm with both the plan and the program.
 
 export type PayerKind = 'public' | 'commercial' | 'military' | 'self';
 
@@ -32,14 +31,14 @@ export type Payer = {
   pricingNote: string; // what to say about cost on the page
 };
 
-const PARITY =
-  'Under federal parity laws (MHPAEA) and the Affordable Care Act, most plans must cover medically necessary substance-use and mental-health treatment.';
+const PLAN_VARIATION =
+  'Many plans include behavioral-health benefits, but covered services, medical-necessity criteria, authorization, exclusions, network rules, and member cost vary.';
 
 const plan = (carrier: string): string =>
-  `Your out-of-pocket cost depends entirely on your specific ${carrier} plan — deductible, coinsurance, and whether the program is in-network. It is not a fixed public price. The program can verify your exact benefits, usually in a single phone call.`;
+  `Your out-of-pocket cost depends on your specific ${carrier} plan — including deductible, copay or coinsurance, authorization, exclusions, and network. A benefits check can help estimate coverage but is not a guarantee of payment; confirm with both the plan and program.`;
 
 const commercialCoverage = (carrier: string): string =>
-  `${carrier} is one of the largest U.S. health insurers. ${PARITY} Most ${carrier} plans cover the full continuum of care — medical detox, residential, partial hospitalization (PHP), intensive outpatient (IOP), and standard outpatient — when it is medically necessary. Specifics vary by plan.`;
+  `${carrier} offers plans that may include substance-use and mental-health benefits. ${PLAN_VARIATION} Do not assume that every level of care or program is covered by a particular plan.`;
 
 export const PAYERS: Payer[] = [
   {
@@ -50,9 +49,9 @@ export const PAYERS: Payer[] = [
     common: true,
     brand: { bg: '#1f7a70', mark: 'Md' },
     coverage:
-      'Medicaid covers substance-use and mental-health treatment in every state — including detox, outpatient, and, in most states, residential care. The exact services covered and the programs that accept Medicaid vary by state.',
+      'State Medicaid programs may cover substance-use and mental-health services. Benefits, managed-care networks, authorization rules, covered levels of care, and participating programs vary by state and plan.',
     pricingNote:
-      'Medicaid treatment is typically low- or no-cost to the member. Coverage and any small copays vary by state plan.',
+      'Member cost and coverage vary by state program, managed-care plan, eligibility, service, and provider. Confirm before admission.',
   },
   {
     slug: 'medicare',
@@ -62,9 +61,9 @@ export const PAYERS: Payer[] = [
     common: true,
     brand: { bg: '#2b5d8b', mark: 'Mc' },
     coverage:
-      'Medicare covers medically necessary behavioral-health and substance-use treatment: inpatient care under Part A, outpatient care under Part B, and medications under Part D, for those who qualify.',
+      'Medicare may cover eligible inpatient, outpatient, and medication services under different parts of the program. Coverage depends on the service, provider, medical-necessity rules, and the person’s plan.',
     pricingNote:
-      'Costs follow standard Medicare cost-sharing (deductibles and coinsurance). A Medigap or Advantage plan can change what you pay.',
+      'Member cost depends on the service, setting, provider participation, other coverage, and whether the person uses Original Medicare or a Medicare Advantage plan. Confirm before admission.',
   },
   {
     slug: 'tricare',
@@ -74,9 +73,9 @@ export const PAYERS: Payer[] = [
     common: true,
     brand: { bg: '#12395e', mark: '★' },
     coverage:
-      'TRICARE covers substance-use disorder treatment for active-duty service members, retirees, and their families — including detox, residential, PHP, IOP, and outpatient care that is medically necessary.',
+      'TRICARE plans may cover eligible substance-use disorder services. Covered levels, authorization, referral rules, network, and member cost depend on the plan and beneficiary category.',
     pricingNote:
-      'Cost-shares depend on your TRICARE plan and beneficiary category. Many services have low or no out-of-pocket cost at in-network programs.',
+      'Cost-shares depend on the TRICARE plan, beneficiary category, service, authorization, and network. Confirm with TRICARE and the program.',
   },
   {
     slug: 'aetna',
@@ -136,9 +135,9 @@ export const PAYERS: Payer[] = [
     common: true,
     brand: { bg: '#0170c8', mark: 'K' },
     coverage:
-      'Kaiser Permanente plans cover addiction and mental-health treatment, often delivered through Kaiser facilities and network providers. ' +
-      PARITY +
-      ' Coverage for substance-use treatment varies by plan and region.',
+      'Kaiser Permanente offers plans that may include addiction and mental-health treatment, often delivered through Kaiser facilities and network providers. ' +
+      PLAN_VARIATION +
+      ' Access to outside programs varies by plan and region.',
     pricingNote: plan('Kaiser Permanente'),
   },
   {
@@ -159,8 +158,8 @@ export const PAYERS: Payer[] = [
     common: false,
     brand: { bg: '#ff612b', mark: 'O' },
     coverage:
-      'Optum (the behavioral-health arm of UnitedHealth Group) administers mental-health and substance-use benefits for many plans. ' +
-      PARITY,
+      'Optum (the behavioral-health arm of UnitedHealth Group) administers mental-health and substance-use benefits for some plans. ' +
+      PLAN_VARIATION,
     pricingNote: plan('Optum'),
   },
   {
@@ -171,7 +170,7 @@ export const PAYERS: Payer[] = [
     common: false,
     brand: { bg: '#003f72', mark: 'M' },
     coverage:
-      'Magellan Health manages behavioral-health and substance-use benefits for many employers and plans. ' + PARITY,
+      'Magellan Health manages behavioral-health and substance-use benefits for some employers and plans. ' + PLAN_VARIATION,
     pricingNote: plan('Magellan'),
   },
   {
@@ -182,8 +181,8 @@ export const PAYERS: Payer[] = [
     common: false,
     brand: { bg: '#007a7a', mark: 'C' },
     coverage:
-      'Carelon Behavioral Health (formerly Beacon Health Options) administers behavioral-health benefits for many plans. ' +
-      PARITY,
+      'Carelon Behavioral Health (formerly Beacon Health Options) administers behavioral-health benefits for some plans. ' +
+      PLAN_VARIATION,
     pricingNote: plan('Carelon'),
   },
   {
@@ -204,8 +203,8 @@ export const PAYERS: Payer[] = [
     common: false,
     brand: { bg: '#009cde', mark: 'M' },
     coverage:
-      'Molina Healthcare offers Medicaid, Marketplace, and Medicare plans that cover substance-use and mental-health treatment. ' +
-      PARITY,
+      'Molina Healthcare offers Medicaid, Marketplace, and Medicare plans that may include substance-use and mental-health benefits. ' +
+      PLAN_VARIATION,
     pricingNote: plan('Molina'),
   },
   {
@@ -216,24 +215,35 @@ export const PAYERS: Payer[] = [
     common: true,
     brand: { bg: '#475569', mark: '$' },
     coverage:
-      'Paying out of pocket — without billing insurance. Many programs offer payment plans, sliding-scale fees, or scholarships, and publicly funded programs may be low- or no-cost. The ranges below are typical self-pay estimates.',
+      'Paying out of pocket means the program does not bill an insurance plan for the service. Some programs may offer payment plans, sliding-scale fees, scholarships, or publicly funded options; availability and eligibility vary.',
     pricingNote:
-      'Self-pay cost depends on the program, length of stay, and amenities. See the typical ranges below — and ask programs about payment plans, sliding scale, and scholarships.',
+      'Ask the program for a written estimate, what services and time period it covers, its refund policy, and whether any payment assistance is available.',
   },
-];
-
-// Publicly-reported 2025 self-pay ranges by level of care. Estimates only — shown
-// to give a ballpark, never as a quote. (Sources: industry cost guides.)
-export const SELF_PAY_RANGES: { level: string; label: string; range: string }[] = [
-  { level: 'detox', label: 'Medical detox', range: '$250–$800 / day (outpatient detox often $1,000–$1,500 total; medical inpatient detox $5,000+)' },
-  { level: 'residential', label: 'Residential / inpatient', range: '$6,000–$30,000 for a 30-day program (≈$12,500 average); 60–90 days $30,000+' },
-  { level: 'php', label: 'Partial hospitalization (PHP)', range: '$350–$450 / day' },
-  { level: 'iop', label: 'Intensive outpatient (IOP)', range: '$250–$650 / day (≈$3,000–$10,000 per program)' },
-  { level: 'op', label: 'Standard outpatient', range: '$2,000–$10,000 per program, by intensity' },
 ];
 
 /** Named commercial carriers a facility can list on its profile (drives the editor). */
 export const COMMERCIAL_CARRIERS = PAYERS.filter((p) => p.kind === 'commercial');
+export const COMMERCIAL_CARRIER_NAMES = COMMERCIAL_CARRIERS.map((p) => p.name);
+
+/** Keep provider-entered carrier names on the canonical, publicly explained list. */
+export function normalizeCommercialCarrierNames(values: readonly string[]): string[] {
+  const allowed = new Set(COMMERCIAL_CARRIER_NAMES);
+  return [...new Set(values.map((value) => value.trim()).filter((value) => allowed.has(value)))];
+}
+
+/**
+ * A provider checkbox is a program-listed payment option. It is not evidence that
+ * the program is in network for any particular product or member.
+ */
+export function programListedPayerRecord(facilityId: string, payerType: PayerType) {
+  return {
+    facility_id: facilityId,
+    payer_type: payerType,
+    in_network: false,
+    verification_confidence: 'low' as const,
+    source_url: null,
+  };
+}
 
 export function getPayer(slug: string): Payer | undefined {
   return PAYERS.find((p) => p.slug === slug.toLowerCase());

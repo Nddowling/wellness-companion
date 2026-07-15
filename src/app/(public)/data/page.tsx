@@ -9,23 +9,23 @@ import { SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd } from '@/lib/seo';
 // figure set with an "as of" date). Refresh the numbers each quarter from the
 // aggregate query; the page itself is a public, link-earning asset and the
 // top-of-funnel for paid custom reports + data licensing.
-const AS_OF = 'June 2026';
+const AS_OF = 'July 15, 2026';
 const SNAPSHOT = {
-  programs: 13500,
+  programs: 13501,
   states: 54,
-  cities: 4435,
+  cities: 4433,
   levels: [
     { label: 'Outpatient', count: 10565, pct: 78 },
-    { label: 'Intensive outpatient (IOP)', count: 5201, pct: 39 },
-    { label: 'Residential', count: 2676, pct: 20 },
-    { label: 'Medical detox', count: 2496, pct: 18 },
-    { label: 'Partial hospitalization (PHP)', count: 1967, pct: 15 },
+    { label: 'Intensive outpatient (IOP)', count: 5202, pct: 39 },
+    { label: 'Residential', count: 2677, pct: 20 },
+    { label: 'Detox services (setting varies)', count: 2497, pct: 18 },
+    { label: 'Partial hospitalization (PHP)', count: 1968, pct: 15 },
   ],
 };
 
-const TITLE = 'The State of Treatment Access — Verified U.S. Directory Data';
+const TITLE = 'The State of Treatment Access — U.S. Directory Snapshot';
 const DESCRIPTION =
-  'A verified, real-time snapshot of U.S. addiction-treatment capacity from the Clear Bed Recovery directory — programs by level of care, the acute-care access gap, and what it means for patients and operators.';
+  'A point-in-time snapshot of published U.S. addiction-treatment directory records by level of care, with transparent source and methodology limits.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -68,18 +68,19 @@ export default function DataPage() {
         </nav>
 
         <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-teal-700">
-          Data &amp; research · verified as of {AS_OF}
+          Data &amp; research · directory snapshot as of {AS_OF}
         </p>
         <h1 className="mt-1 font-serif text-3xl leading-tight text-ink sm:text-4xl">The State of Treatment Access</h1>
         <p className="mt-3 text-base leading-relaxed text-slate-700">
-          {SITE_NAME} maintains one of the most complete, continuously verified directories of U.S. addiction and
-          mental-health treatment. Unlike pay-to-list directories, every licensed facility is included — so the picture
-          below reflects the real treatment landscape, not who paid to appear.
+          This snapshot summarizes published records in the {SITE_NAME} directory, which begins with federal SAMHSA
+          locator data and may include provider updates. It is not a census of every licensed program, proof that every
+          listing is currently licensed, or a real-time measure of available treatment capacity. Payment never determines
+          whether a program appears in the underlying directory counts.
         </p>
 
         <div className="mt-6 grid grid-cols-3 gap-3 text-center">
           {[
-            ['Programs tracked', fmt(SNAPSHOT.programs)],
+            ['Published records', fmt(SNAPSHOT.programs)],
             ['States & territories', String(SNAPSHOT.states)],
             ['Cities covered', fmt(SNAPSHOT.cities)],
           ].map(([label, value]) => (
@@ -91,9 +92,10 @@ export default function DataPage() {
         </div>
 
         <section className="mt-9">
-          <h2 className="font-serif text-xl text-ink">Capacity by level of care</h2>
+          <h2 className="font-serif text-xl text-ink">Records by listed service or level of care</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">
-            Share of tracked programs offering each level of care (programs often offer several).
+            Share of tracked records listing each service or level (a record may list several). These counts describe
+            directory taxonomy, not open beds or appointment slots.
           </p>
           <div className="mt-4 space-y-3">
             {SNAPSHOT.levels.map((l) => (
@@ -113,15 +115,14 @@ export default function DataPage() {
         </section>
 
         <section className="mt-9 rounded-xl border border-amber-200 bg-amber-50/60 p-5">
-          <h2 className="font-serif text-xl text-ink">The finding: an acute-care access gap</h2>
+          <h2 className="font-serif text-xl text-ink">What the directory mix suggests</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            Outpatient care is widely available — roughly 4 in 5 programs offer it. But the acute, bed-based care people
-            in crisis need most is far scarcer: only about{' '}
-            <strong>{SNAPSHOT.levels.find((l) => l.label === 'Medical detox')?.pct}% of programs offer medical detox</strong>{' '}
-            and <strong>{SNAPSHOT.levels.find((l) => l.label === 'Residential')?.pct}% offer residential</strong>. For a
-            family searching at 2 a.m., the question isn&apos;t whether treatment exists — it&apos;s whether a bed is
-            open tonight, within reach, and covered. That gap is exactly what real-time bed availability is built to
-            close.
+            Outpatient services appear on roughly 4 in 5 tracked records, while{' '}
+            <strong>{SNAPSHOT.levels.find((l) => l.label === 'Residential')?.pct}% list residential care</strong>. The{' '}
+            <strong>{SNAPSHOT.levels.find((l) => l.label.startsWith('Detox services'))?.pct}% detox figure cannot be read
+            as overnight detox capacity</strong>: the imported source category currently combines outpatient,
+            residential, and hospital inpatient detoxification. These service counts do not establish a live opening,
+            bed supply, admission eligibility, or network coverage; direct confirmation is still required.
           </p>
         </section>
 
@@ -131,7 +132,8 @@ export default function DataPage() {
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
             We produce custom regional access reports, bed-and-payer gap analyses, and licensed data feeds for treatment
             operators, health systems, EAPs, investors, and researchers. If you need to understand capacity, payer
-            acceptance, or distance-to-care in a specific market, we can build it from verified data.
+            acceptance, or distance-to-care in a specific market, we can build it from source-dated directory data and
+            clearly state its limits.
           </p>
           <a
             href="mailto:nick.dowling@clearbedrecovery.com?subject=Treatment%20access%20data%20%2F%20custom%20report"
@@ -142,10 +144,12 @@ export default function DataPage() {
         </section>
 
         <p className="mt-8 text-xs leading-relaxed text-slate-500">
-          Methodology: figures reflect published programs in the {SITE_NAME} directory verified as of {AS_OF}, sourced
-          from public licensing/SAMHSA data and continuous verification. Percentages are of tracked programs; programs
-          commonly offer multiple levels of care, so columns sum above 100%. {SITE_NAME} is a directory, not a treatment
-          provider.
+          Methodology: figures reflect published directory records counted as of {AS_OF}, sourced primarily from
+          SAMHSA locator data plus provider or directory updates. Records have mixed verification and freshness states;
+          these figures should not be treated as live capacity, a licensing registry, or a quality ranking. Percentages
+          are of tracked records, and programs may list multiple services, so columns sum above 100%. The current detox
+          category combines outpatient, residential, and hospital inpatient detoxification and must not be used as an
+          estimate of detox beds. {SITE_NAME} is a directory, not a treatment provider.
         </p>
       </main>
       <SiteFooter />

@@ -97,7 +97,7 @@ function Tile({ item }: { item: LogoItem }) {
     <Link
       href={item.href}
       title={item.name}
-      aria-label={`Centers that accept ${item.name}`}
+      aria-label={`Learn about ${item.name} coverage and payment`}
       className="group relative flex h-28 w-44 shrink-0 snap-start items-center justify-center rounded-2xl bg-slate-50 ring-1 ring-slate-200/70 transition hover:bg-white hover:shadow-md hover:ring-teal-300"
     >
       <PayerLogoImage slug={item.slug} name={item.name} brand={item.brand} />

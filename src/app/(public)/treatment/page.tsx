@@ -5,17 +5,19 @@ import JsonLd from '@/components/JsonLd';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 import { stateName, stateSlug } from '@/lib/geo';
+import { throwOnPublicReadError } from '@/lib/public-read-error';
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: 'Find Addiction & Mental Health Treatment by State',
+  title: 'Find Addiction Treatment by State',
   description:
-    'Browse vetted addiction and mental-health treatment programs by state — detox, residential, PHP, IOP, and outpatient — with real-time bed availability. Free and private.',
+    'Browse listed addiction-treatment programs by state — including some that report co-occurring mental-health services — with source and availability freshness cues.',
   alternates: { canonical: '/treatment' },
   openGraph: {
-    title: 'Find Treatment by State | Clear Bed Recovery',
-    description: 'Browse treatment programs by state, level of care, and city — with live bed availability.',
+    title: 'Find Addiction Treatment by State | Clear Bed Recovery',
+    description:
+      'Browse addiction-treatment programs by state, listed level of care, and city — with dated availability reports.',
     url: absoluteUrl('/treatment'),
   },
 };
@@ -45,8 +47,14 @@ export default async function TreatmentIndex() {
   const admin = createAdminClient();
   // True per-state counts via a SQL aggregate — not subject to PostgREST's 1,000-row cap
   // (a plain select would only see the first 1,000 of ~13.5k and undercount every state).
-  const client = admin as unknown as { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }> };
-  const { data } = await client.rpc('facilities_state_counts', {});
+  const client = admin as unknown as {
+    rpc: (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { code?: string | null } | null }>;
+  };
+  const { data, error } = await client.rpc('facilities_state_counts', {});
+  throwOnPublicReadError('treatment state counts', error);
   const states = ((data as { state: string; n: number }[]) ?? [])
     .map(({ state, n }) => {
       const code = (state ?? '').toUpperCase();
@@ -70,14 +78,14 @@ export default async function TreatmentIndex() {
         Find treatment <span className="italic text-brand">near you</span>
       </h1>
       <p className="mt-2 max-w-xl text-sm text-slate-600">
-        Browse vetted addiction and mental-health programs by state — detox, residential, PHP, IOP, and outpatient —
-        with real-time bed availability. {SITE_NAME} connects you to treatment facilities; we don&apos;t provide
-        treatment ourselves.
+        Browse listed addiction-treatment programs by state — detox, residential, PHP, IOP, and outpatient —
+        with dated availability reports and clear freshness cues. {SITE_NAME} connects you to treatment facilities;
+        we don&apos;t provide treatment ourselves.
       </p>
 
       <div className="mt-6">
         <Link href="/match" className="text-sm font-medium text-teal-700 hover:underline">
-          Or let our companion match you in 3 quick questions →
+          Or narrow the directory with 3 quick questions →
         </Link>
       </div>
 

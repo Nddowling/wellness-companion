@@ -9,12 +9,29 @@ const TITLE = 'For facility teams — your professional profile, on the listings
 const DESCRIPTION =
   'Business development, admissions, and marketing pros: build a free LinkedIn-style profile, attach it to your facility’s listing, and invite your colleagues. Show your work with pride.';
 
-export const metadata: Metadata = {
+const FOR_REPS_METADATA: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   alternates: { canonical: '/for-reps' },
   openGraph: { title: TITLE, description: DESCRIPTION, url: absoluteUrl('/for-reps') },
 };
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string }>;
+}): Promise<Metadata> {
+  const { invite } = await searchParams;
+  return {
+    ...FOR_REPS_METADATA,
+    ...(invite
+      ? {
+          robots: { index: false, follow: false, noarchive: true },
+          referrer: 'no-referrer' as const,
+        }
+      : {}),
+  };
+}
 
 const VALUE = [
   { h: 'A profile that shines', p: 'A clean, professional page — headline, experience, the programs you represent — shareable anywhere.' },
@@ -32,7 +49,7 @@ export default async function ForRepsPage({
   const invite = inviteToken ? await getInvite(inviteToken) : null;
   const inviteCtx: InviteContext =
     invite && invite.facility
-      ? { facilityId: invite.facility.id, facilityName: invite.facility.name, inviterId: invite.inviterId }
+      ? { token: invite.token, facilityName: invite.facility.name }
       : null;
 
   return (

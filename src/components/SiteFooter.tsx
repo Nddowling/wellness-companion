@@ -16,7 +16,7 @@ export default function SiteFooter() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Find care</h2>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               <li><Link href="/programs" className="hover:text-teal-700 hover:underline">Browse all programs</Link></li>
-              <li><Link href="/match" className="hover:text-teal-700 hover:underline">Get matched</Link></li>
+              <li><Link href="/match" className="hover:text-teal-700 hover:underline">Narrow directory options</Link></li>
               <li><Link href="/treatment" className="hover:text-teal-700 hover:underline">Treatment by state</Link></li>
               <li><Link href="/insurance" className="hover:text-teal-700 hover:underline">Treatment by insurance</Link></li>
               <li><Link href="/guides" className="hover:text-teal-700 hover:underline">Guides &amp; resources</Link></li>
@@ -67,9 +67,10 @@ export default function SiteFooter() {
         </div>
 
         <p className="mt-8 max-w-2xl text-xs leading-relaxed text-slate-500">
-          {SITE_NAME} is a directory that connects people to addiction and mental-health treatment facilities. We are
-          not a treatment provider and do not give medical advice. If you or someone you know is in immediate danger,
-          call 911 or the 988 Suicide &amp; Crisis Lifeline.
+          {SITE_NAME} is an addiction-treatment directory, including some programs that document co-occurring
+          mental-health services. We do not list standalone mental-health providers, provide treatment, give medical
+          advice, or determine clinical placement. If you or someone you know is in immediate danger, call 911; for
+          suicide or emotional crisis, call or text 988.
         </p>
         <p className="mt-4 text-xs text-slate-400">© {year} {SITE_NAME}. All rights reserved.</p>
       </div>

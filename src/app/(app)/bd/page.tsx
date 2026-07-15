@@ -2,9 +2,9 @@ import { redirect } from 'next/navigation';
 
 import { getRoles, homePathFor } from '@/lib/auth';
 
-// The referrer (BD) lane is retired from the UI. The bd_users table + actions stay
-// in place for any historical data, but there is no entry point: anyone landing here
-// is routed back to their own lane.
+// The legacy referrer (BD) lane is retired. Historical rows stay in the database,
+// but there are no legacy mutation actions or entry points; the canonical partner
+// workspace lives under /partners.
 export default async function BdHome() {
   const roles = await getRoles();
   if (!roles.user) redirect('/login');

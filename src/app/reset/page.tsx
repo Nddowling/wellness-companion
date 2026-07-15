@@ -7,11 +7,9 @@ import { createClient } from '@/lib/supabase/client';
 import { Button, Input, Label } from '@/components/ui';
 import { Logo } from '@/components/Logo';
 
-// Set-a-new-password step. Both providers (after a claim is approved) and seekers
-// (after they share contact info mid-chat) are created with a temporary password and
-// a `must_reset_password` flag. They sign in with the temp password — which gives them
-// a session — then land here to choose a real password. Login is by email, so there's
-// no username to set; we just capture an optional display name.
+// Set-a-new-password step reached through a verified, single-use recovery/setup
+// capability. Login is by email, so there is no username to set; we capture only an
+// optional display name and the new password.
 
 // Standard password rules: ≥8 chars, with an upper- and lower-case letter and a number.
 function passwordProblem(pw: string): string | null {

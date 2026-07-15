@@ -10,6 +10,40 @@ import { stateSlug, slugify } from '@/lib/geo';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const MAINTENANCE_HTML = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Clear Bed Recovery — brief maintenance</title></head>
+<body style="margin:0;background:#f8fafc;color:#0f172a;font-family:system-ui,-apple-system,sans-serif">
+<main style="max-width:42rem;margin:12vh auto;padding:2rem">
+<p style="color:#0f766e;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Clear Bed Recovery</p>
+<h1 style="font-size:2rem;line-height:1.2">We’ll be right back.</h1>
+<p style="font-size:1.05rem;line-height:1.7;color:#475569">We’re completing a brief directory update. Please try again in a few minutes.</p>
+<p style="line-height:1.7;color:#475569">If this is an emergency, call 911. For immediate crisis support in the U.S., call or text 988.</p>
+</main></body></html>`;
+
+function maintenanceResponse(request: NextRequest): NextResponse {
+  const headers = {
+    'Cache-Control': 'no-store, max-age=0',
+    'Retry-After': '300',
+    'X-Robots-Tag': 'noindex, nofollow, noarchive',
+  };
+  const acceptsHtml = request.headers.get('accept')?.includes('text/html');
+  if (acceptsHtml) {
+    return new NextResponse(request.method === 'HEAD' ? null : MAINTENANCE_HTML, {
+      status: 503,
+      headers: {
+        ...headers,
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'",
+      },
+    });
+  }
+  return NextResponse.json(
+    { error: 'Service temporarily unavailable', retryAfterSeconds: 300 },
+    { status: 503, headers },
+  );
+}
+
 // Only routes that actually read the signed-in user need the Supabase session
 // refresh. Running updateSession on every request does cookie work that makes even
 // static public pages uncacheable — so we scope it to authed prefixes and let all
@@ -55,6 +89,11 @@ async function resolveCanonicalPath(uuid: string): Promise<string | null> {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Release cutovers that contract database permissions use a dedicated
+  // maintenance deployment. The flag is deployment-scoped, so the tested
+  // application artifact can be promoted atomically after the database succeeds.
+  if (process.env.MAINTENANCE_MODE === '1') return maintenanceResponse(request);
 
   // Legacy /programs/<uuid> → permanent 301 to the canonical slug URL.
   const match = pathname.match(/^\/programs\/([^/]+)\/?$/);

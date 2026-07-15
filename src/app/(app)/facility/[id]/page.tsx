@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   freshnessTone,
+  isBedBased,
   isoDaysAgo,
   LEVEL_LABELS,
   PAYER_LABELS,
@@ -22,9 +23,10 @@ import { ShareProfile } from '@/components/ShareProfile';
 import { FacilityTeamManager } from '@/components/rep/FacilityTeamManager';
 import { absoluteUrl } from '@/lib/seo';
 import { facilityCanonicalPath } from '@/lib/facility/load';
-import { normalizePlan, PLAN_LABEL } from '@/lib/facility/plan';
+import { effectivePlan, planAllows, PLAN_LABEL } from '@/lib/facility/plan';
 
 const CONCERN_LABELS: Record<string, string> = {
+  substance_use: 'Substance use',
   alcohol: 'Alcohol',
   opioids: 'Opioids',
   stimulants: 'Stimulants',
@@ -76,14 +78,17 @@ export default async function FacilityManage({
   const { data: facility } = await supabase
     .from('facilities')
     .select(
-      'id, name, slug, city, state, verified_at, is_published, plan, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, accreditations, main_phone, intake_line, carriers_named, cash_rate, facility_capacity(level_of_care, beds_available, last_updated), facility_payers(payer_type)'
+      'id, name, slug, city, state, verified_at, is_published, plan, plan_status, levels_of_care, referral_contact, description, website, specialty_programs, images, videos, accreditations, main_phone, intake_line, carriers_named, facility_capacity(level_of_care, beds_available, last_updated), facility_payers(payer_type)'
     )
     .eq('id', id)
     .maybeSingle();
   if (!facility) notFound();
 
-  const plan = normalizePlan(facility.plan);
+  const plan = effectivePlan(facility.plan, facility.plan_status);
   const isFree = plan === 'free';
+  const canSeeBasicAnalytics = planAllows(plan, 'basicAnalytics');
+  const canSeeFullAnalytics = planAllows(plan, 'fullAnalytics');
+  const canUseLeadStatusWorkflow = planAllows(plan, 'followUpWorkflow');
 
   const caps = (facility.facility_capacity ?? []) as Cap[];
   const capByLevel = new Map(caps.map((c) => [c.level_of_care, c]));
@@ -103,43 +108,52 @@ export default async function FacilityManage({
   const routes = (routeData ?? []) as unknown as Route[];
   const openLeads = routes.filter((r) => r.status !== 'declined').length;
 
-  // Outbound hand-offs: seekers ClearBed sent to this facility's own website.
-  const { count: siteVisits } = await supabase
-    .from('outbound_clicks')
-    .select('id', { count: 'exact', head: true })
-    .eq('facility_id', id);
-
   const location = [facility.city, facility.state].filter(Boolean).join(', ');
 
-  const admin = createAdminClient();
-
-  // Profile performance (last 30 days) — the de-identified engagement counts a
-  // facility shows their leadership. facility_events is deny-all RLS, so read it
-  // with the service role, scoped to this (already membership-verified) facility.
-  const since30 = isoDaysAgo(30);
-  const evCount = (type: string) =>
-    admin
-      .from('facility_events')
-      .select('id', { count: 'exact', head: true })
-      .eq('facility_id', id)
-      .eq('event_type', type)
-      .gte('created_at', since30);
-  const [{ count: calls30 }, { count: dirs30 }, { count: emails30 }, { count: web30 }] = await Promise.all([
-    evCount('call'),
-    evCount('directions'),
-    evCount('email'),
-    admin
-      .from('outbound_clicks')
-      .select('id', { count: 'exact', head: true })
-      .eq('facility_id', id)
-      .gte('created_at', since30),
-  ]);
-  const perf = [
-    { label: 'Website clicks', value: web30 ?? 0 },
-    { label: 'Calls', value: calls30 ?? 0 },
-    { label: 'Directions', value: dirs30 ?? 0 },
-    { label: 'Emails', value: emails30 ?? 0 },
+  let siteVisits: number | null = null;
+  let perf = [
+    { label: 'Website clicks', value: 0 },
+    { label: 'Calls', value: 0 },
+    { label: 'Directions', value: 0 },
+    { label: 'Emails', value: 0 },
   ];
+  if (canSeeBasicAnalytics) {
+    // These tables are deny-all through browser RLS. Membership is verified above,
+    // then the service role reads only this facility's aggregate event counts.
+    const admin = createAdminClient();
+    const since30 = isoDaysAgo(30);
+    const evCount = (type: string) =>
+      admin
+        .from('facility_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('facility_id', id)
+        .eq('event_type', type)
+        .gte('created_at', since30);
+    const [
+      { count: allWeb },
+      { count: calls30 },
+      { count: dirs30 },
+      { count: emails30 },
+      { count: web30 },
+    ] = await Promise.all([
+      admin.from('outbound_clicks').select('id', { count: 'exact', head: true }).eq('facility_id', id),
+      evCount('call'),
+      evCount('directions'),
+      evCount('email'),
+      admin
+        .from('outbound_clicks')
+        .select('id', { count: 'exact', head: true })
+        .eq('facility_id', id)
+        .gte('created_at', since30),
+    ]);
+    siteVisits = allWeb;
+    perf = [
+      { label: 'Website clicks', value: web30 ?? 0 },
+      { label: 'Calls', value: calls30 ?? 0 },
+      { label: 'Directions', value: dirs30 ?? 0 },
+      { label: 'Emails', value: emails30 ?? 0 },
+    ];
+  }
   const perfTotal = perf.reduce((s, p) => s + p.value, 0);
 
   // ── EDIT MODE ────────────────────────────────────────────────────────────
@@ -193,7 +207,7 @@ export default async function FacilityManage({
           <h2 className="text-sm font-semibold text-slate-700">Photos</h2>
           <p className="text-xs text-slate-500">
             Photos of your space help people feel comfortable reaching out — it&apos;s one of the most reassuring
-            things a seeker sees.
+            things a seeker sees. JPEG, PNG, WebP, or AVIF; up to 8MB each.
           </p>
           {images.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -218,18 +232,25 @@ export default async function FacilityManage({
           )}
           <form action={uploadPhoto} className="flex items-center gap-2">
             <input type="hidden" name="facility_id" value={id} />
-            <input type="file" name="photo" accept="image/*" required className="text-sm" />
+            <input
+              type="file"
+              name="photo"
+              accept="image/jpeg,image/png,image/webp,image/avif"
+              required
+              className="text-sm"
+            />
             <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
               Upload photo
             </button>
           </form>
         </section>
 
-        {/* Videos (Growth+) */}
+        {/* Videos are part of the complete free claimed profile. */}
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">Videos</h2>
           <p className="text-xs text-slate-500">
-            A short walkthrough or welcome video builds trust faster than almost anything else.
+            A short walkthrough or welcome video builds trust faster than almost anything else. MP4, MOV, WebM,
+            or Ogg; up to 25MB each.
           </p>
           {videos.length > 0 && (
             <div className="flex flex-wrap gap-3">
@@ -253,7 +274,13 @@ export default async function FacilityManage({
           )}
           <form action={uploadVideo} className="flex items-center gap-2">
             <input type="hidden" name="facility_id" value={id} />
-            <input type="file" name="video" accept="video/*" required className="text-sm" />
+            <input
+              type="file"
+              name="video"
+              accept="video/mp4,video/quicktime,video/webm,video/ogg"
+              required
+              className="text-sm"
+            />
             <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
               Upload video
             </button>
@@ -264,13 +291,13 @@ export default async function FacilityManage({
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">Insurance &amp; payment</h2>
           <p className="text-xs text-slate-500">
-            Tell seekers exactly what you accept — it&apos;s one of the first things they filter on, and accurate
-            insurance is what gets you matched.
+            List payment types you currently accept or bill. Seekers can filter on this program-reported information,
+            but it does not establish network status or member benefits.
           </p>
           <form action={updateInsurance} className="grid gap-4 rounded-md border border-slate-200 bg-white p-3">
             <input type="hidden" name="facility_id" value={id} />
             <div>
-              <div className="text-xs font-medium text-slate-600">Coverage types accepted</div>
+              <div className="text-xs font-medium text-slate-600">Payment types you currently accept or bill</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {PAYER_TYPES.map((pt) => (
                   <label key={pt} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm hover:border-teal-400">
@@ -282,7 +309,7 @@ export default async function FacilityManage({
               </div>
             </div>
             <div>
-              <div className="text-xs font-medium text-slate-600">Commercial insurers you&apos;re in-network with</div>
+              <div className="text-xs font-medium text-slate-600">Commercial insurers you currently accept or bill</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {COMMERCIAL_CARRIERS.map((c) => (
                   <label key={c.slug} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm hover:border-teal-400">
@@ -292,18 +319,9 @@ export default async function FacilityManage({
                   </label>
                 ))}
               </div>
-              <p className="mt-1 text-xs text-slate-400">Checking any carrier marks you as accepting commercial insurance.</p>
-            </div>
-            <div className="grid gap-1">
-              <label className="text-xs font-medium text-slate-600">Self-pay / cash rate (optional, USD)</label>
-              <input
-                name="cash_rate"
-                type="text"
-                inputMode="numeric"
-                defaultValue={facility.cash_rate != null ? String(facility.cash_rate) : ''}
-                placeholder="e.g. 500"
-                className="w-40 rounded border border-slate-300 px-3 py-2 text-sm"
-              />
+              <p className="mt-1 text-xs text-slate-400">
+                This is shown as reported directory information, not a guarantee of network status or member benefits.
+              </p>
             </div>
             <button type="submit" className="justify-self-start rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
               Save insurance
@@ -311,12 +329,15 @@ export default async function FacilityManage({
           </form>
         </section>
 
-        {/* Bed availability — the moat */}
+        {/* Residential-bed availability */}
         <section className="space-y-3">
-          <h2 className="text-sm font-semibold text-slate-700">Bed availability</h2>
-          <p className="text-xs text-slate-500">Update whenever beds change. Each save refreshes your freshness.</p>
+          <h2 className="text-sm font-semibold text-slate-700">Residential-bed availability</h2>
+          <p className="text-xs text-slate-500">
+            Update residential beds whenever the count changes. Detox, PHP, IOP, and outpatient scheduling are not
+            represented as beds in the current directory model.
+          </p>
           <div className="space-y-2">
-            {levels.map((lvl) => {
+            {levels.filter(isBedBased).map((lvl) => {
               const cap = capByLevel.get(lvl);
               const tone = freshnessTone(cap?.last_updated ?? null);
               return (
@@ -350,8 +371,8 @@ export default async function FacilityManage({
                 </form>
               );
             })}
-            {levels.length === 0 && (
-              <p className="text-sm text-slate-500">No levels of care configured. Ask an admin to set them.</p>
+            {!levels.some(isBedBased) && (
+              <p className="text-sm text-slate-500">This facility does not currently list residential care.</p>
             )}
           </div>
         </section>
@@ -360,8 +381,8 @@ export default async function FacilityManage({
         <section className="space-y-3">
           <h2 className="text-sm font-semibold text-slate-700">Intake contact</h2>
           <p className="text-xs text-slate-500">
-            Your admissions/intake point of contact. Shown publicly on your program profile so people we match to you
-            can reach out — and it&apos;s where we send a referral&apos;s details when a seeker chooses to share them.
+            Your admissions/intake point of contact. It is shown publicly so people can contact the program directly.
+            When a seeker separately consents to share one contact method, authorized users can view it in Contacts.
           </p>
           <form action={updateContact} className="grid max-w-lg gap-2 rounded-md border border-slate-200 bg-white p-3">
             <input type="hidden" name="facility_id" value={id} />
@@ -442,9 +463,9 @@ export default async function FacilityManage({
             <p className="text-sm text-slate-500">{location || 'No location set'}</p>
             <div className="mt-2 flex flex-wrap gap-2 text-xs font-medium">
               {facility.verified_at ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">✓ Verified</span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-800">Listing admin-reviewed</span>
               ) : (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">Not verified</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">Listing not admin-reviewed</span>
               )}
               {facility.is_published ? (
                 <span className="rounded-full bg-teal-100 px-2 py-0.5 text-teal-800">Published</span>
@@ -456,7 +477,7 @@ export default async function FacilityManage({
                   {openLeads} open {openLeads === 1 ? 'lead' : 'leads'}
                 </span>
               )}
-              {siteVisits ? (
+              {canSeeBasicAnalytics && siteVisits ? (
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">
                   ClearBed sent {siteVisits} to your site
                 </span>
@@ -472,7 +493,7 @@ export default async function FacilityManage({
             >
               {PLAN_LABEL[plan]} plan
             </span>
-            {isFree && <UpgradePrompt variant="inline" cta="⬆ Upgrade" />}
+            {isFree && <UpgradePrompt variant="inline" cta="⬆ Upgrade" facilityId={id} />}
             <Link
               href={`/facility/${id}?edit=1`}
               className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800"
@@ -496,26 +517,43 @@ export default async function FacilityManage({
         </div>
       </div>
 
-      {/* Profile performance — de-identified engagement a facility shows leadership */}
-      <section className="rounded-xl border border-slate-200 bg-white p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Profile performance</h2>
-          <span className="text-xs text-slate-400">last 30 days</span>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {perf.map((p) => (
-            <div key={p.label} className="rounded-lg bg-slate-50 p-3 text-center">
-              <div className="text-2xl font-semibold text-slate-800">{p.value}</div>
-              <div className="mt-0.5 text-xs text-slate-500">{p.label}</div>
+      {/* Profile performance — aggregate, non-contact engagement counts. */}
+      {canSeeBasicAnalytics ? (
+        <section className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-700">Profile performance</h2>
+            <span className="text-xs text-slate-400">last 30 days</span>
+          </div>
+          {canSeeFullAnalytics ? (
+            <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {perf.map((p) => (
+                <div key={p.label} className="rounded-lg bg-slate-50 p-3 text-center">
+                  <div className="text-2xl font-semibold text-slate-800">{p.value}</div>
+                  <div className="mt-0.5 text-xs text-slate-500">{p.label}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-slate-500">
-          {perfTotal === 0
-            ? 'No activity yet in the last 30 days — these climb as seekers find your profile.'
-            : `${perfTotal} contact actions from your ClearBed profile in the last 30 days.`}
-        </p>
-      </section>
+          ) : (
+            <div className="mt-3 rounded-lg bg-slate-50 p-4 text-center">
+              <div className="text-3xl font-semibold text-slate-800">{perfTotal}</div>
+              <div className="mt-0.5 text-xs text-slate-500">contact actions across all channels</div>
+              <p className="mt-2 text-xs text-slate-400">Anchor adds the channel-by-channel breakdown.</p>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-slate-500">
+            {perfTotal === 0
+              ? 'No recorded contact actions in the last 30 days.'
+              : `${perfTotal} contact actions from your Clear Bed Recovery profile in the last 30 days.`}
+          </p>
+        </section>
+      ) : (
+        <UpgradePrompt
+          title="In-app profile analytics"
+          body="Starter adds the 30-day contact-action total and all-time website referral count."
+          cta="View plans →"
+          facilityId={id}
+        />
+      )}
 
       {facility.is_published && <ShareProfile profileUrl={absoluteUrl(facilityCanonicalPath(facility))} facilityName={facility.name} />}
 
@@ -554,19 +592,21 @@ export default async function FacilityManage({
           )}
       </section>
 
-      {/* Bed availability (read-only summary) */}
+      {/* Residential-bed availability (read-only summary) */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-700">Bed availability</h2>
+          <h2 className="text-sm font-semibold text-slate-700">Residential-bed availability</h2>
           <Link href={`/facility/${id}?edit=1`} className="text-xs font-medium text-teal-700">
             Update beds
           </Link>
         </div>
-        {levels.length === 0 ? (
-          <p className="text-sm text-slate-500">No levels of care configured. Ask an admin to set them.</p>
+        {!levels.some(isBedBased) ? (
+          <p className="text-sm text-slate-500">
+            This facility does not list residential care. Confirm detox setting and outpatient scheduling directly.
+          </p>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
-            {levels.map((lvl) => {
+            {levels.filter(isBedBased).map((lvl) => {
               const cap = capByLevel.get(lvl);
               const tone = freshnessTone(cap?.last_updated ?? null);
               return (
@@ -622,23 +662,27 @@ export default async function FacilityManage({
               {r.matches?.concern_category
                 ? CONCERN_LABELS[r.matches.concern_category] ?? r.matches.concern_category
                 : 'Concern —'}{' '}
-              · de-identified
+              · limited non-contact match data
             </div>
             <div className="mt-2 flex items-center gap-2">
-              {(['viewed', 'accepted', 'declined'] as const).map((s) => (
-                <form key={s} action={setLeadStatus}>
-                  <input type="hidden" name="route_id" value={r.id} />
-                  <input type="hidden" name="facility_id" value={id} />
-                  <input type="hidden" name="status" value={s} />
-                  <button
-                    type="submit"
-                    disabled={r.status === s}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:border-teal-400 disabled:opacity-40"
-                  >
-                    {s === 'viewed' ? 'Mark viewed' : s === 'accepted' ? 'Accept' : 'Decline'}
-                  </button>
-                </form>
-              ))}
+              {canUseLeadStatusWorkflow ? (
+                (['viewed', 'accepted', 'declined'] as const).map((s) => (
+                  <form key={s} action={setLeadStatus}>
+                    <input type="hidden" name="route_id" value={r.id} />
+                    <input type="hidden" name="facility_id" value={id} />
+                    <input type="hidden" name="status" value={s} />
+                    <button
+                      type="submit"
+                      disabled={r.status === s}
+                      className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:border-teal-400 disabled:opacity-40"
+                    >
+                      {s === 'viewed' ? 'Mark viewed' : s === 'accepted' ? 'Accept' : 'Decline'}
+                    </button>
+                  </form>
+                ))
+              ) : (
+                <span className="text-xs text-slate-400">Growth adds viewed / accepted / declined status tracking.</span>
+              )}
               <Link
                 href={`/facility/${id}/contacts#${r.id}`}
                 className="ml-auto text-xs font-medium text-teal-700 hover:underline"

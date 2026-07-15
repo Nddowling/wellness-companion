@@ -11,9 +11,14 @@
  *
  * Columns: ID · Area · Route/Flow · Role · Precondition · Action · Expected · Priority · Layer · Automated · Status
  */
-import { utils, writeFile } from 'xlsx';
+import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+// SheetJS recommends the CommonJS entry point for Node so filesystem support
+// is configured automatically. The ESM build requires an explicit set_fs call.
+const require = createRequire(import.meta.url);
+const { utils, writeFile } = require('xlsx');
 
 const H = ['ID', 'Area', 'Route / Flow', 'Role', 'Precondition', 'Action', 'Expected', 'Priority', 'Layer', 'Automated', 'Status'];
 

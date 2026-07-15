@@ -10,6 +10,7 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { LEVEL_LABELS, PAYER_LABELS, type CapacityRow, type LevelOfCare, type PayerType } from '@/lib/constants';
+import { isValidShareToken, shortlistDisplayTitle } from '@/lib/partner/shortlist-privacy';
 
 export type FacilitySummary = {
   id: string;
@@ -48,7 +49,7 @@ export function levelsLabel(levels: string[] | null | undefined): string {
   return ls.join(', ') || 'Programs vary';
 }
 
-export function acceptedSummary(f: {
+export function programListedPaymentSummary(f: {
   facility_payers?: { payer_type: string }[];
   carriers_named?: string[];
 }): string {
@@ -56,7 +57,7 @@ export function acceptedSummary(f: {
     .filter((p) => p.payer_type !== 'commercial')
     .map((p) => PAYER_LABELS[p.payer_type as PayerType] ?? p.payer_type);
   const all = [...gov, ...(f.carriers_named ?? [])];
-  if (!all.length) return 'Call to verify coverage';
+  if (!all.length) return 'No payment options listed — verify directly';
   return all.slice(0, 4).join(' · ') + (all.length > 4 ? ` +${all.length - 4} more` : '');
 }
 
@@ -107,7 +108,6 @@ export async function getRecentlyViewedIds(limit = 12): Promise<string[]> {
 export type PartnerListRow = {
   id: string;
   title: string;
-  intro: string | null;
   share_token: string | null;
   created_at: string;
   updated_at: string;
@@ -118,7 +118,9 @@ export async function getPartnerLists(): Promise<PartnerListRow[]> {
   const supabase = await createClient();
   const { data: lists } = await supabase
     .from('partner_lists')
-    .select('id, title, intro, share_token, created_at, updated_at')
+    // Deliberately do not select legacy title/intro values. A pre-migration row
+    // may contain client-identifying free text, so every label is derived below.
+    .select('id, share_token, created_at, updated_at')
     .order('updated_at', { ascending: false });
   const rows = lists ?? [];
   const ids = rows.map((l) => l.id);
@@ -127,29 +129,37 @@ export async function getPartnerLists(): Promise<PartnerListRow[]> {
     const { data: items } = await supabase.from('partner_list_items').select('list_id').in('list_id', ids);
     for (const it of items ?? []) counts[it.list_id] = (counts[it.list_id] ?? 0) + 1;
   }
-  return rows.map((l) => ({ ...l, item_count: counts[l.id] ?? 0 }));
+  return rows.map((l) => ({
+    ...l,
+    title: shortlistDisplayTitle(l.id, l.created_at),
+    item_count: counts[l.id] ?? 0,
+  }));
 }
 
-export type ListItemWithFacility = { note: string | null; position: number; facility: FacilitySummary };
+export type ListItemWithFacility = { position: number; facility: FacilitySummary };
 
-async function joinItems(
-  items: { facility_id: string; note: string | null; position: number }[],
-): Promise<ListItemWithFacility[]> {
+async function joinItems(items: { facility_id: string; position: number }[]): Promise<ListItemWithFacility[]> {
   const facilities = await getFacilitySummaries(items.map((i) => i.facility_id));
   const byId = new Map(facilities.map((f) => [f.id, f]));
   return items
-    .map((i) => ({ note: i.note, position: i.position, facility: byId.get(i.facility_id) }))
+    .map((i) => ({ position: i.position, facility: byId.get(i.facility_id) }))
     .filter((x): x is ListItemWithFacility => !!x.facility);
 }
 
 /** A list the signed-in partner owns, with its facilities resolved (RLS-scoped). */
 export async function getListDetail(listId: string) {
   const supabase = await createClient();
-  const { data: list } = await supabase.from('partner_lists').select('*').eq('id', listId).maybeSingle();
-  if (!list) return null;
+  const { data: row } = await supabase
+    .from('partner_lists')
+    .select('id, share_token, created_at, updated_at')
+    .eq('id', listId)
+    .maybeSingle();
+  if (!row) return null;
+  const list = { ...row, title: shortlistDisplayTitle(row.id, row.created_at) };
   const { data: items } = await supabase
     .from('partner_list_items')
-    .select('facility_id, note, position')
+    // Legacy per-program notes are intentionally neither selected nor rendered.
+    .select('facility_id, position')
     .eq('list_id', listId)
     .order('position');
   return { list, items: await joinItems(items ?? []) };
@@ -157,16 +167,19 @@ export async function getListDetail(listId: string) {
 
 /** A publicly-shared list by token — read with the service client (visitor is anon). */
 export async function getSharedList(token: string) {
+  if (!isValidShareToken(token)) return null;
   const admin = createAdminClient();
-  const { data: list } = await admin
+  const { data: row } = await admin
     .from('partner_lists')
-    .select('id, title, intro, share_token')
+    // Public output is a minimal DTO. Never load legacy free-text columns.
+    .select('id, share_token, created_at')
     .eq('share_token', token)
     .maybeSingle();
-  if (!list) return null;
+  if (!row) return null;
+  const list = { ...row, title: shortlistDisplayTitle(row.id, row.created_at) };
   const { data: items } = await admin
     .from('partner_list_items')
-    .select('facility_id, note, position')
+    .select('facility_id, position')
     .eq('list_id', list.id)
     .order('position');
   return { list, items: await joinItems(items ?? []) };

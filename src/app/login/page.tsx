@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button, Input, Label } from '@/components/ui';
 import { Logo } from '@/components/Logo';
+import { safeInternalPath } from '@/lib/auth/safe-redirect';
 
 // The four ways to join. Seekers self-create an account (or start anonymously);
 // Partners & facility teams self-signup with a profile; facilities are claim+verified.
@@ -50,18 +51,27 @@ function LoginForm() {
   // else is a provider/team member. `next` is where we send them after auth.
   const isSeeker = params.get('role') === 'seeker';
   const next = params.get('next');
-  // Same-origin paths only — reject protocol-relative ("//evil.com") open redirects.
-  const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : null;
+  const safeNext = safeInternalPath(next, null);
   const dest = safeNext ?? '/home';
-  // Coming from a plan CTA: we'll resume Stripe checkout straight after sign-in.
-  const resumingCheckout = !!safeNext && safeNext.startsWith('/api/checkout');
+  const queryError = params.get('error');
+  const initialError =
+    queryError === 'profile_setup_failed'
+      ? 'Your account was confirmed, but the profile could not be completed. Sign in to retry or contact support.'
+      : queryError === 'link_expired'
+        ? 'That sign-in link is invalid or expired. Request a new password link below.'
+        : queryError === 'not_authorized'
+          ? 'This account does not have access to that area.'
+          : null;
+  // Coming from a plan CTA: preserve plan/cycle (and any facility context) through
+  // sign-in, then return to the owner-validated pricing selection.
+  const resumingCheckout = !!safeNext && safeNext.startsWith('/pricing?plan=');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   // Providers NEVER self-sign-up: claiming + admin verification is the only door in
   // (see claim/actions.ts). Only seekers may create an account from this page.
   const [mode, setMode] = useState<'signin' | 'signup'>(isSeeker ? 'signup' : 'signin');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [busy, setBusy] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   // Non-seekers pick a profile type when signing up; this reveals that chooser.
@@ -98,8 +108,7 @@ function LoginForm() {
       setError(error.message);
       return;
     }
-    // Temp-password accounts (approved providers, mid-chat seekers) must choose a real
-    // password before anything else.
+    // Legacy accounts carrying the setup marker must finish password setup first.
     const mustReset = (data?.user?.user_metadata as { must_reset_password?: boolean } | undefined)
       ?.must_reset_password;
     go(mustReset ? '/reset' : dest);
@@ -161,11 +170,11 @@ function LoginForm() {
           <h1 className="h1 text-ink">{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h1>
           <p className="mt-1 text-sm text-slate-500">
             {resumingCheckout
-              ? 'Sign in to continue — we’ll take you straight to checkout to start your plan.'
+              ? 'Sign in to continue — your plan choice will be waiting on the secure pricing page.'
               : isSeeker
                 ? mode === 'signin'
-                  ? 'Sign in to pick up your search and saved conversations.'
-                  : 'Create a free account to find care — your conversations are saved privately so you can return anytime.'
+                  ? 'Sign in to review your care options and account.'
+                  : 'Create a free account to keep your care options in one place.'
                 : 'Sign in to your provider or team account.'}
           </p>
 

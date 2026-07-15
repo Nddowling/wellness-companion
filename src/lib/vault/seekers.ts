@@ -1,9 +1,6 @@
 import 'server-only';
 
-import { createVaultClient } from '@/lib/supabase/vault';
-import { toFacilitySummary, type FacilityRowForSummary } from '@/lib/facility/summary';
-import type { FacilitySummary } from '@/lib/email/templates';
-import type { Json } from '@/types/database';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // Lead data-access. PATH A: we are a CONNECTOR, not a provider — we store only what is
 // needed to make an INTRODUCTION, never what is needed to run an intake. No HIPAA
@@ -14,58 +11,71 @@ import type { Json } from '@/types/database';
 
 export type SeekerIdentity = {
   email?: string;
-  name?: string;
-  insurance?: string;
   phone?: string;
 };
 
-export type EmailKind = 'welcome' | 'treatment_info' | 'weekly_reminder';
+export type EmailKind = 'treatment_info';
 
-/**
- * Capture a contact the moment the conversation starts — just a name + email — so the
- * lead is saved even if the person drops off before finishing. Stored as a vault_seekers
- * row with no consent yet (consent_at stays null → distinguishes a fresh lead from a
- * completed hand-off). Returns the id to thread through to the hand-off. Best-effort:
- * callers treat a null return as "lead not captured" and continue the funnel.
- */
-export async function createContact(params: { name?: string; email?: string }): Promise<string | null> {
-  const vault = createVaultClient();
-  const { data, error } = await vault
-    .from('vault_seekers')
-    .insert({
-      name: params.name ?? null,
-      email: params.email ?? null,
-      consent_email: false,
-      consent_share: false,
-      status: 'active',
-    })
-    .select('id')
-    .single();
-  if (error || !data) return null;
-  return data.id;
+// These legacy `vault_*` table names now hold connector lead records only. They
+// contain minimal contact and consent data, never clinical intake or transcripts.
+const createLeadClient = createAdminClient;
+
+export type ConnectorHandoffResult = {
+  seekerId: string | null;
+  consentEmail: boolean;
+  consentShare: boolean;
+  sharedFacilityCount: number;
+  alreadyCompleted: boolean;
+};
+
+type ConnectorRpcClient = {
+  rpc: (
+    name: 'complete_connector_handoff' | 'reserve_treatment_email' | 'finish_treatment_email' | 'revoke_connector_contact',
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { code?: string } | null }>;
+};
+
+/** Atomically persist the current contact permission, interests, and consent receipts. */
+export async function completeConnectorHandoff(params: {
+  matchId: string;
+  recipientFacilityIds: string[];
+  identity: SeekerIdentity;
+  consents: { email: boolean; share: boolean };
+}): Promise<ConnectorHandoffResult> {
+  const vault = createLeadClient() as unknown as ConnectorRpcClient;
+  const { data, error } = await vault.rpc('complete_connector_handoff', {
+    p_match_id: params.matchId,
+    p_recipient_facility_ids: params.recipientFacilityIds,
+    p_email: params.identity.email ?? null,
+    p_phone: params.identity.phone ?? null,
+    p_consent_email: params.consents.email,
+    p_consent_share: params.consents.share,
+  });
+  const row = Array.isArray(data) ? data[0] as Record<string, unknown> | undefined : undefined;
+  if (error || !row) throw new Error('Could not complete the connector handoff safely.');
+  return {
+    seekerId: typeof row.seeker_id === 'string' ? row.seeker_id : null,
+    consentEmail: row.consent_email === true,
+    consentShare: row.consent_share === true,
+    sharedFacilityCount: Number(row.shared_facility_count ?? 0),
+    alreadyCompleted: row.already_completed === true,
+  };
 }
 
-/**
- * Store a lead (contact + consent) and their interests. When `contactId` is given (the
- * early lead from createContact), UPDATE that row instead of inserting — so the early
- * contact and the completed hand-off are one record, not two. Returns the id.
- */
+/** Store a minimal, consented connector lead and the programs they chose. */
 export async function createSeekerWithInterest(params: {
-  matchId: string | null;
-  contactId?: string | null;
+  matchId: string;
   identity: SeekerIdentity;
   coverageStatus?: string | null;
   consents: { email: boolean; share: boolean };
   facilityIds: string[];
-}): Promise<string | null> {
-  const vault = createVaultClient();
+}): Promise<string> {
+  const vault = createLeadClient();
   const now = new Date().toISOString();
 
   const fields = {
     match_id: params.matchId,
     email: params.identity.email ?? null,
-    name: params.identity.name ?? null,
-    insurance: params.identity.insurance ?? null,
     coverage_status: params.coverageStatus ?? null,
     phone: params.identity.phone ?? null,
     consent_email: params.consents.email,
@@ -74,30 +84,40 @@ export async function createSeekerWithInterest(params: {
     status: 'active',
   };
 
-  let seekerId: string | null = null;
-  if (params.contactId) {
-    const { data, error } = await vault
-      .from('vault_seekers')
-      .update(fields)
-      .eq('id', params.contactId)
-      .select('id')
-      .single();
-    if (!error && data) seekerId = data.id;
-  }
-  if (!seekerId) {
+  // The browser may retry after a network interruption. Reuse an existing row for
+  // this server-issued match so the same consent action cannot duplicate a lead.
+  const { data: existing, error: lookupError } = await vault
+    .from('vault_seekers')
+    .select('id')
+    .eq('match_id', params.matchId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) throw new Error(`Could not check connector lead: ${lookupError.message}`);
+
+  let seekerId = existing?.id ?? null;
+  if (seekerId) {
+    const { error } = await vault.from('vault_seekers').update(fields).eq('id', seekerId);
+    if (error) throw new Error(`Could not update connector lead: ${error.message}`);
+  } else {
     const { data, error } = await vault.from('vault_seekers').insert(fields).select('id').single();
-    if (error || !data) return null;
+    if (error || !data) throw new Error(`Could not create connector lead: ${error?.message ?? 'unknown error'}`);
     seekerId = data.id;
   }
 
+  // The latest decision is authoritative for future in-app access. Remove prior
+  // interests first, then restore only the server-derived programs in this match.
+  const { error: clearError } = await vault.from('vault_seeker_interest').delete().eq('seeker_id', seekerId);
+  if (clearError) throw new Error(`Could not update connector interests: ${clearError.message}`);
   if (params.facilityIds.length) {
-    await vault.from('vault_seeker_interest').insert(
+    const { error: interestError } = await vault.from('vault_seeker_interest').insert(
       params.facilityIds.map((facility_id) => ({
         seeker_id: seekerId,
         facility_id,
         match_id: params.matchId,
       }))
     );
+    if (interestError) throw new Error(`Could not store connector interests: ${interestError.message}`);
   }
   return seekerId;
 }
@@ -115,15 +135,14 @@ export async function logConsentEvents(params: {
   consents: { email: boolean; share: boolean };
   source?: string;
 }): Promise<void> {
-  if (!params.seekerId) return;
-  const vault = createVaultClient();
+  const vault = createLeadClient();
   const now = new Date().toISOString();
   const source = params.source ?? 'intake';
   const rows: { channel: ConsentChannel; granted: boolean }[] = [
     { channel: 'share', granted: params.consents.share },
     { channel: 'email', granted: params.consents.email },
   ];
-  await vault.from('vault_consent_events').insert(
+  const { error } = await vault.from('vault_consent_events').insert(
     rows.map((r) => ({
       seeker_id: params.seekerId,
       match_id: params.matchId,
@@ -133,6 +152,7 @@ export async function logConsentEvents(params: {
       occurred_at: now,
     }))
   );
+  if (error) throw new Error(`Could not record consent event: ${error.message}`);
 }
 
 export type ConsentEvent = {
@@ -145,7 +165,7 @@ export type ConsentEvent = {
 
 /** Full consent history for a seeker, newest first (admin/compliance view). */
 export async function getConsentEvents(seekerId: string): Promise<ConsentEvent[]> {
-  const vault = createVaultClient();
+  const vault = createLeadClient();
   const { data } = await vault
     .from('vault_consent_events')
     .select('id, channel, granted, source, occurred_at')
@@ -154,104 +174,136 @@ export async function getConsentEvents(seekerId: string): Promise<ConsentEvent[]
   return (data ?? []) as ConsentEvent[];
 }
 
-export async function logEmail(entry: {
-  seeker_id?: string | null;
-  facility_id?: string | null;
-  kind: EmailKind;
-  to_email: string;
-  provider_id?: string | null;
-  meta?: Json;
-}): Promise<void> {
-  const vault = createVaultClient();
-  await vault.from('vault_email_log').insert({
-    seeker_id: entry.seeker_id ?? null,
-    facility_id: entry.facility_id ?? null,
-    kind: entry.kind,
-    to_email: entry.to_email,
-    provider_id: entry.provider_id ?? null,
-    meta: entry.meta ?? {},
+export type TreatmentEmailReservation = {
+  logId: string;
+  status: 'pending' | 'sent' | 'failed' | 'legacy_unknown' | 'recipient_mismatch';
+  shouldSend: boolean;
+};
+
+/** Reserve the single requested match email before touching the mail provider. */
+export async function reserveTreatmentEmail(
+  seekerId: string,
+  email: string,
+): Promise<TreatmentEmailReservation> {
+  const vault = createLeadClient() as unknown as ConnectorRpcClient;
+  const { data, error } = await vault.rpc('reserve_treatment_email', {
+    p_seeker_id: seekerId,
+    p_to_email: email,
   });
+  const row = Array.isArray(data) ? data[0] as Record<string, unknown> | undefined : undefined;
+  const status = row?.delivery_status;
+  if (
+    error ||
+    !row ||
+    typeof row.email_log_id !== 'string' ||
+    status !== 'pending' &&
+    status !== 'sent' &&
+    status !== 'failed' &&
+    status !== 'legacy_unknown' &&
+    status !== 'recipient_mismatch'
+  ) {
+    throw new Error('Could not reserve the requested email safely.');
+  }
+  return { logId: row.email_log_id, status, shouldSend: row.should_send === true };
+}
+
+export async function finishTreatmentEmail(
+  logId: string,
+  status: 'sent' | 'failed',
+  providerId: string | null,
+): Promise<void> {
+  const vault = createLeadClient() as unknown as ConnectorRpcClient;
+  const { error } = await vault.rpc('finish_treatment_email', {
+    p_email_log_id: logId,
+    p_delivery_status: status,
+    p_provider_id: providerId,
+  });
+  if (error) throw new Error('Could not finalize the email delivery record.');
+}
+
+export async function revokeConnectorContact(seekerId: string, source = 'admin_revocation'): Promise<void> {
+  const vault = createLeadClient() as unknown as ConnectorRpcClient;
+  const { error } = await vault.rpc('revoke_connector_contact', {
+    p_seeker_id: seekerId,
+    p_source: source,
+  });
+  if (error) throw new Error('Could not revoke the connector contact safely.');
 }
 
 /** Link a created auth account to the seeker's vault record. */
 export async function setSeekerAuthUser(seekerId: string, authUserId: string): Promise<void> {
-  const vault = createVaultClient();
-  await vault.from('vault_seekers').update({ auth_user_id: authUserId }).eq('id', seekerId);
-}
-
-export type SeekerDashboard = {
-  name: string | null;
-  coverageStatus: string | null;
-  facilities: (FacilitySummary & { id: string })[];
-};
-
-/** Load a logged-in seeker's saved info + recommended programs (for /me). */
-export async function getSeekerByAuthUser(authUserId: string): Promise<SeekerDashboard | null> {
-  const vault = createVaultClient();
-  const { data: seeker } = await vault
+  const vault = createLeadClient();
+  // Compare-and-set: a retry in a shared browser must never transfer a saved
+  // connector record from one account to another.
+  const { data: linked, error } = await vault
     .from('vault_seekers')
-    .select('id, name, coverage_status')
-    .eq('auth_user_id', authUserId)
-    .order('created_at', { ascending: false })
-    .limit(1)
+    .update({ auth_user_id: authUserId })
+    .eq('id', seekerId)
+    .is('auth_user_id', null)
+    .select('id')
     .maybeSingle();
-  if (!seeker) return null;
+  if (error) throw new Error(`Could not link seeker account: ${error.message}`);
+  if (linked) return;
 
-  const { data: interests } = await vault
-    .from('vault_seeker_interest')
-    .select(
-      'facility_id, facilities(name, city, state, levels_of_care, referral_contact, facility_capacity(beds_available, last_updated), facility_payers(payer_type))'
-    )
-    .eq('seeker_id', seeker.id);
-
-  const facilities = (interests ?? [])
-    .map((i) => {
-      const summary = toFacilitySummary(i.facilities as unknown as FacilityRowForSummary);
-      return summary ? { id: i.facility_id as string, ...summary } : null;
-    })
-    .filter((f): f is FacilitySummary & { id: string } => f !== null);
-
-  return {
-    name: seeker.name,
-    coverageStatus: seeker.coverage_status,
-    facilities,
-  };
+  const { data: current, error: currentError } = await vault
+    .from('vault_seekers')
+    .select('auth_user_id')
+    .eq('id', seekerId)
+    .maybeSingle();
+  if (currentError || current?.auth_user_id !== authUserId) {
+    throw new Error('This connector record is already linked to a different account.');
+  }
 }
 
 export type SeekerRow = {
   id: string;
-  name: string | null;
   email: string | null;
   phone: string | null;
-  insurance: string | null;
   coverage_status: string | null;
+  consent_share: boolean;
+  consent_email: boolean;
+  match_id: string | null;
   status: string;
   created_at: string;
 };
 
-const SEEKER_COLS = 'id, name, email, phone, insurance, coverage_status, status, created_at';
+const SEEKER_COLS =
+  'id, email, phone, coverage_status, consent_share, consent_email, match_id, status, created_at';
 
 async function facilitiesForSeeker(
-  vault: ReturnType<typeof createVaultClient>,
+  vault: ReturnType<typeof createLeadClient>,
   seekerId: string
-): Promise<(FacilitySummary & { id: string })[]> {
+): Promise<({ id: string; name: string; city: string | null; state: string | null; levels: string[] })[]> {
   const { data: interests } = await vault
     .from('vault_seeker_interest')
     .select(
-      'facility_id, facilities(name, city, state, levels_of_care, referral_contact, facility_capacity(beds_available, last_updated), facility_payers(payer_type))'
+      'facility_id, facilities(name, city, state, levels_of_care)'
     )
     .eq('seeker_id', seekerId);
   return (interests ?? [])
     .map((i) => {
-      const summary = toFacilitySummary(i.facilities as unknown as FacilityRowForSummary);
-      return summary ? { id: i.facility_id as string, ...summary } : null;
+      const facility = i.facilities as unknown as {
+        name?: string;
+        city?: string | null;
+        state?: string | null;
+        levels_of_care?: string[] | null;
+      } | null;
+      return facility?.name
+        ? {
+            id: i.facility_id as string,
+            name: facility.name,
+            city: facility.city ?? null,
+            state: facility.state ?? null,
+            levels: facility.levels_of_care ?? [],
+          }
+        : null;
     })
-    .filter((f): f is FacilitySummary & { id: string } => f !== null);
+    .filter((f): f is { id: string; name: string; city: string | null; state: string | null; levels: string[] } => f !== null);
 }
 
 /** Admin: list all seeker records (PHI). */
 export async function listSeekers(): Promise<SeekerRow[]> {
-  const vault = createVaultClient();
+  const vault = createLeadClient();
   const { data } = await vault.from('vault_seekers').select(SEEKER_COLS).order('created_at', { ascending: false });
   return (data ?? []) as SeekerRow[];
 }
@@ -259,207 +311,98 @@ export async function listSeekers(): Promise<SeekerRow[]> {
 /** Admin: one seeker + their matched programs. */
 export async function getSeekerById(
   id: string
-): Promise<{ seeker: SeekerRow; facilities: (FacilitySummary & { id: string })[] } | null> {
-  const vault = createVaultClient();
+): Promise<{
+  seeker: SeekerRow;
+  facilities: { id: string; name: string; city: string | null; state: string | null; levels: string[] }[];
+} | null> {
+  const vault = createLeadClient();
   const { data: seeker } = await vault.from('vault_seekers').select(SEEKER_COLS).eq('id', id).maybeSingle();
   if (!seeker) return null;
   return { seeker: seeker as SeekerRow, facilities: await facilitiesForSeeker(vault, id) };
 }
 
-export type SeekerTranscript = {
-  id: string;
-  title: string | null;
-  created_at: string;
-  messages: { role: 'user' | 'assistant'; content: string }[];
-};
-
-/**
- * Admin: the saved chat transcript(s) behind a seeker contact — the full back-and-forth
- * the contact's information was gathered from. Matched by the de-identified match_id
- * first (the exact conversation for this contact), falling back to the account. Returns
- * empty when no transcript was saved (e.g. an anonymous contact who declined an account).
- */
-export async function getSeekerTranscripts(seekerId: string): Promise<SeekerTranscript[]> {
-  const vault = createVaultClient();
-  const { data: s } = await vault
-    .from('vault_seekers')
-    .select('match_id, auth_user_id')
-    .eq('id', seekerId)
-    .maybeSingle();
-  if (!s) return [];
-
-  let q = vault
-    .from('vault_conversations')
-    .select('id, title, created_at, messages')
-    .order('created_at', { ascending: false });
-  if (s.match_id) q = q.eq('match_id', s.match_id);
-  else if (s.auth_user_id) q = q.eq('auth_user_id', s.auth_user_id);
-  else return [];
-
-  const { data } = await q;
-  return (data ?? []).map((c) => ({
-    id: c.id,
-    title: c.title,
-    created_at: c.created_at,
-    messages: (Array.isArray(c.messages) ? c.messages : []) as { role: 'user' | 'assistant'; content: string }[],
-  }));
-}
-
 /** Seeker dashboard: every past search for this account, newest first. */
 export async function getSearchesByAuthUser(
   authUserId: string
-): Promise<{ search: SeekerRow; facilities: (FacilitySummary & { id: string })[] }[]> {
-  const vault = createVaultClient();
+): Promise<{
+  search: SeekerRow;
+  facilities: { id: string; name: string; city: string | null; state: string | null; levels: string[] }[];
+}[]> {
+  const vault = createLeadClient();
   const { data: seekers } = await vault
     .from('vault_seekers')
     .select(SEEKER_COLS)
     .eq('auth_user_id', authUserId)
     .order('created_at', { ascending: false });
-  const out: { search: SeekerRow; facilities: (FacilitySummary & { id: string })[] }[] = [];
+  const out: {
+    search: SeekerRow;
+    facilities: { id: string; name: string; city: string | null; state: string | null; levels: string[] }[];
+  }[] = [];
   for (const s of (seekers ?? []) as SeekerRow[]) {
     out.push({ search: s, facilities: await facilitiesForSeeker(vault, s.id) });
   }
   return out;
 }
 
-export type FacilityContact = {
-  interestId: string;
-  seekerId: string;
-  name: string | null;
-  email: string | null;
-  phone: string | null;
-  coverageStatus: string | null;
-  status: string; // vault_seekers.status: active | connected | unsubscribed
-  sharedAt: string; // when the contact was shared with this facility (falls back to interest creation)
-};
-
 /**
- * Facility "Contacts": the seekers who explicitly consented to share their details with
- * THIS facility (consent_share=true). Contact details only — name, email, phone, coverage
- * status — so the facility can reach out and run their own intake in their own system.
- * Callers MUST verify facility membership before calling (bypasses RLS via service-role).
+ * Seeker self-edit: update only the single contact method they already consented
+ * to use. Switching channels requires a new handoff/consent decision; this path
+ * cannot quietly turn a phone-only permission into an email permission (or vice
+ * versa).
  */
-export async function listSeekerContactsForFacility(facilityId: string): Promise<FacilityContact[]> {
-  const vault = createVaultClient();
-
-  const { data: interests } = await vault
-    .from('vault_seeker_interest')
-    .select('id, seeker_id, created_at, info_sent_at')
-    .eq('facility_id', facilityId)
-    .order('created_at', { ascending: false });
-  if (!interests?.length) return [];
-
-  const seekerIds = [...new Set(interests.map((i) => i.seeker_id).filter((x): x is string => !!x))];
-  if (!seekerIds.length) return [];
-
-  // Only the consented seekers — defensive, even though interest rows are only
-  // created on a consented hand-off.
-  const { data: seekers } = await vault
-    .from('vault_seekers')
-    .select('id, name, email, phone, coverage_status, status')
-    .in('id', seekerIds)
-    .eq('consent_share', true);
-  const byId = new Map((seekers ?? []).map((s) => [s.id, s]));
-
-  const out: FacilityContact[] = [];
-  for (const i of interests) {
-    const s = i.seeker_id ? byId.get(i.seeker_id) : null;
-    if (!s) continue; // not consented / not found — never surface
-    out.push({
-      interestId: i.id,
-      seekerId: s.id,
-      name: s.name,
-      email: s.email,
-      phone: s.phone,
-      coverageStatus: s.coverage_status,
-      status: s.status,
-      sharedAt: i.info_sent_at ?? i.created_at,
-    });
-  }
-  return out;
-}
-
-/** Seeker self-edit: update their own identity fields (scoped to their account). */
 export async function updateMyInfo(
   authUserId: string,
   seekerId: string,
-  patch: { name?: string; email?: string; phone?: string; insurance?: string }
+  patch: { channel: 'email' | 'phone'; value: string }
 ): Promise<void> {
-  const vault = createVaultClient();
-  await vault
+  const vault = createLeadClient();
+  const { data: current, error: currentError } = await vault
+    .from('vault_seekers')
+    .select('id, email, phone, consent_share, consent_email, match_id')
+    .eq('id', seekerId)
+    .eq('auth_user_id', authUserId)
+    .maybeSingle();
+  if (currentError || !current) throw new Error('Connector contact not found.');
+
+  const existingChannel = current.email ? 'email' : current.phone ? 'phone' : null;
+  if (!existingChannel || patch.channel !== existingChannel) {
+    throw new Error('Start a new connection to share a different contact method.');
+  }
+
+  const value = patch.value.trim();
+  if (patch.channel === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    throw new Error('Enter a valid email address.');
+  }
+  const digits = value.replace(/\D/g, '');
+  if (patch.channel === 'phone' && (digits.length < 7 || digits.length > 15)) {
+    throw new Error('Enter a valid phone number.');
+  }
+
+  const { data: updated, error } = await vault
     .from('vault_seekers')
     .update({
-      name: patch.name ?? null,
-      email: patch.email ?? null,
-      phone: patch.phone ?? null,
-      insurance: patch.insurance ?? null,
+      email: patch.channel === 'email' ? value.toLowerCase() : null,
+      phone: patch.channel === 'phone' ? value : null,
+      consent_at: new Date().toISOString(),
     })
     .eq('id', seekerId)
-    .eq('auth_user_id', authUserId);
-}
+    .eq('auth_user_id', authUserId)
+    .select('id')
+    .maybeSingle();
+  if (error || !updated) throw new Error(`Could not update contact information: ${error?.message ?? 'not found'}`);
 
-export async function markInterestInfoSent(seekerId: string, facilityId: string): Promise<void> {
-  const vault = createVaultClient();
-  await vault
-    .from('vault_seeker_interest')
-    .update({ info_sent_at: new Date().toISOString() })
-    .eq('seeker_id', seekerId)
-    .eq('facility_id', facilityId);
+  // The account form requires an explicit confirmation, so append a fresh receipt
+  // for the same permission choices instead of mutating consent without an audit.
+  await logConsentEvents({
+    seekerId,
+    matchId: current.match_id,
+    consents: { share: current.consent_share, email: current.consent_email },
+    source: 'seeker_contact_update',
+  });
 }
 
 /** Mark a seeker converted (stop reminding) — keyed by their de-identified match. */
 export async function markSeekerConnectedByMatch(matchId: string): Promise<void> {
-  const vault = createVaultClient();
+  const vault = createLeadClient();
   await vault.from('vault_seekers').update({ status: 'connected' }).eq('match_id', matchId);
-}
-
-export type ReminderCandidate = {
-  seekerId: string;
-  email: string;
-  name: string | null;
-  facilities: FacilitySummary[];
-};
-
-/** Active seekers who consented to email, haven't converted, and are due a nudge. */
-export async function getReminderCandidates(daysSince = 7): Promise<ReminderCandidate[]> {
-  const vault = createVaultClient();
-  const cutoff = new Date(Date.now() - daysSince * 86_400_000).toISOString();
-
-  const { data: seekers } = await vault
-    .from('vault_seekers')
-    .select('id, email, name, last_reminded_at')
-    .eq('status', 'active')
-    .eq('consent_email', true)
-    .not('email', 'is', null)
-    .lte('created_at', cutoff);
-
-  const candidates: ReminderCandidate[] = [];
-  for (const s of seekers ?? []) {
-    if (!s.email) continue;
-    if (s.last_reminded_at && s.last_reminded_at > cutoff) continue; // already nudged this window
-
-    const { data: interests } = await vault
-      .from('vault_seeker_interest')
-      .select(
-        'facilities(name, city, state, levels_of_care, referral_contact, facility_capacity(beds_available, last_updated), facility_payers(payer_type))'
-      )
-      .eq('seeker_id', s.id);
-
-    const facilities = (interests ?? [])
-      .map((i) => toFacilitySummary(i.facilities as unknown as FacilityRowForSummary))
-      .filter((f): f is FacilitySummary => f !== null);
-
-    if (facilities.length) {
-      candidates.push({ seekerId: s.id, email: s.email, name: s.name, facilities });
-    }
-  }
-  return candidates;
-}
-
-export async function markReminded(seekerId: string): Promise<void> {
-  const vault = createVaultClient();
-  await vault
-    .from('vault_seekers')
-    .update({ last_reminded_at: new Date().toISOString() })
-    .eq('id', seekerId);
 }

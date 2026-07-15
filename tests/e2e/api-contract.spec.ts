@@ -1,14 +1,16 @@
 import { test, expect } from '@playwright/test';
 
+import { previewOnly } from './helpers';
+
 /**
  * §3/§5 API contract smoke — the checks that need no auth and no external services.
  * These catch the two most dangerous regressions: an unguarded cron endpoint and a
  * handoff/webhook that stops rejecting bad/unauthorized input.
  */
 
-test('API-CRON-1 · /api/cron/weekly-reminders · no secret · 401', async ({ request }) => {
+test('API-CRON-1 · /api/cron/weekly-reminders · recurring outreach retired · 410', async ({ request }) => {
   const res = await request.get('/api/cron/weekly-reminders');
-  expect(res.status(), 'cron must reject public calls').toBe(401);
+  expect(res.status(), 'retired reminder route must never send email').toBe(410);
 });
 
 test('PAY-3 · /api/stripe/webhook · unsigned · rejected', async ({ request }) => {
@@ -29,27 +31,70 @@ test('MATCH-2a · /api/match · invalid JSON · 400', async ({ request }) => {
   expect(res.status()).toBe(400);
 });
 
-test('MATCH-2b · /api/match · sparse valid body · 200 (resilient by design)', async ({ request }) => {
-  // normalizeIntake fills coarse defaults so a completed conversation never fails on
-  // a missing field. Empty {} is valid → 200, NOT 400. Guards against a regression that
-  // would make the seeker AI brittle.
+test('MATCH-2b · /api/match · missing de-identified fields · 400', async ({ request }) => {
+  // A regressed/older handler may normalize missing fields and create a match.
+  previewOnly();
   const res = await request.post('/api/match', { data: {} });
-  expect(res.status()).toBeLessThan(500);
-  expect(res.status()).not.toBe(400);
-});
-
-test('MATCH-3 · /api/intake · empty body · 400', async ({ request }) => {
-  const res = await request.post('/api/intake', { data: {} });
   expect(res.status()).toBe(400);
 });
 
-test('MATCH-5 · /api/handoff · no consent · 400', async ({ request }) => {
-  // consent_share is a hard HIPAA / 42 CFR Part 2 gate — a handoff without it must fail.
-  const res = await request.post('/api/handoff', { data: { consent_share: false } });
-  expect(res.status(), 'handoff without consent must be blocked').toBe(400);
+test('MATCH-2c · /api/match · prohibited identity field · 400', async ({ request }) => {
+  // Never probe this contract on production: a regressed handler could ignore the
+  // extra identity field and still create a match row.
+  previewOnly();
+  const res = await request.post('/api/match', {
+    data: {
+      region_zip3: '787',
+      care_level_needed: 'residential',
+      payer_type: 'self_pay',
+      concern_category: 'unsure',
+      email: 'must-not-enter-matching@example.com',
+    },
+  });
+  expect(res.status()).toBe(400);
 });
 
-test('MATCH-8 · /api/conversations · unauth · 401', async ({ request }) => {
+test('MATCH-2d · /api/match · retired coverage status field · 400', async ({ request }) => {
+  // A regressed handler could persist this deprecated field, so never probe it on production.
+  previewOnly();
+  const res = await request.post('/api/match', {
+    data: {
+      region_zip3: '787',
+      care_level_needed: 'residential',
+      payer_type: 'self_pay',
+      concern_category: 'unsure',
+      coverage_status: 'active',
+    },
+  });
+  expect(res.status()).toBe(400);
+});
+
+test('MATCH-3 · /api/intake · AI intake permanently retired · 410', async ({ request }) => {
+  const res = await request.post('/api/intake', {
+    data: {
+      step: 'need',
+      messages: [{ role: 'user', content: 'This must never be sent to a model.' }],
+    },
+  });
+  expect(res.status()).toBe(410);
+  expect(res.headers()['cache-control']).toContain('no-store');
+});
+
+test('MATCH-5 · /api/handoff · no browser-bound match capability · 403', async ({ request }) => {
+  const res = await request.post('/api/handoff', {
+    data: { match_id: crypto.randomUUID(), contact: { phone: '555-0100' }, consents: { share: true, email: false } },
+  });
+  expect(res.status(), 'handoff must be bound to the browser that created the match').toBe(403);
+});
+
+test('MATCH-6 · /api/contact · early lead capture retired · 410', async ({ request }) => {
+  // The retired production predecessor persisted this payload before responding.
+  previewOnly();
+  const res = await request.post('/api/contact', { data: { full_name: 'No', email: 'store@example.com' } });
+  expect(res.status()).toBe(410);
+});
+
+test('MATCH-8 · /api/conversations · transcript storage retired · 410', async ({ request }) => {
   const res = await request.post('/api/conversations', { data: {} });
-  expect([400, 401]).toContain(res.status());
+  expect(res.status()).toBe(410);
 });

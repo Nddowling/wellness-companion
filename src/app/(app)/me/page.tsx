@@ -17,24 +17,21 @@ export default async function SeekerDashboard() {
   const mustReset = (full?.user_metadata as { must_reset_password?: boolean } | undefined)?.must_reset_password;
   const searches = await getSearchesByAuthUser(user.id);
   const latest = searches[0]?.search;
-  const firstName = latest?.name ? latest.name.split(' ')[0] : null;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-800">
-          {firstName ? `Welcome back, ${firstName}` : 'Welcome back'}
-        </h1>
+        <h1 className="text-2xl font-semibold text-slate-800">Welcome back</h1>
         <p className="text-sm text-slate-500">Your information is saved privately. Reach out whenever you&apos;re ready.</p>
       </div>
 
       {mustReset && (
         <div className="rounded-md border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900">
-          <strong>Finish setting up your account.</strong> We emailed you a temporary password —{' '}
+          <strong>Finish setting up your account.</strong>{' '}
           <Link href="/reset" className="font-medium underline">
             set your own password
           </Link>{' '}
-          to secure your account. You can keep browsing in the meantime.
+          to secure your account. If your setup link expired, use “Forgot password” on the sign-in page.
         </div>
       )}
 
@@ -52,17 +49,32 @@ export default async function SeekerDashboard() {
         </div>
       ) : (
         <>
-          {/* Edit personal info (latest record) */}
-          {latest && (
+          {/* Edit only the single, already-consented contact method. */}
+          {latest && (latest.email || latest.phone) && (
             <form action={updateMyInfoAction} className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="text-sm font-semibold text-slate-700">Your information</h2>
+              <h2 className="text-sm font-semibold text-slate-700">Your contact method</h2>
               <input type="hidden" name="seeker_id" value={latest.id} />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <input name="name" defaultValue={latest.name ?? ''} placeholder="Name" className={field} />
-                <input name="email" defaultValue={latest.email ?? ''} placeholder="Email" className={field} />
-                <input name="phone" defaultValue={latest.phone ?? ''} placeholder="Phone" className={field} />
-                <input name="insurance" defaultValue={latest.insurance ?? ''} placeholder="Insurance" className={field} />
-              </div>
+              <input type="hidden" name="channel" value={latest.email ? 'email' : 'phone'} />
+              <label className="grid gap-1 text-xs font-medium text-slate-600">
+                {latest.email ? 'Email you chose' : 'Phone you chose'}
+                <input
+                  name="value"
+                  type={latest.email ? 'email' : 'tel'}
+                  defaultValue={latest.email ?? latest.phone ?? ''}
+                  required
+                  autoComplete={latest.email ? 'email' : 'tel'}
+                  className={field}
+                />
+              </label>
+              <label className="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
+                <input type="checkbox" name="confirmed" value="1" required className="mt-0.5" />
+                <span>
+                  I confirm Clear Bed may continue using this contact method for the permissions I previously chose.
+                </span>
+              </label>
+              <p className="text-xs text-slate-400">
+                This updates the same contact channel only. Start a new connection to choose a different method.
+              </p>
               <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Save my info</button>
             </form>
           )}
@@ -74,7 +86,6 @@ export default async function SeekerDashboard() {
               <div key={search.id} className="rounded-lg border border-slate-200 bg-white p-4">
                 <div className="text-xs text-slate-400">
                   {new Date(search.created_at).toLocaleDateString()}
-                  {search.coverage_status ? ` · ${search.coverage_status}` : ''}
                 </div>
                 <div className="mt-2 space-y-1">
                   {facilities.map((f) => (
@@ -112,9 +123,6 @@ export default async function SeekerDashboard() {
       </div>
 
       <div className="flex flex-wrap gap-3 text-sm">
-        <Link href="/conversations" className="rounded-md border border-slate-300 px-4 py-2 text-slate-600 hover:border-teal-300">
-          Your conversations
-        </Link>
         <Link href="/programs" className="rounded-md border border-slate-300 px-4 py-2 text-slate-600 hover:border-teal-300">
           Browse all programs
         </Link>

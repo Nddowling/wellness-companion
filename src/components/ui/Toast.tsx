@@ -1,7 +1,6 @@
 'use client';
 
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { cn } from './cn';
 
 // Minimal toast system for confirmations (link copied, saved, claim submitted).
@@ -32,24 +31,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      {typeof document !== 'undefined' &&
-        createPortal(
-          <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[80] flex flex-col items-center gap-2 px-4 sm:bottom-6">
-            {items.map((t) => (
-              <div
-                key={t.id}
-                role="status"
-                className={cn(
-                  'pointer-events-auto max-w-sm rounded-full px-4 py-2 text-sm font-medium shadow-lg animate-fade-up',
-                  toneClasses[t.tone],
-                )}
-              >
-                {t.message}
-              </div>
-            ))}
-          </div>,
-          document.body,
-        )}
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[80] flex flex-col items-center gap-2 px-4 sm:bottom-6">
+        {items.map((t) => (
+          <div
+            key={t.id}
+            role="status"
+            className={cn(
+              'pointer-events-auto max-w-sm rounded-full px-4 py-2 text-sm font-medium shadow-lg animate-fade-up',
+              toneClasses[t.tone],
+            )}
+          >
+            {t.message}
+          </div>
+        ))}
+      </div>
     </ToastContext.Provider>
   );
 }

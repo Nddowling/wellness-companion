@@ -2,6 +2,14 @@
 -- facility whose coordinates fall inside the visible map frame, capped at p_limit and
 -- ordered by distance to the seeker's origin (so the kept set is the closest-to-them in
 -- view). Distance-only — no ranking or favoritism, same neutrality as facilities_near_point.
+
+-- Historical clean-chain repair: these nullable/no-default columns existed in
+-- the hosted schema before this RPC was checked in, but no repository migration
+-- created them. Match that schema before the function's first reference.
+alter table public.facilities
+  add column if not exists latitude double precision,
+  add column if not exists longitude double precision;
+
 create or replace function public.facilities_in_bounds(
   p_min_lat double precision,
   p_min_lng double precision,

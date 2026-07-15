@@ -6,19 +6,25 @@ import { test, expect, type Page } from '@playwright/test';
  */
 
 const TARGET =
-  process.env.QA_TARGET_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000';
+  process.env.QA_TARGET_URL ?? process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3100';
 
 /** True when pointed at the live production domain (not a preview or localhost). */
 export const IS_PROD =
   TARGET.includes('clearbedrecovery.com') && !TARGET.includes('vercel.app');
 
 /**
- * Call at the top of any test that WRITES data (match submission, claim, upgrade lead).
- * Auto-skips on production so tests never pollute vault_seekers / facility_claims /
- * facility_upgrade_leads or fire real facility emails. Run these against a Vercel preview.
+ * Call at the top of any test that might write data (including a negative request
+ * whose regressed handler could write). It requires an explicit opt-in even on
+ * localhost/preview, so a stale server or production-backed local .env cannot be
+ * targeted accidentally.
  */
 export const previewOnly = () =>
-  test.skip(IS_PROD, 'Writes data — run against a Vercel preview or localhost, never production');
+  test.skip(
+    IS_PROD || process.env.QA_ALLOW_WRITES !== '1',
+    IS_PROD
+      ? 'Writes data — never run against production'
+      : 'Writes data — set QA_ALLOW_WRITES=1 only for an isolated preview database',
+  );
 
 /** Every record created by tests carries this tag → greppable, deletable. */
 export const QA_TAG = 'QA TEST — DO NOT CONTACT';

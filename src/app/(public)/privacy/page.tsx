@@ -3,11 +3,11 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'June 23, 2026';
+const LAST_UPDATED = 'July 15, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: `How ${SITE_NAME} collects, uses, protects, and shares your information — and the choices you have. We share your identity with a treatment program only with your explicit consent.`,
+  description: `How ${SITE_NAME} collects, uses, protects, and shares information — including non-contact match routing and optional phone or email consent.`,
   alternates: { canonical: '/privacy' },
   openGraph: { title: `Privacy Policy | ${SITE_NAME}`, url: absoluteUrl('/privacy') },
 };
@@ -30,10 +30,11 @@ export default function PrivacyPage() {
       <p className="mt-2 text-sm text-slate-500">Last updated: {LAST_UPDATED}</p>
 
       <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
-        <strong>Your privacy is the point.</strong> You can use {SITE_NAME} and see matching programs without an
-        account and without giving your name. <strong>We share your identifying details with a treatment program
-        only when you explicitly tell us to</strong> — and we keep a record of when you grant or decline that
-        permission. You can always decline and still see your matches.
+        <strong>Your privacy is the point.</strong> You can use {SITE_NAME} without an account, name, phone, or email.
+        To show results, we route a limited, non-contact summary to the programs selected and displayed by the
+        matcher before asking for contact permission. <strong>We make your phone or email available only when you
+        explicitly tell us to</strong> — and we record when you grant or decline that permission. You can decline and
+        still see your results.
       </div>
 
       <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -55,8 +56,8 @@ export default function PrivacyPage() {
       <Section n={1} title="Who we are">
         <p>
           {SITE_NAME} is a <strong>referral and directory service (a &ldquo;connector&rdquo;)</strong> that helps
-          people seeking treatment (&ldquo;Seekers&rdquo;) find and reach addiction- and mental-health treatment
-          programs (&ldquo;Providers&rdquo;). We are <strong>not a healthcare provider</strong>, and we do not
+          people seeking treatment (&ldquo;Seekers&rdquo;) find and reach addiction-treatment programs, including some
+          that list co-occurring mental-health services (&ldquo;Providers&rdquo;). We are <strong>not a healthcare provider</strong>, and we do not
           deliver treatment, diagnosis, counseling, or crisis care.
         </p>
       </Section>
@@ -64,27 +65,36 @@ export default function PrivacyPage() {
       <Section n={2} title="Information we collect">
         <p className="font-medium text-slate-700">Information you give us during intake.</p>
         <p>
-          Our guided intake asks a few questions so we can match you with appropriate programs — typically the kind
-          of care you&rsquo;re looking for, a rough location (such as the first part of a ZIP code), and how care
-          would be paid for. You may also choose to share a coarse description of your concern. You decide how much
-          to share.
+          Our guided flow asks a few questions so we can narrow addiction-treatment directory options: a directory
+          level, a rough location (stored as the first three ZIP digits), payer type, and a coarse scope. The scope
+          lets us distinguish substance-use or documented co-occurring requests from standalone mental-health
+          requests that are outside this directory. We do not ask which substance, symptoms, diagnoses, or whether
+          insurance is active. If you voluntarily name a supported commercial insurer, we may use that carrier name
+          transiently to require an exact program listing, but we do not save it with the match or route it to programs.
         </p>
         <p className="font-medium text-slate-700">Contact details (only if you choose to connect).</p>
         <p>
-          After you see your matches, you may optionally provide identifying and contact details — for example your
-          name, date of birth, phone number, email, and insurance information — so that the programs you select can
-          reach out to you. Providing this is entirely your choice.
+          After you see your matches, we ask permission first. You may choose whether the displayed programs may
+          contact you, whether we may email one copy of your matches, both, or neither. Only if you choose one of
+          those options do we ask for one phone number or email address. We do not ask for your name, date of birth,
+          policy number, member number, group number, or subscriber details in the matcher.
         </p>
         <p className="font-medium text-slate-700">Conversation content.</p>
         <p>
-          The messages you exchange with our intake assistant are processed to guide the conversation and build your
-          referral summary. If you create an account, your conversation may be saved to your private history so you
-          can return to it.
+          The messages you exchange with our matching assistant are processed to guide that live session. We do not
+          save the raw transcript to a conversation history.
         </p>
         <p className="font-medium text-slate-700">Account information.</p>
         <p>
-          If you create an account, we store your email and authentication credentials. Provider and team accounts
-          also include facility and role information.
+          If you create an account, we store your email, account and authentication identifiers, full name if
+          provided, and account role. Provider and team accounts also include their facility association.
+        </p>
+        <p className="font-medium text-slate-700">Partner shortlists.</p>
+        <p>
+          A professional Partner account may save program identifiers and create a shortlist with a
+          system-generated, non-identifying label. The shortlist does not accept a client name, introduction,
+          clinical note, or per-program free-text note. If the Partner turns on sharing, we store a high-entropy
+          access token until sharing is disabled.
         </p>
         <p className="font-medium text-slate-700">Information collected automatically.</p>
         <p>
@@ -101,10 +111,11 @@ export default function PrivacyPage() {
 
       <Section n={3} title="How we use your information">
         <ul className="ml-5 list-disc space-y-1">
-          <li>To match you with treatment programs that fit your needs, coverage, and location;</li>
-          <li>To share your details with the specific programs you choose — only with your consent (see Section 5);</li>
-          <li>To create and secure your account and save your conversation history if you ask us to;</li>
-          <li>To send you transactional messages (for example, your matches, a sign-in link, or a reminder you opted into);</li>
+          <li>To narrow addiction-treatment directory options by listed care level, payment information, and region;</li>
+          <li>To route a limited, non-contact match summary to the programs selected and displayed by the matcher;</li>
+          <li>To make your phone number or email available to those displayed programs only when you consent (see Section 5);</li>
+          <li>To create and secure your account;</li>
+          <li>To send a transactional message you requested (for example, one email containing your matches);</li>
           <li>To operate, maintain, secure, debug, and improve the Service;</li>
           <li>To comply with law and enforce our Terms.</li>
         </ul>
@@ -118,45 +129,50 @@ export default function PrivacyPage() {
       <Section n={4} title="Sensitive health information &amp; special protections">
         <p>
           Information that you are seeking, or have sought, substance-use or mental-health treatment is especially
-          sensitive. Where it applies, we handle such information consistent with{' '}
-          <strong>HIPAA and the federal confidentiality rules for substance-use records (42 CFR Part 2)</strong>,
-          as well as applicable state law. A core consequence of those rules — and our design — is that the fact you
-          contacted us, and any identifying details, are <strong>not disclosed to a treatment program without your
-          explicit, recorded consent</strong>.
+          sensitive. Clear Bed Recovery is a directory and connector, not a treatment provider, and whether a
+          particular privacy law applies depends on the parties and circumstances. We design the Service around
+          strict consent, data minimization, and applicable consumer-health privacy requirements. Your identifying
+          contact detail is <strong>not disclosed to a treatment program without your explicit, recorded consent</strong>.
         </p>
         <p>
-          Where 42 CFR Part 2 applies, additional federal protections follow your records: a program that receives
-          them with your consent <strong>may not re-disclose them</strong> without your further consent except as the
-          law allows, and your substance-use records <strong>may not be used to investigate or prosecute you</strong>{' '}
-          without your written consent or a court order. Your consent to share is specific to the program(s) you
-          choose, limited to the purpose of connecting you with care, and you may revoke it at any time for future
-          sharing.
+          Treatment providers may have separate duties under HIPAA, 42 CFR Part 2, and state law. We do not make a
+          legal determination about those duties for you or the provider. Questions about a provider&apos;s handling of
+          treatment records should be directed to that provider or qualified counsel.
         </p>
         <p>
-          Identifying records you provide to connect with care are held in a restricted, access-controlled
-          environment separate from our general directory data, and are reachable only by authorized server-side
-          processes — never exposed publicly.
+          A consented contact method is kept in restricted, access-controlled tables that are logically separated
+          from public directory data and reachable only through authorized server-side processes. It is never exposed
+          through public database access.
         </p>
       </Section>
 
       <Section n={5} title="When we share information">
-        <p className="font-medium text-slate-700">How matching works — de-identified by default.</p>
+        <p className="font-medium text-slate-700">How matching works — no direct identifiers by default.</p>
         <p>
-          When you&rsquo;re matched, we share a <strong>de-identified</strong> summary with the matched programs so
-          their teams can flag whether they have availability: your <strong>general region</strong> (a partial ZIP,
-          e.g. &ldquo;787xx&rdquo;), the <strong>level of care</strong>, the <strong>payer type</strong>, and a{' '}
-          <strong>coarse concern category</strong>. This summary contains <strong>nothing that identifies you</strong>{' '}
-          — no name, contact details, date of birth, or street address. Your identity is shared only as described next.
+          To produce your results, we create a <strong>limited, non-contact summary</strong>: your{' '}
+          <strong>ZIP3 region</strong> (for example, &ldquo;787&rdquo;), <strong>directory level</strong>,{' '}
+          <strong>payer type</strong>, and <strong>coarse scope</strong>. We route that summary to the programs selected
+          and displayed by the matcher <strong>before</strong> we ask whether you want to share a phone number or email.
+          It has no name, contact details, date of birth, street address, member ID, exact carrier, or clinical
+          narrative. Because combinations of otherwise limited facts can still carry privacy risk, we
+          restrict access and do not describe this summary as anonymous. Contact consent applies to your phone number
+          or email, as described next; it does not apply retroactively to this non-contact routing.
         </p>
-        <p className="font-medium text-slate-700">With treatment programs — your identity, only with your consent.</p>
+        <p className="font-medium text-slate-700">With treatment programs — your phone or email, only with your consent.</p>
         <p>
-          We send your <strong>contact details and referral summary to a specific Provider only after you explicitly
-          consent</strong> to share them with that Provider, so their intake team can reach out. That consent is{' '}
-          <strong>specific to the program(s) you choose</strong>, is <strong>limited to the purpose</strong> of
-          connecting you with care, and you may <strong>revoke it at any time</strong> for future sharing. Choosing to
-          share your details and allowing a program to contact you are <strong>separate choices</strong> — you can do
-          one without the other. We log each consent decision (granted or declined) with a timestamp. If you do not
-          consent, we do not send your details, and you can still contact programs yourself.
+          We make the <strong>one contact method you chose available only to the programs displayed in that match,
+          and only after you explicitly consent</strong>, so their intake teams can reach out. We do not send the chat
+          transcript or a clinical intake record. That consent is limited to connecting you with care. You may ask us
+          to revoke future in-app access, although a recipient cannot unlearn information it already viewed. Permission
+          for us to email a copy of your matches is a separate choice. We log each consent decision (granted or
+          declined) with a timestamp. If you decline, we store no contact record and you can still contact programs
+          yourself.
+        </p>
+        <p className="font-medium text-slate-700">Partner-created shortlist links.</p>
+        <p>
+          A shared shortlist contains public program-directory information under a generic label; it does not contain
+          a client identity or Partner-entered client note. Anyone who has the active, unguessable link can view or
+          print it. The Partner can disable sharing, which invalidates that link.
         </p>
         <p className="font-medium text-slate-700">With service providers (subprocessors).</p>
         <p>
@@ -166,7 +182,7 @@ export default function PrivacyPage() {
         <ul className="ml-5 list-disc space-y-1">
           <li><strong>Supabase</strong> — database, authentication, and storage;</li>
           <li><strong>Anthropic</strong> — the AI model that powers our guided intake assistant;</li>
-          <li><strong>Resend</strong> — sending transactional email;</li>
+          <li><strong>Google Workspace or Resend</strong> — sending transactional email, depending on configuration;</li>
           <li><strong>Stripe</strong> — processing Provider subscription payments (Seekers never pay);</li>
           <li><strong>Vercel</strong> — website hosting and delivery.</li>
         </ul>
@@ -181,7 +197,10 @@ export default function PrivacyPage() {
 
       <Section n={6} title="Your choices and rights">
         <ul className="ml-5 list-disc space-y-1">
-          <li><strong>Browse anonymously</strong> — explore the directory with no account or name; the guided match asks your name and email so a program can follow up;</li>
+          <li>
+            <strong>Use the directory without an account, name, phone, or email</strong> — we still process the
+            limited match summary and the technical data described in Section 2;
+          </li>
           <li><strong>Withdraw consent</strong> to share your details, or decline it in the first place;</li>
           <li><strong>Access, correct, delete, or receive a copy</strong> (portability) of the personal information we hold about you;</li>
           <li><strong>Opt out of any sale or targeted advertising</strong> — though we do not sell your personal information or use your health information for targeted advertising;</li>
@@ -200,18 +219,19 @@ export default function PrivacyPage() {
 
       <Section n={7} title="Data retention">
         <p>
-          We keep personal information only as long as needed for the purposes described here — to provide the
-          Service, maintain your account and history, meet legal and recordkeeping obligations (including consent
-          records), resolve disputes, and enforce our agreements — after which we delete or de-identify it. You can
-          ask us to delete your information sooner, subject to limited legal exceptions.
+          We keep personal information only as long as needed to provide the requested connection, maintain an account
+          you separately created, meet legal and recordkeeping obligations (including consent records), resolve
+          disputes, and enforce our agreements. We do not keep raw guided-intake transcripts. After the applicable
+          period, we delete or de-identify information. You can ask us to delete it sooner, subject to limited legal
+          exceptions.
         </p>
       </Section>
 
       <Section n={8} title="How we protect your information">
         <p>
           We use technical and organizational safeguards designed to protect your information, including encryption
-          in transit, row-level access controls, role-based access, and a separated, access-restricted store for
-          identifying records. No method of transmission or storage is completely secure, and we cannot guarantee
+          in transit, row-level access controls, role-based access, and access-restricted tables for consented contact
+          records. No method of transmission or storage is completely secure, and we cannot guarantee
           absolute security; we work to protect your information and to respond promptly to any incident.
         </p>
       </Section>

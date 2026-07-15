@@ -15,28 +15,28 @@ export type GlossaryEntry = {
 export const GLOSSARY: Record<string, GlossaryEntry> = {
   // Levels of care
   detox: {
-    definition: 'Medically supervised withdrawal — 24/7 care to get through the first days safely before ongoing treatment.',
+    definition: 'Withdrawal-management services. Directory source records may describe outpatient, residential, or hospital care, so confirm the setting and clinical service directly.',
     href: '/guides',
   },
   residential: {
-    definition: 'Live-in treatment with 24/7 support — typically 30 days (14–90 range), for when structure and distance from triggers matter.',
+    definition: 'Live-in treatment with round-the-clock support. Services and length vary, and a qualified provider determines whether this level is appropriate.',
     href: '/guides',
   },
   php: {
-    definition: 'Partial Hospitalization Program — full days of treatment (often 5–6 hrs) while you sleep at home. A step down from residential.',
+    definition: 'Partial Hospitalization Program — structured treatment during the day while the participant lives elsewhere. Schedules and services vary.',
     href: '/guides',
   },
   iop: {
-    definition: 'Intensive Outpatient Program — a few hours several days a week, so you can keep working or caring for family while in treatment.',
+    definition: 'Intensive Outpatient Program — scheduled treatment several times a week while the participant lives elsewhere. Schedules and services vary.',
     href: '/guides',
   },
   op: {
-    definition: 'Outpatient — weekly therapy and check-ins, the lightest level of care, often for step-down or ongoing support.',
+    definition: 'Outpatient — scheduled treatment visits while the participant lives elsewhere. Frequency and services vary by program.',
     href: '/guides',
   },
   // Payers / coverage
   medicaid: {
-    definition: 'State-funded health coverage for people with limited income — many facilities accept it, often at no out-of-pocket cost.',
+    definition: 'A joint federal-state health coverage program — eligibility, covered services, participating programs, and member costs vary by state and plan.',
     href: '/insurance',
   },
   medicare: {
@@ -76,7 +76,7 @@ export const GLOSSARY: Record<string, GlossaryEntry> = {
     href: '/about',
   },
   'license verified': {
-    definition: "We checked this facility's license against the state's own licensing registry — not just what the facility told us.",
+    definition: 'The directory record includes a dated, source-linked license check. Confirm current license status directly with the state regulator.',
     href: '/about',
   },
 };

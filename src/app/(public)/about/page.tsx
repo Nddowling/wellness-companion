@@ -46,8 +46,8 @@ export default function AboutPage() {
           About <span className="italic text-brand">{SITE_NAME}</span>
         </h1>
         <p className="mt-3 text-base leading-relaxed text-slate-700">
-          {SITE_NAME} helps people find addiction and mental-health treatment that fits their situation, insurance, and
-          region — with real-time bed availability. We are a connector: we help you reach the right treatment
+          {SITE_NAME} helps people navigate addiction-treatment directory options, including programs that may list
+          co-occurring mental-health services, with dated availability reports when available. We are a connector: we help you reach treatment
           facilities, but we do not provide treatment or give medical advice ourselves. Using {SITE_NAME} is free,
           private, and requires no account to start.
         </p>
@@ -55,37 +55,40 @@ export default function AboutPage() {
         <section className="mt-8">
           <h2 className="font-serif text-xl text-ink">How we build the directory</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            Our listings start from the SAMHSA National Directory of Drug and Alcohol Use Treatment Facilities — the
-            federal government&apos;s authoritative source — and are enriched with each program&apos;s own published
-            information: levels of care, services, accepted insurance, and contact details. A federal review (HHS OIG,
+            Our listings start from the federal SAMHSA treatment-locator dataset and may be enriched with a
+            program&apos;s own published information: levels of care, services, listed payment options, and contact
+            details. A federal review (HHS OIG,
             2025) found that public treatment directories can contain out-of-date information, so we treat the
             government data as a starting point, not the final word.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            Before a program appears publicly, it is reviewed and matched against multiple sources. Programs can claim
-            their listing to verify and keep it current, and verified and accredited programs (such as CARF- or
-            Joint Commission-accredited facilities) are labeled as such so you can weigh the source of every detail.
+            Imported listings can be unclaimed and should not be read as a Clear Bed endorsement. Each profile shows
+            whether it is directory-maintained or claimed, the source and check date when available, and a verification
+            confidence label. Programs can claim a listing for free to correct and maintain it. Accreditation is shown
+            only when it exists in the underlying record and should still be confirmed directly.
           </p>
         </section>
 
         <section className="mt-8">
           <h2 className="font-serif text-xl text-ink">Bed availability you can trust</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            Most directories tell you a program exists; they can&apos;t tell you whether it has space today. Every
-            {' '}{SITE_NAME} listing shows live bed availability with a freshness indicator, so you can see who can
-            actually take an admission now instead of calling down a stale list. Outpatient programs, which don&apos;t
-            use beds, show whether they&apos;re accepting clients.
+            Availability changes quickly. When a program reports a bed count, {SITE_NAME} shows when it was updated.
+            Exact counts disappear after seven days and the profile switches to &ldquo;call to confirm.&rdquo; A reported
+            opening is never an admission guarantee. Outpatient programs do not use bed counts, so scheduling must be
+            confirmed directly.
           </p>
         </section>
 
         <section className="mt-8">
           <h2 className="font-serif text-xl text-ink">Private by design</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            You can browse the full directory anonymously. The guided match starts with your name and email so a real
-            program can follow up — but never an insurance member ID, and there&apos;s no account and no commitment. When
-            you choose to share your information with a specific program, you control that, and we record your consent
-            with a timestamp. We never sell personal information, and we follow strict privacy rules for any health-related
-            data (HIPAA and 42 CFR Part 2).
+            You can browse the directory without an account. The guided match uses only coarse, non-contact answers
+            and excludes direct identifiers.
+            After seeing matches, you may choose one contact method so a program can follow up — never a name or
+            insurance member ID, and there&apos;s no account or commitment. When
+            you choose to share your information with the programs displayed in that match, you control that, and we
+            record your consent with a timestamp. We never sell personal information. Treatment providers may have
+            separate duties under HIPAA, 42 CFR Part 2, and state law; see our Privacy Policy for our practices.
           </p>
         </section>
 

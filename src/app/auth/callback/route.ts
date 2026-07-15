@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { EmailOtpType } from '@supabase/supabase-js';
 
 import { createClient } from '@/lib/supabase/server';
+import { safeInternalPath } from '@/lib/auth/safe-redirect';
+import { provisionCanonicalLane } from '@/lib/auth/provision-canonical';
 
 // Auth landing handler. Every Supabase auth email (confirm signup, magic link,
 // invite, password recovery / facility set-password) redirects HERE first. We
@@ -14,16 +16,12 @@ import { createClient } from '@/lib/supabase/server';
 // If neither is present (a legacy implicit/hash link), we just forward and let the
 // destination page's browser client pick the session out of the URL fragment.
 
-function safeNext(next: string | null): string {
-  return next && next.startsWith('/') && !next.startsWith('//') ? next : '/home';
-}
-
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
   const tokenHash = url.searchParams.get('token_hash');
   const type = url.searchParams.get('type') as EmailOtpType | null;
-  const next = safeNext(url.searchParams.get('next'));
+  const next = safeInternalPath(url.searchParams.get('next')) ?? '/home';
 
   const supabase = await createClient();
   let failed = false;
@@ -41,6 +39,13 @@ export async function GET(req: NextRequest) {
 
   if (failed) {
     return NextResponse.redirect(new URL('/login?error=link_expired', url.origin));
+  }
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user || !(await provisionCanonicalLane(user))) {
+    return NextResponse.redirect(new URL('/login?error=profile_setup_failed', url.origin));
   }
   return NextResponse.redirect(new URL(next, url.origin));
 }

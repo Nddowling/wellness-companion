@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createVaultClient } from '@/lib/supabase/vault';
+import { collectPublicRows } from '@/lib/supabase/public-pagination';
 
 export type AdminMetrics = {
   facilitiesActive: number;
@@ -16,44 +16,75 @@ export type AdminMetrics = {
   claimsPending: number;
 };
 
+type ExactCountResult = {
+  count: number | null;
+  error: { code?: string | null } | null;
+};
+
+function exactCount(context: string, result: ExactCountResult): number {
+  if (result.error || result.count === null) {
+    console.error('[admin-metrics] query failed', {
+      context,
+      code: result.error?.code ?? 'missing_count',
+    });
+    throw new Error('Admin metrics are temporarily unavailable.');
+  }
+  return result.count;
+}
+
 /** Platform-wide metrics for the Global Admin dashboard (service-role). */
 export async function getAdminMetrics(): Promise<AdminMetrics> {
   const a = createAdminClient();
-  const [facs, caps, matches, claims] = await Promise.all([
-    a.from('facilities').select('id, is_published'),
-    a.from('facility_capacity').select('facility_id, beds_available'),
-    a.from('matches').select('status'),
-    a.from('facility_claims').select('status'),
+  const now = Date.now();
+  const freshnessCutoff = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const futureSkewCutoff = new Date(now + 5 * 60 * 1000).toISOString();
+
+  const [
+    facilitiesResult,
+    activeFacilitiesResult,
+    matchesResult,
+    routedMatchesResult,
+    connectedMatchesResult,
+    pendingClaimsResult,
+    seekersResult,
+    activeSeekersResult,
+    openCapacity,
+  ] = await Promise.all([
+    a.from('facilities').select('id', { count: 'exact', head: true }),
+    a.from('facilities').select('id', { count: 'exact', head: true }).eq('is_published', true),
+    a.from('matches').select('id', { count: 'exact', head: true }),
+    a.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'routed'),
+    a.from('matches').select('id', { count: 'exact', head: true }).eq('status', 'connected'),
+    a.from('facility_claims').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+    a.from('vault_seekers').select('id', { count: 'exact', head: true }),
+    a.from('vault_seekers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+    collectPublicRows('admin open residential capacity', (from, to) =>
+      a
+        .from('facility_capacity')
+        .select('id, beds_available, facilities!inner(is_published)')
+        .eq('level_of_care', 'residential')
+        .gt('beds_available', 0)
+        .gte('last_updated', freshnessCutoff)
+        .lte('last_updated', futureSkewCutoff)
+        .eq('facilities.is_published', true)
+        .order('id')
+        .range(from, to),
+    ),
   ]);
 
-  const f = facs.data ?? [];
-  const active = new Set(f.filter((x) => x.is_published).map((x) => x.id));
-  const openBeds = (caps.data ?? [])
-    .filter((c) => active.has(c.facility_id))
-    .reduce((s, c) => s + (c.beds_available || 0), 0);
-  const m = matches.data ?? [];
-
-  let seekersTotal = 0;
-  let seekersActive = 0;
-  try {
-    const v = createVaultClient();
-    const { data: seekers } = await v.from('vault_seekers').select('status');
-    seekersTotal = (seekers ?? []).length;
-    seekersActive = (seekers ?? []).filter((s) => s.status === 'active').length;
-  } catch {
-    /* vault disabled (no BAA flag) — seeker metrics stay 0 */
-  }
+  const facilitiesTotal = exactCount('facilities total', facilitiesResult);
+  const facilitiesActive = exactCount('facilities active', activeFacilitiesResult);
 
   return {
-    facilitiesActive: active.size,
-    facilitiesInactive: f.length - active.size,
-    facilitiesTotal: f.length,
-    openBeds,
-    seekersTotal,
-    seekersActive,
-    matchesTotal: m.length,
-    matchesRouted: m.filter((x) => x.status === 'routed').length,
-    matchesConnected: m.filter((x) => x.status === 'connected').length,
-    claimsPending: (claims.data ?? []).filter((c) => c.status === 'pending').length,
+    facilitiesActive,
+    facilitiesInactive: facilitiesTotal - facilitiesActive,
+    facilitiesTotal,
+    openBeds: openCapacity.reduce((sum, row) => sum + row.beds_available, 0),
+    seekersTotal: exactCount('seekers total', seekersResult),
+    seekersActive: exactCount('seekers active', activeSeekersResult),
+    matchesTotal: exactCount('matches total', matchesResult),
+    matchesRouted: exactCount('matches routed', routedMatchesResult),
+    matchesConnected: exactCount('matches connected', connectedMatchesResult),
+    claimsPending: exactCount('claims pending', pendingClaimsResult),
   };
 }

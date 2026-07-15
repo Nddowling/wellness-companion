@@ -9,7 +9,7 @@ export default async function AdminDashboard() {
 
   const cards: { label: string; value: number | string; sub?: string; href?: string; accent?: boolean }[] = [
     { label: 'Active facilities', value: m.facilitiesActive, sub: `${m.facilitiesInactive} inactive · ${m.facilitiesTotal} total`, href: '/admin/facilities' },
-    { label: 'Open beds (active)', value: m.openBeds, sub: 'across recommended programs' },
+    { label: 'Fresh residential beds', value: m.openBeds, sub: 'positive reports from the past 7 days' },
     { label: 'Active seekers', value: m.seekersActive, sub: `${m.seekersTotal} total`, href: '/admin/seekers' },
     { label: 'Matches', value: m.matchesTotal, sub: `${m.matchesRouted} routed · ${m.matchesConnected} connected` },
     { label: 'Pending claims', value: m.claimsPending, sub: 'facility access requests', href: '/admin/claims', accent: m.claimsPending > 0 },

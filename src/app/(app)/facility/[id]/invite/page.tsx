@@ -1,22 +1,27 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
-import { requireFacilityMember } from '@/lib/auth';
+import { requireFacilityOwner } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { inviteStaff } from '../../actions';
-import { seatLimit, INCLUDED_SEATS, EXTRA_SEAT_PRICE_MONTHLY } from '@/lib/facility/plan';
+import { seatLimit, INCLUDED_SEATS } from '@/lib/facility/plan';
 
 export default async function InviteStaff({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ invited?: string; tmp?: string; emailed?: string; seatfull?: string }>;
+  searchParams: Promise<{
+    invited?: string;
+    emailed?: string;
+    seatfull?: string;
+    already?: string;
+    new?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { invited, tmp, emailed, seatfull } = await searchParams;
-  const { facilityIds } = await requireFacilityMember();
-  if (!facilityIds.includes(id)) notFound();
+  const { invited, emailed, seatfull, already, new: newAccount } = await searchParams;
+  await requireFacilityOwner(id);
 
   const admin = createAdminClient();
   const { data: facility } = await admin.from('facilities').select('name, extra_seats').eq('id', id).maybeSingle();
@@ -26,8 +31,13 @@ export default async function InviteStaff({
   const usedSeats = (members ?? []).length;
   const maxSeats = seatLimit(facility.extra_seats);
   const seatsFull = usedSeats >= maxSeats;
-  const { data: usersList } = await admin.auth.admin.listUsers();
-  const emailById = new Map((usersList?.users ?? []).map((u) => [u.id, u.email ?? '—']));
+  const memberUsers = await Promise.all(
+    (members ?? []).map(async (member) => {
+      const { data } = await admin.auth.admin.getUserById(member.user_id);
+      return [member.user_id, data.user?.email ?? '—'] as const;
+    }),
+  );
+  const emailById = new Map(memberUsers);
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
@@ -38,42 +48,41 @@ export default async function InviteStaff({
         <h1 className="mt-1 text-xl font-semibold text-slate-800">Invite a staff member</h1>
         <p className="text-sm text-slate-500">Add a colleague to help manage {facility.name}.</p>
         <p className="mt-1 text-xs text-slate-500">
-          {usedSeats} of {maxSeats} seats used. Every plan includes {INCLUDED_SEATS} (Admin + 1 BD); extra seats are
-          ${EXTRA_SEAT_PRICE_MONTHLY}/mo each.
+          {usedSeats} of {maxSeats} seats used. Every plan currently includes {INCLUDED_SEATS} team seats.
         </p>
       </div>
 
       {(seatfull || seatsFull) && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-sm text-amber-900">
-          <strong>You&apos;ve used all {maxSeats} seats.</strong> Add a seat for ${EXTRA_SEAT_PRICE_MONTHLY}/mo to invite
-          another teammate.
+          <strong>You&apos;ve used all {maxSeats} seats.</strong> Additional seats are not available through self-service
+          checkout. Contact Clear Bed before inviting another teammate so any custom arrangement is documented.
           <div className="mt-2">
-            <Link
-              href={`/pricing?seat=1&facility=${id}`}
+            <a
+              href="mailto:sales@clearbedrecovery.com?subject=Clear%20Bed%20team%20seat%20request"
               className="inline-block rounded-md bg-teal-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-teal-800"
             >
-              Add a seat (${EXTRA_SEAT_PRICE_MONTHLY}/mo) →
-            </Link>
+              Contact Clear Bed →
+            </a>
           </div>
         </div>
       )}
 
-      {invited && (
+      {already === '1' && (
+        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+          That account is already on this facility team. Its existing role was not changed.
+        </div>
+      )}
+
+      {invited === '1' && (
         <div className="rounded-md bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
-          ✓ <strong>{invited}</strong> can now help manage {facility.name}.
+          ✓ Your colleague can now help manage {facility.name} as staff.
           {emailed === '1' ? (
             <div className="mt-1 text-xs text-emerald-800">
-              We&apos;ve emailed them an invite with sign-in details.
+              We&apos;ve emailed them {newAccount === '1' ? 'a single-use link to set a password' : 'a sign-in link'}.
             </div>
           ) : (
             <div className="mt-1 text-xs text-amber-800">
-              We couldn&apos;t send the invite email{tmp ? '' : ' just now'} — share their sign-in details directly.
-            </div>
-          )}
-          {tmp && (
-            <div className="mt-1 text-xs text-emerald-800">
-              Temporary password: <strong>{tmp}</strong> — they can change it after signing in. (Also included in
-              the invite email.)
+              We couldn&apos;t deliver the invite email. Ask them to open the sign-in page and use “Forgot password.”
             </div>
           )}
         </div>
@@ -91,13 +100,10 @@ export default async function InviteStaff({
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
           />
         </div>
-        <div>
-          <label className="text-xs text-slate-500">Role</label>
-          <select name="role" defaultValue="staff" className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm">
-            <option value="staff">Staff — can edit profile, beds, and leads</option>
-            <option value="owner">Owner — full access, can invite others</option>
-          </select>
-        </div>
+        <p className="text-xs text-slate-500">
+          Invites grant staff access to edit the profile, update residential-bed reports, and view consented contacts.
+          Ownership changes require administrator review.
+        </p>
         <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Send invite</button>
       </form>
 

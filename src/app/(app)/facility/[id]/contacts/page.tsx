@@ -3,13 +3,11 @@ import { notFound } from 'next/navigation';
 
 import { requireFacilityMember } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { isVaultEnabled } from '@/lib/supabase/vault';
 import { listFacilityContacts, type MatchedContact } from '@/lib/facility/contacts';
-import { normalizePlan, planAllows, PLAN_LABEL, requiredPlan } from '@/lib/facility/plan';
 import { LEVEL_LABELS, PAYER_LABELS, type LevelOfCare, type PayerType } from '@/lib/constants';
-import { UpgradePrompt } from '@/components/UpgradePrompt';
 
 const CONCERN_LABELS: Record<string, string> = {
+  substance_use: 'Substance use',
   alcohol: 'Alcohol',
   opioids: 'Opioids',
   stimulants: 'Stimulants',
@@ -31,12 +29,11 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`rounded-full px-2 py-0.5 text-xs ${cls}`}>{status}</span>;
 }
 
-function ContactCard({ c, canSeeIdentity }: { c: MatchedContact; canSeeIdentity: boolean }) {
-  const deid = [
+function ContactCard({ c }: { c: MatchedContact }) {
+  const summary = [
     c.level ? LEVEL_LABELS[c.level as LevelOfCare] ?? c.level : null,
     c.concern ? CONCERN_LABELS[c.concern] ?? c.concern : null,
     c.payer ? PAYER_LABELS[c.payer as PayerType] ?? c.payer : null,
-    c.coverage ? `coverage: ${c.coverage}` : null,
     c.region ? `region ${c.region}xx` : null,
   ]
     .filter(Boolean)
@@ -47,11 +44,11 @@ function ContactCard({ c, canSeeIdentity }: { c: MatchedContact; canSeeIdentity:
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="font-medium text-slate-800">
-            {c.shared && canSeeIdentity ? c.name || 'Matched seeker' : 'Matched seeker'}
+            Matched seeker
           </div>
-          <div className="mt-0.5 text-sm text-slate-500">{deid || 'Match details on file'}</div>
+          <div className="mt-0.5 text-sm text-slate-500">{summary || 'Match details on file'}</div>
 
-          {c.shared && canSeeIdentity ? (
+          {c.shared ? (
             <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
               {c.phone && (
                 <a href={`tel:${c.phone.replace(/[^\d+]/g, '')}`} className="text-teal-700 hover:underline">
@@ -64,12 +61,6 @@ function ContactCard({ c, canSeeIdentity }: { c: MatchedContact; canSeeIdentity:
                 </a>
               )}
               {!c.phone && !c.email && <span className="text-slate-400">No contact method shared</span>}
-            </div>
-          ) : c.shared ? (
-            <div className="mt-1">
-              <span className="rounded bg-amber-50 px-2 py-0.5 text-xs text-amber-800">
-                Contact details shared — upgrade to view
-              </span>
             </div>
           ) : (
             <div className="mt-1 text-xs text-slate-400">Hasn&apos;t shared contact details</div>
@@ -91,17 +82,10 @@ export default async function FacilityContacts({ params }: { params: Promise<{ i
   if (!facilityIds.includes(id)) notFound();
 
   const supabase = await createClient();
-  const { data: facility } = await supabase.from('facilities').select('name, plan').eq('id', id).maybeSingle();
+  const { data: facility } = await supabase.from('facilities').select('name').eq('id', id).maybeSingle();
   if (!facility) notFound();
 
-  const plan = normalizePlan(facility.plan);
-  const vaultOn = isVaultEnabled();
-  // Seeing a seeker's IDENTITY (name/phone/face sheet) is a Growth+ feature; the
-  // de-identified matched contacts themselves are visible to every facility member.
-  const canSeeIdentity = planAllows(plan, 'seekerContacts') && vaultOn;
-
   const contacts = await listFacilityContacts(id);
-  const sharedCount = contacts.filter((c) => c.shared).length;
 
   return (
     <div className="space-y-6">
@@ -111,20 +95,10 @@ export default async function FacilityContacts({ params }: { params: Promise<{ i
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-800">Contacts</h1>
         <p className="text-sm text-slate-500">
-          Everyone the matcher routed to {facility.name}. De-identified by default; people who consented to share
+          Everyone the matcher routed to {facility.name}. Direct identifiers are withheld by default; people who consented to share
           show their full details. Private to your team — never shown publicly.
         </p>
       </div>
-
-      {!canSeeIdentity && (
-        <UpgradePrompt
-          variant="card"
-          title="Unlock who your matches are"
-          body={`You're seeing de-identified matched seekers${sharedCount ? ` — ${sharedCount} already consented to share their contact details` : ''}. ${PLAN_LABEL[requiredPlan('seekerContacts')]} and up reveals names, phone/email, and their full intake so your team can reach out.`}
-          cta="Upgrade to see contacts →"
-          href={`/pricing?facility=${id}`}
-        />
-      )}
 
       {contacts.length === 0 ? (
         <p className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
@@ -137,7 +111,7 @@ export default async function FacilityContacts({ params }: { params: Promise<{ i
           </p>
           <div className="space-y-3">
             {contacts.map((c) => (
-              <ContactCard key={c.routeId} c={c} canSeeIdentity={canSeeIdentity} />
+              <ContactCard key={c.routeId} c={c} />
             ))}
           </div>
         </>

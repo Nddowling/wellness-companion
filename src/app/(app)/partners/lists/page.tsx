@@ -13,18 +13,22 @@ export default async function PartnerLists() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-800">Shortlists</h1>
         <p className="text-sm text-slate-500">
-          Build a clean list of options and hand it to a family — share a link or print it.
+          Build a clean list of program options, then share a link or print it without storing client details.
         </p>
       </div>
 
-      <form action={createListAction} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row">
-        <input
-          name="title"
-          placeholder="New shortlist name (e.g. “Options for the Reyes family”)"
-          className="min-w-0 flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
-        />
+      <form
+        action={createListAction}
+        className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-slate-800">Create a private shortlist</div>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Clear Bed assigns a date and reference number. Client names and personal notes are not collected.
+          </p>
+        </div>
         <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800">
-          Create list
+          Create shortlist
         </button>
       </form>
 

@@ -1,8 +1,8 @@
 # Project B — "Vault" (PHI) — DO NOT APPLY AT BETA
 
-This directory holds the **authored-but-dormant** schema for seeker identity and
-insurance detail. It exists so the compliance seam is designed and reviewable
-from day one — **not** so it can be turned on.
+This directory holds an **authored-but-dormant** schema for any future workflow
+that would require expanded seeker identity or insurance detail. It exists so the
+compliance seam is reviewable — **not** so it can be turned on.
 
 ## 🔴 Hard preconditions before a single real PHI record lands here
 
@@ -22,8 +22,10 @@ Trigger to begin: design-partner facilities are actively testing **and** revenue
 - Project A (`matches`) is and remains **de-identified**. The ONLY join between a
   real person and a `match_id` is `seeker_match_link` in this project, and it is
   **only ever resolved server-side** — never exposed to any client.
-- At beta, seeker PHI is collected client-side and forwarded straight to the matched
-  facility (`/api/handoff`) and **persisted nowhere on our side**. See the build plan.
+- The live Path A matcher stores no clinical intake, transcript, name, date of birth,
+  insurance carrier, or member identifier. After permission is granted, Project A may
+  store one phone number or email address with the consent receipt needed for the
+  requested connection. No clinical referral packet is forwarded or retained.
 - `src/lib/supabase/vault.ts` throws if called, and a CI guard asserts nothing under
   `src/app` imports it.
 
