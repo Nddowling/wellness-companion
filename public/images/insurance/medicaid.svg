@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Medicaid wordmark. Medicaid is a federal/state program with no clean, high-resolution
+     consumer logo to source; this matches medicare.svg (same brand green, same weight and
+     scale) so the two public-payer tiles read as a consistent pair. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 28">
+  <text x="0" y="22" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="26" font-weight="700" letter-spacing="-1.1" fill="#176B5E">Medicaid</text>
+</svg>

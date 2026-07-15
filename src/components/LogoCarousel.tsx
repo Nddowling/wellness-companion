@@ -53,7 +53,9 @@ export function PayerLogoImage({
       src={`/images/insurance/${slug}.${src}`}
       alt={name}
       onError={() => setSrc(src === 'svg' ? 'png' : 'mark')}
-      className={compact ? 'max-h-8 max-w-[78%] object-contain' : 'max-h-12 max-w-[75%] object-contain'}
+      // Wide wordmarks (Kaiser, Anthem, UnitedHealthcare) are width-constrained, so a tight
+      // max-width renders them tiny. Give width room and let max-height cap the tall ones.
+      className={compact ? 'max-h-9 max-w-[88%] object-contain' : 'max-h-14 max-w-[88%] object-contain'}
     />
   );
 }
