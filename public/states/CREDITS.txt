@@ -1,9 +1,93 @@
 State location-tile photos — provenance & licensing
 ====================================================
 
-All images below are Public Domain or CC0 (no attribution legally required,
-free for commercial use). Sourced from Wikimedia Commons, downscaled and
-re-compressed for use as small location tiles in the treatment search overlay.
+The state-image completeness pass added the 14 files documented below. Source
+images were downloaded from Wikimedia Commons, center-cropped, resized to
+600x450, stripped of source metadata, and recompressed for small directory tiles.
+
+Twelve additions are Public Domain. Connecticut and Vermont are licensed under
+CC BY-SA 4.0; the modified files remain available under that same license. All
+14 sources permit commercial reuse under the terms recorded below.
+
+2026 state-image completeness pass
+----------------------------------
+
+ct.jpg  Rand's View on the Appalachian Trail, Salisbury, Connecticut
+        Creator: Collectionsbalsorano
+        Source: https://commons.wikimedia.org/wiki/File:Rand%27s_View_Connecticut.jpg
+        License: CC BY-SA 4.0
+        License URL: https://creativecommons.org/licenses/by-sa/4.0/
+        Changes: center-cropped, resized, metadata stripped, and recompressed
+
+dc.jpg  National Mall and Washington Monument, Washington, D.C.
+        Creator/source credit: National Park Service; Victoria Stauffenberg
+        Source: https://commons.wikimedia.org/wiki/File:National_Mall_%26_Memorial_Parks_(412a7491-33ba-4aec-a212-5f56e5690d7c).jpg
+        License: Public Domain (U.S. National Park Service)
+
+ks.jpg  Sunset at Konza Prairie, Kansas
+        Creator/source credit: Joanna Gilkeson / U.S. Fish and Wildlife Service
+        Source: https://commons.wikimedia.org/wiki/File:Sunset_at_Konza_Prairie,_Kansas_(19563841470).jpg
+        License: Public Domain (U.S. Fish and Wildlife Service)
+
+ky.jpg  Kentucky countryside
+        Creator: Censusdata
+        Source: https://commons.wikimedia.org/wiki/File:Kentucky_countryside.jpg
+        License: Public Domain dedication by the creator
+
+me.jpg  Autumn colors at the Tarn, Acadia National Park, Maine
+        Creator/source credit: National Park Service
+        Source: https://commons.wikimedia.org/wiki/File:Acadia_National_Park,_autumn_colors_at_the_Tarn.jpg
+        License: Public Domain (U.S. National Park Service)
+
+md.jpg  Sunrise at Assateague Island National Seashore, Maryland
+        Creator/source credit: National Park Service; Victoria Stauffenberg
+        Source: https://commons.wikimedia.org/wiki/File:Assateague_Island_National_Seashore_(de9088c5-e754-47d0-9d9d-c0ad385b07d6).jpg
+        License: Public Domain (U.S. National Park Service)
+
+ne.jpg  Scotts Bluff National Monument, Nebraska
+        Creator/source credit: National Park Service staff
+        Source: https://commons.wikimedia.org/wiki/File:Scotts_Bluff_National_Monument,_Nebraska_(ac6aec58-efb2-4e2c-a4ee-0c243ca4e35b).jpg
+        License: Public Domain (U.S. National Park Service)
+
+nm.jpg  Yardangs in the dunes at White Sands National Park, New Mexico
+        Creator: Ken Redeker
+        Source: https://commons.wikimedia.org/wiki/File:Yardangs_in_dunes,_White_Sands_National_Park,_New_Mexico,_United_States.jpg
+        License: Public Domain
+
+ok.jpg  Platt Historic District, Chickasaw National Recreation Area, Oklahoma
+        Creator/source credit: National Park Service
+        Source: https://commons.wikimedia.org/wiki/File:Lush_scenery_in_Platt_Historic_District_(6bdc16e3-1187-4f99-a8ca-451aed9c2e4c).jpg
+        License: Public Domain (U.S. National Park Service)
+
+pa.jpg  Fall colors in Allegheny National Forest, Pennsylvania
+        Creator/source credit: U.S. Forest Service Eastern Region
+        Source: https://commons.wikimedia.org/wiki/File:Fall_Colors_2024_(20241007-FS-AlleghenyNF-KC-001).jpg
+        License: Public Domain (U.S. Forest Service)
+
+ri.jpg  Ninigret National Wildlife Refuge, Rhode Island
+        Creator/source credit: U.S. Fish and Wildlife Service Northeast Region
+        Source: https://commons.wikimedia.org/wiki/File:Ninigret_National_Wildlife_Refuge_(13873846254).jpg
+        License: Public Domain (U.S. Fish and Wildlife Service)
+
+sc.jpg  Boardwalk through Congaree National Park, South Carolina
+        Creator/source credit: National Park Service
+        Source: https://commons.wikimedia.org/wiki/File:Congaree_National_Park_is_located_in_South_Carolina_and_was_added_to_the_Network_in_2020._During_the_Civil_War,_the_floodplain_(6697d8d3-80a5-4c87-8624-697c3c21ce72).jpg
+        License: Public Domain (U.S. National Park Service)
+
+vt.jpg  Lake Willoughby and the surrounding mountains, Vermont
+        Creator: King of Hearts
+        Source: https://commons.wikimedia.org/wiki/File:Lake_Willoughby_October_2021_003.jpg
+        License: CC BY-SA 4.0
+        License URL: https://creativecommons.org/licenses/by-sa/4.0/
+        Changes: center-cropped, resized, metadata stripped, and recompressed
+
+va.jpg  Naked Creek Overlook in Shenandoah National Park, Virginia
+        Creator/source credit: L. Ellis / Shenandoah National Park
+        Source: https://commons.wikimedia.org/wiki/File:Naked_Creek_Overlook,_October_6.jpg
+        License: Public Domain (U.S. National Park Service)
+
+Earlier documented state images
+--------------------------------
 
 ga.jpg  Providence Canyon State Park, Georgia
         Source: Wikimedia Commons — "Providence-Canyon-SP-GA-1.jpg"
@@ -17,5 +101,6 @@ al.jpg  Little River Canyon National Preserve, Alabama
         Source: Wikimedia Commons — "Little River Canyon Pkwy, Alabama, April 2018 2.jpg"
         License: CC0 1.0 (Public Domain Dedication)
 
-To add a new state: drop <state>.jpg here and set `photo: '/states/<state>.jpg'`
-on that state's entry in src/components/search/FindTreatmentSearch.tsx.
+To add or replace a state image, use a lowercase two-letter filename in this
+directory and document its source, creator, license, and transformations here.
+The treatment directory expects one JPEG for every code in src/lib/geo.ts.

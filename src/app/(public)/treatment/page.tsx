@@ -22,31 +22,12 @@ export const metadata: Metadata = {
   },
 };
 
-// Deterministic per-state hue so states without a photo still get their own distinct
-// (but on-brand) tile instead of 15 identical dark squares.
-function hueFor(code: string): number {
-  let h = 0;
-  for (const c of code) h = (h * 31 + c.charCodeAt(0)) % 360;
-  return h;
-}
-
-// Public-domain terrain photos that actually exist in /public/states. Keep this list
-// in sync with that directory so a missing asset never becomes an eager 404 request.
-// States without a photo use the deterministic gradient below.
-const STATE_PHOTO_CODES = new Set([
-  'AK', 'AL', 'AR', 'AZ', 'CA', 'CO', 'DE', 'FL', 'GA', 'HI', 'IA', 'ID', 'IL',
-  'IN', 'LA', 'MA', 'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NH', 'NJ', 'NV',
-  'NY', 'OH', 'OR', 'SD', 'TN', 'TX', 'UT', 'WA', 'WI', 'WV', 'WY',
-]);
-
 function tileStyle(code: string): React.CSSProperties {
   const c = code.toLowerCase();
   const overlay = 'linear-gradient(180deg,rgba(15,59,52,0.20),rgba(15,59,52,0.66))';
   return {
-    backgroundImage: STATE_PHOTO_CODES.has(code.toUpperCase())
-      ? `${overlay},url(/states/${c}.jpg)`
-      : overlay,
-    backgroundColor: `hsl(${hueFor(c)} 32% 30%)`,
+    backgroundImage: `${overlay},url(/states/${c}.jpg)`,
+    backgroundColor: '#164e47',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
   };
@@ -113,9 +94,8 @@ export default async function TreatmentIndex() {
                 href={`/treatment/${s.slug}`}
                 className="group relative block aspect-square overflow-hidden rounded-2xl ring-1 ring-black/5 transition hover:ring-2 hover:ring-teal-400"
               >
-                {/* Photo of that state's outdoor terrain under a teal wash. The allow-list
-                    prevents missing assets from generating requests; other states render
-                    the deterministic gradient fallback from tileStyle(). */}
+                {/* Every code accepted above has a checked-in state photo. The background
+                    color remains as a resilient fallback while an image is loading. */}
                 <span
                   aria-hidden
                   className="absolute inset-0 bg-cover bg-center transition duration-300 group-hover:scale-105"

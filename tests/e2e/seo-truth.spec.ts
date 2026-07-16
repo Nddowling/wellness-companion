@@ -4,6 +4,7 @@ import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
 import robots from '../../src/app/robots';
+import { US_STATES } from '../../src/lib/geo';
 import { organizationJsonLd, SITE_URL } from '../../src/lib/seo';
 
 const source = (relative: string) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
@@ -127,4 +128,16 @@ test('SEO-SCHEMA-1 · structured data is page-scoped and contains only represent
 test('SEO-VERCEL-1 · retired outreach endpoint is not still scheduled in Vercel', () => {
   expect(JSON.parse(source('vercel.json'))).toEqual({});
   expect(source('src/app/api/cron/weekly-reminders/route.ts')).toContain('status: 410');
+});
+
+test('SEO-ASSET-1 · every state landing option has a substantive local photo', () => {
+  for (const code of Object.keys(US_STATES)) {
+    const asset = path.join(process.cwd(), 'public', 'states', `${code.toLowerCase()}.jpg`);
+    expect(fs.existsSync(asset), `${code} should have a state photo`).toBe(true);
+    expect(fs.statSync(asset).size, `${code} photo should not be an empty placeholder`).toBeGreaterThan(5_000);
+  }
+
+  const treatmentIndex = source('src/app/(public)/treatment/page.tsx');
+  expect(treatmentIndex).toContain('backgroundImage: `${overlay},url(/states/${c}.jpg)`');
+  expect(treatmentIndex).not.toContain('STATE_PHOTO_CODES');
 });
