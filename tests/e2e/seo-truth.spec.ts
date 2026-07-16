@@ -94,12 +94,16 @@ test('SEO-DATA-1 · public directory reads do not cache database failures as emp
   ];
 
   for (const route of guardedRoutes) {
-    expect(source(route), `${route} must distinguish an empty result from a read failure`).toContain(
-      'throwOnPublicReadError(',
-    );
+    const routeSource = source(route);
+    expect(
+      routeSource.includes('throwOnPublicReadError(') || routeSource.includes('collectPublicRows('),
+      `${route} must distinguish an empty result from a read failure`,
+    ).toBe(true);
   }
 
   const guard = source('src/lib/public-read-error.ts');
+  const pagination = source('src/lib/supabase/public-pagination.ts');
+  expect(pagination).toContain('throwOnPublicReadError(context, result.error)');
   expect(guard).toContain("code: error.code ?? 'unknown'");
   expect(guard).not.toMatch(/message|details|hint/);
   expect(guard).toContain("throw new Error('Public directory data is temporarily unavailable.')");

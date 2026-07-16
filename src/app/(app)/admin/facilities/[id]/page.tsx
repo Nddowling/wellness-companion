@@ -52,14 +52,14 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <Link href="/admin/facilities" className="text-sm text-teal-700">
             ← All facilities
           </Link>
           <h1 className="mt-1 text-xl font-semibold text-slate-800">{f.name}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Link href={`/programs/${id}`} target="_blank" className="text-xs font-medium text-teal-700">
             View public profile ↗
           </Link>
@@ -92,7 +92,7 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
         </div>
         <form action={adminSetPlan} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="facility_id" value={id} />
-          <label className="text-xs text-slate-500">
+          <label className="w-full min-w-0 text-xs text-slate-500 sm:w-auto">
             Tier
             <select name="plan" defaultValue={currentPlan} className={`${field} mt-1 block w-full`}>
               <option value="free">Free</option>
@@ -101,7 +101,7 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
               <option value="anchor">Anchor — $1,999/mo</option>
             </select>
           </label>
-          <label className="text-xs text-slate-500">
+          <label className="w-full min-w-0 text-xs text-slate-500 sm:w-auto">
             Status
             <select name="plan_status" defaultValue={currentStatus} className={`${field} mt-1 block w-full`}>
               <option value="active">Active</option>
@@ -177,8 +177,8 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
         </div>
         <div className="grid gap-2 sm:grid-cols-3">
           <input name="contact_name" defaultValue={contact.name ?? ''} placeholder="Intake contact name" className={field} />
-          <input name="contact_phone" defaultValue={contact.phone ?? ''} placeholder="Intake phone" className={field} />
-          <input name="contact_email" defaultValue={contact.email ?? ''} placeholder="Intake email" className={field} />
+          <input name="contact_phone" type="tel" autoComplete="tel" defaultValue={contact.phone ?? ''} placeholder="Intake phone" className={field} />
+          <input name="contact_email" type="email" autoComplete="email" defaultValue={contact.email ?? ''} placeholder="Intake email" className={field} />
         </div>
         <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Save profile</button>
       </form>
@@ -193,10 +193,10 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
         {facLevels.filter(isBedBased).map((lvl) => {
           const cap = capByLevel.get(lvl);
           return (
-            <form key={lvl} action={updateCapacity} className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
+            <form key={lvl} action={updateCapacity} className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-3">
               <input type="hidden" name="facility_id" value={id} />
               <input type="hidden" name="level_of_care" value={lvl} />
-              <span className="w-44 text-sm text-slate-700">{LEVEL_LABELS[lvl as (typeof LEVELS_OF_CARE)[number]] ?? lvl}</span>
+              <span className="w-full text-sm text-slate-700 sm:w-44">{LEVEL_LABELS[lvl as (typeof LEVELS_OF_CARE)[number]] ?? lvl}</span>
               <input type="number" name="beds_available" min={0} defaultValue={cap?.beds_available ?? 0} className={`${field} w-20`} />
               <span className="text-xs text-slate-400">beds</span>
               <button className="ml-auto rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">Save</button>
@@ -212,8 +212,8 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
       <section className="space-y-2">
         <h2 className="text-sm font-semibold text-slate-700">Facility members (logins)</h2>
         {members.map((m) => (
-          <div key={m.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-white p-3 text-sm">
-            <span className="text-slate-700">
+          <div key={m.id} className="flex flex-col items-start gap-2 rounded-md border border-slate-200 bg-white p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <span className="min-w-0 break-all text-slate-700">
               {emailById.get(m.user_id) ?? m.user_id} <span className="text-xs text-slate-400">· {m.role}</span>
             </span>
             <form action={removeFacilityMember}>
@@ -223,10 +223,10 @@ export default async function AdminFacilityEdit({ params }: { params: Promise<{ 
             </form>
           </div>
         ))}
-        <form action={addFacilityMember} className="flex gap-2">
+        <form action={addFacilityMember} className="flex flex-col gap-2 sm:flex-row">
           <input type="hidden" name="facility_id" value={id} />
-          <input name="email" type="email" required placeholder="Add member by email…" className={`${field} flex-1`} />
-          <button className="rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white">Add &amp; invite</button>
+          <input name="email" type="email" required placeholder="Add member by email…" className={`${field} min-w-0 w-full sm:flex-1`} />
+          <button className="w-full rounded-md bg-teal-700 px-3 py-2 text-sm font-medium text-white sm:w-auto">Add &amp; invite</button>
         </form>
       </section>
 

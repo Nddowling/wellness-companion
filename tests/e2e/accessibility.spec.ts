@@ -60,7 +60,7 @@ test('A11Y · treatment search dialog focuses the field, closes on Escape, and r
 
   const dialog = page.getByRole('dialog', { name: 'Find treatment' });
   await expect(dialog).toBeVisible();
-  await expect(page.getByRole('textbox', { name: /search by state/i })).toBeFocused();
+  await expect(page.getByRole('textbox', { name: /describe the treatment/i })).toBeFocused();
 
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();

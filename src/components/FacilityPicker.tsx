@@ -54,7 +54,7 @@ export function FacilityPicker() {
   }, [q, state, selected]);
 
   return (
-    <form action={requestClaim} className="space-y-3 rounded-lg border border-slate-200 bg-white p-5">
+    <form action={requestClaim} className="min-w-0 space-y-3 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
       <div className="text-lg font-semibold text-slate-800">I represent a facility</div>
       <p className="text-sm text-slate-500">Search for your program, then request to manage its profile and beds.</p>
 
@@ -72,18 +72,20 @@ export function FacilityPicker() {
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
             <input
               value={q}
               onChange={(e) => changeQ(e.target.value)}
               placeholder="Search by program name or city…"
-              autoFocus
-              className="min-w-[12rem] flex-1 rounded border border-slate-300 px-3 py-2 text-sm"
+              aria-label="Search by program name or city"
+              autoComplete="off"
+              className="min-h-11 w-full min-w-0 rounded border border-slate-300 px-3 py-2 text-base sm:min-w-[12rem] sm:flex-1 sm:text-sm"
             />
             <select
               value={state}
               onChange={(e) => changeState(e.target.value)}
-              className="rounded border border-slate-300 px-3 py-2 text-sm text-slate-700"
+              aria-label="Filter facilities by state"
+              className="min-h-11 w-full rounded border border-slate-300 px-3 py-2 text-base text-slate-700 sm:w-auto sm:text-sm"
             >
               <option value="">All states</option>
               {Object.entries(US_STATES).map(([code, name]) => (
@@ -126,7 +128,7 @@ export function FacilityPicker() {
       />
       <button
         disabled={!selected}
-        className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-h-11 w-full rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
       >
         Request access
       </button>

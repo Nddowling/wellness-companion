@@ -32,7 +32,7 @@ export default function SiteHeader() {
           <svg className="h-4 w-4 shrink-0 text-teal-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
             <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
           </svg>
-          <span className="truncate">Search — place, condition, insurance…</span>
+          <span className="truncate">Describe the care you need…</span>
         </button>
       </div>
       <FindTreatmentSearch trigger="none" open={searchOpen} onOpenChange={setSearchOpen} />

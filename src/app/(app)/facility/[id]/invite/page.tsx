@@ -95,6 +95,7 @@ export default async function InviteStaff({
           <input
             name="email"
             type="email"
+            autoComplete="email"
             required
             placeholder="colleague@yourprogram.org"
             className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
@@ -111,9 +112,9 @@ export default async function InviteStaff({
         <h2 className="text-sm font-semibold text-slate-700">Your team</h2>
         <div className="mt-2 space-y-1">
           {(members ?? []).map((m) => (
-            <div key={m.user_id} className="flex justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
-              <span className="text-slate-700">{emailById.get(m.user_id) ?? m.user_id}</span>
-              <span className="text-xs text-slate-400">{m.role}</span>
+            <div key={m.user_id} className="flex flex-col items-start gap-1 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <span className="min-w-0 break-all text-slate-700">{emailById.get(m.user_id) ?? m.user_id}</span>
+              <span className="shrink-0 text-xs text-slate-400">{m.role}</span>
             </div>
           ))}
         </div>

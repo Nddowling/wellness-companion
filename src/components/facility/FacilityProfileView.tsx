@@ -516,7 +516,16 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
         </HideForProviders>
 
         {/* Floating contact bar — follows the user down the page */}
-        <FacilityStickyContact name={f.name as string} phone={intakePhone} />
+        <FacilityStickyContact
+          facilityId={f.id}
+          name={f.name}
+          phone={intakePhone}
+          email={contact.email}
+          slug={f.slug}
+          city={f.city}
+          state={f.state}
+          sourcePage="facility_profile_free"
+        />
       </main>
     );
   }
@@ -716,7 +725,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
 
       {/* Treatment & details */}
       <div className="mt-5 grid gap-5 sm:grid-cols-2">
-        <section id="levels" className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4">
+        <section id="levels" className="scroll-mt-32 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Levels of care</h2>
           <ul className="space-y-1 text-sm text-slate-700">
             {levels.length ? (
@@ -787,7 +796,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           </ul>
         </section>
 
-        <section id="insurance" className="scroll-mt-24 rounded-xl border border-slate-200 bg-white p-4">
+        <section id="insurance" className="scroll-mt-32 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="mb-2 text-sm font-semibold text-slate-700">Insurance &amp; payment</h2>
           <ul className="space-y-1.5 text-sm text-slate-700">
             {govPayers.map((p) => (
@@ -850,7 +859,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
       </div>
 
       {/* Reviews */}
-      <section id="reviews" className="mt-5 scroll-mt-20 rounded-xl border border-slate-200 bg-white p-4">
+      <section id="reviews" className="mt-5 scroll-mt-32 rounded-xl border border-slate-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-slate-700">
           What people say {avg !== null && <span className="text-amber-500">· {stars(avg)}</span>}
         </h2>
@@ -913,7 +922,7 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
 
       {/* FAQs — generated from structured fields; JSON-LD mirrors the visible copy. */}
       {faqs.length > 0 && (
-        <section id="faqs" className="mt-6 scroll-mt-20">
+        <section id="faqs" className="mt-6 scroll-mt-32">
           <h2 className="h3 mb-2 text-ink">Frequently asked</h2>
           <Accordion items={faqs.map((item, i) => ({ id: `faq-${i}`, trigger: item.q, content: item.a }))} />
           <script
@@ -952,44 +961,17 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
         </DisclosurePanel>
       </section>
 
-      {/* Mobile sticky contact bar (desktop uses the hero buttons). */}
-      {((showCallIntake && intakePhone) || contact.email) && (
-        <div className="sticky bottom-0 z-20 -mx-4 mt-6 flex gap-2 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:hidden">
-          {showCallIntake && intakePhone && (
-            <TrackedContactLink
-              facilityId={f.id}
-              eventType="call"
-              href={`tel:${intakePhone.replace(/[^\d+]/g, '')}`}
-              facilityName={f.name}
-              slug={f.slug}
-              city={f.city}
-              state={f.state}
-              sourcePage="facility_profile_full"
-              className="flex-1 rounded-md bg-teal-700 px-4 py-2.5 text-center text-sm font-semibold text-white"
-            >
-              Call intake
-            </TrackedContactLink>
-          )}
-          {contact.email && (
-            <TrackedContactLink
-              facilityId={f.id}
-              eventType="email"
-              href={`mailto:${contact.email}`}
-              facilityName={f.name}
-              slug={f.slug}
-              city={f.city}
-              state={f.state}
-              sourcePage="facility_profile_full"
-              className="flex-1 rounded-md border border-teal-600 px-4 py-2.5 text-center text-sm font-semibold text-teal-700"
-            >
-              Email
-            </TrackedContactLink>
-          )}
-        </div>
-      )}
-
       {/* Floating contact bar — follows the user down the page */}
-      <FacilityStickyContact name={f.name as string} phone={intakePhone} />
+      <FacilityStickyContact
+        facilityId={f.id}
+        name={f.name}
+        phone={intakePhone}
+        email={contact.email}
+        slug={f.slug}
+        city={f.city}
+        state={f.state}
+        sourcePage="facility_profile_full"
+      />
     </main>
   );
 }

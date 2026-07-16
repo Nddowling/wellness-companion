@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { US_STATES } from '@/lib/geo';
@@ -8,6 +8,15 @@ import { commonPayers } from '@/lib/payers';
 import { PayerLogoImage } from '@/components/LogoCarousel';
 import { Dialog } from '@/components/ui';
 import { trackSearchStarted, trackSearchSubmitted, trackFilterApplied } from '@/lib/analytics';
+import {
+  insuranceDestination,
+  parseDirectoryLanguage,
+  withApproximateState,
+} from '@/lib/search/directory-language';
+
+// Preserve the public helpers used by privacy-contract tests and any existing
+// callers while keeping the parser itself in a pure, reusable module.
+export { coarseDirectoryHref, insuranceDestination } from '@/lib/search/directory-language';
 
 const OVERLAY_PAGE = 'find_treatment_overlay';
 
@@ -47,84 +56,6 @@ const CLIENTELE: { label: string; href: string }[] = [
   { label: 'Pregnant / Postpartum', href: '/programs?pop=pregnant' },
 ];
 
-export function insuranceDestination(payer: {
-  slug: string;
-  kind: string;
-  payerType: string;
-}): string {
-  // A generic `commercial` facility row does not establish acceptance of a named
-  // carrier. Named carriers therefore go to their source-grounded guide instead of
-  // silently widening to every commercial-insurance listing.
-  return payer.kind === 'commercial' ? `/insurance/${payer.slug}` : `/programs?pay=${payer.payerType}`;
-}
-
-const CARRIER_SEARCH_ALIASES: Record<string, string[]> = {
-  aetna: ['aetna'],
-  'blue-cross-blue-shield': ['blue cross blue shield', 'blue cross', 'bcbs'],
-  cigna: ['cigna'],
-  unitedhealthcare: ['unitedhealthcare', 'united healthcare', 'uhc'],
-  humana: ['humana'],
-  'kaiser-permanente': ['kaiser permanente', 'kaiser'],
-};
-
-function includesPhrase(input: string, phrase: string): boolean {
-  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(^|\\s)${escaped}(?=\\s|$)`, 'i').test(input);
-}
-
-/**
- * Reduce free text to an allow-list of coarse directory filters. Unknown words,
- * facility names, narratives, and exact places are intentionally discarded.
- */
-export function coarseDirectoryHref(input: string): string {
-  const normalized = input.trim().toLowerCase().replace(/[^a-z0-9\s-]/g, ' ').replace(/\s+/g, ' ');
-  if (!normalized) return '/programs';
-
-  const namedCarrier = commonPayers().find(
-    (payer) =>
-      payer.kind === 'commercial' &&
-      (CARRIER_SEARCH_ALIASES[payer.slug] ?? [payer.name.toLowerCase()]).some((alias) => includesPhrase(normalized, alias)),
-  );
-  if (namedCarrier) return insuranceDestination(namedCarrier);
-
-  const params = new URLSearchParams();
-  const levelTerms: [string, string[]][] = [
-    ['detox', ['detox', 'withdrawal management']],
-    ['residential', ['residential', 'inpatient rehab']],
-    ['php', ['php', 'partial hospitalization']],
-    ['iop', ['iop', 'intensive outpatient']],
-    ['op', ['outpatient']],
-  ];
-  const level = levelTerms.find(([, aliases]) => aliases.some((alias) => includesPhrase(normalized, alias)))?.[0];
-  if (level) params.set('level', level);
-
-  const paymentTerms: [string, string[]][] = [
-    ['medicaid', ['medicaid']],
-    ['medicare', ['medicare']],
-    ['tricare', ['tricare']],
-    ['self_pay', ['self pay', 'cash pay']],
-  ];
-  const payment = paymentTerms.find(([, aliases]) => aliases.some((alias) => includesPhrase(normalized, alias)))?.[0];
-  if (payment) params.set('pay', payment);
-
-  const specialtyTerms: [string, string[]][] = [
-    ['occurring', ['co occurring', 'co-occurring', 'dual diagnosis']],
-    ['trauma', ['trauma']],
-    ['mat', ['mat', 'medication assisted']],
-    ['substance', ['substance use']],
-  ];
-  const specialty = specialtyTerms.find(([, aliases]) => aliases.some((alias) => includesPhrase(normalized, alias)))?.[0];
-  if (specialty) params.set('spec', specialty);
-
-  const stateEntry = Object.entries(US_STATES).find(
-    ([code, name]) => normalized === code.toLowerCase() || includesPhrase(normalized, name.toLowerCase()),
-  );
-  if (stateEntry) params.set('region', stateEntry[0]);
-
-  const query = params.toString();
-  return query ? `/programs?${query}` : '/programs';
-}
-
 // Insurance options, rendered as a side-scrolling row of carrier brand marks.
 // Public/self-pay categories use the corresponding directory filter; named commercial
 // carriers link to their exact guide rather than a generic commercial result set.
@@ -162,31 +93,71 @@ export function FindTreatmentSearch({
   const setOpen = (value: boolean) => (onOpenChange ? onOpenChange(value) : setInternalOpen(value));
   const [text, setText] = useState('');
   const [locating, setLocating] = useState(false);
+  const [searchFeedback, setSearchFeedback] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const interpretation = useMemo(() => parseDirectoryLanguage(text), [text]);
 
   const go = (href: string) => {
+    setSearchFeedback('');
     setOpen(false);
     router.push(href);
   };
 
-  // Free text is reduced to allow-listed coarse filters. The raw phrase stays only
-  // in component memory and is discarded on navigation.
-  const submitSearch = (e?: React.FormEvent) => {
-    e?.preventDefault();
+  // Both Enter and the visible conversational CTA use this exact path. Only
+  // allow-listed facets survive; raw narrative text stays in component memory.
+  const runInterpretedSearch = async (searchType: string) => {
     const q = text.trim();
-    // Only a boolean about whether text was typed — never the raw query.
-    trackSearchSubmitted({ sourcePage: OVERLAY_PAGE, searchType: 'directory_search', hasQuery: Boolean(q) });
-    go(coarseDirectoryHref(q));
+    trackSearchSubmitted({ sourcePage: OVERLAY_PAGE, searchType, hasQuery: Boolean(q) });
+
+    if (!q) {
+      setSearchFeedback('Type a request first — for example, “residential in Georgia that accepts Medicaid.”');
+      inputRef.current?.focus();
+      return;
+    }
+    if (!interpretation.recognized) {
+      setSearchFeedback('I could not match that yet. Try adding a state, care level, payment type, specialty, or who care is for.');
+      inputRef.current?.focus();
+      return;
+    }
+
+    if (!interpretation.needsApproximateState) {
+      go(interpretation.href);
+      return;
+    }
+
+    setLocating(true);
+    setSearchFeedback('Using your approximate state…');
+    try {
+      const res = await fetch('/api/geo', { cache: 'no-store' });
+      const geo = (await res.json()) as { state?: string };
+      if (geo.state && US_STATES[geo.state]) {
+        go(withApproximateState(interpretation, geo.state));
+        return;
+      }
+      // Preserve every other recognized facet if coarse request-region data is
+      // unavailable. If location was the only intent, offer the state hub.
+      go(interpretation.href === '/programs' ? '/treatment' : interpretation.href);
+    } catch {
+      go(interpretation.href === '/programs' ? '/treatment' : interpretation.href);
+    } finally {
+      setLocating(false);
+    }
   };
 
-  // Open the guide without copying a potentially sensitive phrase into a URL. The
-  // guide gathers only its own limited, consent-aware intake fields.
+  const submitSearch = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    void runInterpretedSearch('directory_search');
+  };
+
   const naturalSearch = () => {
-    const q = text.trim();
+    void runInterpretedSearch('natural_language_directory_search');
+  };
+
+  const openStructuredGuide = () => {
     trackSearchSubmitted({
       sourcePage: OVERLAY_PAGE,
-      searchType: q ? 'natural_language_directory_search' : 'ai_match_start',
-      hasQuery: Boolean(q),
+      searchType: 'structured_guide_fallback',
+      hasQuery: Boolean(text.trim()),
     });
     go('/match');
   };
@@ -239,37 +210,85 @@ export function FindTreatmentSearch({
         initialFocusRef={inputRef}
       >
         {/* search field */}
-        <form onSubmit={submitSearch} className="flex items-center gap-3 border-b border-slate-100 px-5 py-4">
+        <form onSubmit={submitSearch} className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
               <SearchIcon className="h-5 w-5 shrink-0 text-slate-400" />
               <input
                 ref={inputRef}
                 value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="State, level of care, or payment type…"
-                aria-label="Search by state, level of care, or payment type"
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setSearchFeedback('');
+                }}
+                placeholder="Try: residential in Georgia with Medicaid"
+                aria-label="Describe the treatment you are looking for"
                 className="min-w-0 flex-1 bg-transparent text-base text-slate-800 placeholder:text-slate-400 focus:outline-none"
               />
+              <button
+                type="submit"
+                disabled={locating}
+                aria-label="Search this request"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-teal-700 text-white transition hover:bg-teal-800 disabled:cursor-wait disabled:opacity-70"
+              >
+                {locating ? <SpinnerIcon className="h-5 w-5" /> : <span aria-hidden>→</span>}
+              </button>
         </form>
 
-        <div className="px-5 pb-6 pt-4">
-              {/* Search the way you speak → AI guide */}
+        <div className="px-4 pb-6 pt-4 sm:px-5">
+              {/* Conversational request → privacy-safe, allow-listed directory filters. */}
               <button
                 type="button"
                 onClick={naturalSearch}
+                disabled={locating}
                 className="group flex w-full items-center justify-between gap-3 rounded-2xl bg-gradient-to-br from-teal-50 to-sage/20 p-4 text-left ring-1 ring-teal-100 transition hover:ring-teal-300"
               >
-                <span>
+                <span className="min-w-0">
                   <span className="block font-fraunces text-lg font-semibold text-ink">Search the way you speak</span>
                   <span className="mt-0.5 block text-sm text-slate-500">
-                    {text.trim()
-                      ? 'Open the guide. Your phrase will not be added to the URL or browser history.'
-                      : 'Answer limited questions without putting a personal story in the URL.'}
+                    {text.trim() && interpretation.recognized
+                      ? 'Search with the filters recognized below. Your full sentence stays on this device.'
+                      : text.trim()
+                        ? 'Add a state, care level, payment type, specialty, or who care is for.'
+                        : 'Try a sentence like “teen IOP near me with private insurance.”'}
                   </span>
                 </span>
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-teal-700 text-white transition group-hover:scale-105">
-                  <SparkIcon className="h-5 w-5" />
+                  {locating ? <SpinnerIcon className="h-5 w-5" /> : <SparkIcon className="h-5 w-5" />}
                 </span>
               </button>
+
+              {text.trim() && interpretation.filters.length > 0 && (
+                <div className="mt-3" aria-live="polite">
+                  <p className="text-xs font-medium text-slate-500">Understood as</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {interpretation.filters.map((filter) => (
+                      <span
+                        key={`${filter.key}:${filter.value}`}
+                        data-search-filter={filter.key}
+                        className="rounded-full border border-teal-100 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-800"
+                      >
+                        {filter.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {searchFeedback ? (
+                <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                  <p role="status" aria-live="polite">{searchFeedback}</p>
+                  {!interpretation.recognized && (
+                    <button
+                      type="button"
+                      onClick={openStructuredGuide}
+                      className="mt-1.5 min-h-11 font-semibold text-teal-800 underline underline-offset-2"
+                    >
+                      Use the 3-question guide →
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <p role="status" aria-live="polite" className="sr-only" />
+              )}
 
               {/* Top locations */}
               <Section title="Top locations" />

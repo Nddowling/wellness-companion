@@ -23,12 +23,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="space-y-5">
-      <nav className="flex flex-wrap gap-1 rounded-lg bg-white p-1 ring-1 ring-slate-200">
+      <nav
+        aria-label="Admin sections"
+        className="flex snap-x gap-1 overflow-x-auto rounded-lg bg-white p-1 ring-1 ring-slate-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible"
+      >
         {NAV.map((n) => (
           <Link
             key={n.href}
             href={n.href}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-teal-50 hover:text-teal-700"
+            className="flex min-h-11 shrink-0 snap-start items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-teal-50 hover:text-teal-700"
           >
             {n.label}
             {n.count ? (

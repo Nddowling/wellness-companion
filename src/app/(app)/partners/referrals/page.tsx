@@ -37,7 +37,7 @@ export default async function PartnerReferrals() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-800">Your referrals</h1>
           <p className="text-sm text-slate-500">
@@ -102,13 +102,13 @@ export default async function PartnerReferrals() {
                   <p className="text-xs text-slate-400">No facility recorded.</p>
                 ) : (
                   r.facilities.map((fac) => (
-                    <div key={fac.id} className="flex items-center justify-between gap-2">
-                      <Link href={`/partners/facility/${fac.id}`} className="text-sm font-medium text-slate-700 hover:text-teal-700">
+                    <div key={fac.id} className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                      <Link href={`/partners/facility/${fac.id}`} className="min-w-0 break-words text-sm font-medium text-slate-700 hover:text-teal-700">
                         {fac.name}
                       </Link>
                       <span
                         className={
-                          'rounded-full px-2.5 py-0.5 text-xs font-medium ' +
+                          'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ' +
                           (ROUTE_BADGE[fac.routeStatus] ?? 'bg-slate-100 text-slate-600')
                         }
                       >

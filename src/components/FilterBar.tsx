@@ -306,7 +306,7 @@ function ProgramSearchInline({ onPick }: { onPick: (id: string) => void }) {
   return (
     <div
       ref={wrapperRef}
-      className="relative min-w-0 flex-1 sm:min-w-[15rem] sm:flex-none"
+      className="relative w-full min-w-0 basis-full sm:w-auto sm:min-w-[15rem] sm:basis-auto sm:flex-none"
       onBlur={handleBlur}
     >
       <form
@@ -358,7 +358,7 @@ function ProgramSearchInline({ onPick }: { onPick: (id: string) => void }) {
           id={listboxId}
           role="listbox"
           aria-label="Program search results"
-          className="absolute right-0 z-20 mt-1 max-h-72 w-full min-w-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+          className="absolute inset-x-0 z-20 mt-1 max-h-72 w-full min-w-0 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl sm:left-auto sm:min-w-72"
         >
           {visibleHits.map((hit, index) => (
             <li key={hit.id} role="presentation">

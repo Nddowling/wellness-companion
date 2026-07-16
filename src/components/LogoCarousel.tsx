@@ -28,7 +28,9 @@ export function PayerLogoImage({
   brand: PayerBrand;
   compact?: boolean;
 }) {
-  const [src, setSrc] = useState<'svg' | 'png' | 'mark'>('svg');
+  // Self-pay intentionally uses the brand mark; starting there avoids two known
+  // 404 requests (SVG then PNG) on every search-overlay visit.
+  const [src, setSrc] = useState<'svg' | 'png' | 'mark'>(() => (slug === 'self-pay' ? 'mark' : 'svg'));
 
   if (src === 'mark') {
     return (
@@ -79,7 +81,7 @@ export function LogoCarousel({ title, items }: { title: string; items: LogoItem[
           <ArrowButton dir={-1} onClick={() => scrollBy(-1)} />
           <div
             ref={scroller}
-            className="flex snap-x gap-4 overflow-x-auto scroll-smooth px-12 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="-mx-1 flex snap-x gap-3 overflow-x-auto scroll-smooth px-1 pb-2 sm:mx-0 sm:gap-4 sm:px-12 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {items.map((item) => (
               <Tile key={item.slug} item={item} />
@@ -115,7 +117,7 @@ function ArrowButton({ dir, onClick }: { dir: 1 | -1; onClick: () => void }) {
       onClick={onClick}
       aria-label={dir === 1 ? 'Scroll right' : 'Scroll left'}
       className={
-        'absolute top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:text-teal-700 ' +
+        'absolute top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md transition hover:text-teal-700 sm:flex ' +
         (dir === 1 ? 'right-0' : 'left-0')
       }
     >

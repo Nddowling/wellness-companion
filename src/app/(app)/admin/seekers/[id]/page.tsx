@@ -30,14 +30,14 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
         <h1 className="text-lg font-semibold text-slate-800">Manage connector contact</h1>
         <input type="hidden" name="seeker_id" value={seeker.id} />
         <div className="grid gap-2 sm:grid-cols-2">
-          <div className={`${field} bg-slate-50 text-slate-600`}>{seeker.name ?? 'No name retained'}</div>
+          <div className={`${field} min-w-0 break-words bg-slate-50 text-slate-600`}>{seeker.name ?? 'No name retained'}</div>
           <select name="status" defaultValue={seeker.status} className={field}>
             <option value="active">active</option>
             <option value="connected">connected</option>
             <option value="unsubscribed">unsubscribed</option>
           </select>
-          <div className={`${field} bg-slate-50 text-slate-600`}>{seeker.email ?? 'No email retained'}</div>
-          <div className={`${field} bg-slate-50 text-slate-600`}>{seeker.phone ?? 'No phone retained'}</div>
+          <div className={`${field} min-w-0 break-all bg-slate-50 text-slate-600`}>{seeker.email ?? 'No email retained'}</div>
+          <div className={`${field} min-w-0 break-all bg-slate-50 text-slate-600`}>{seeker.phone ?? 'No phone retained'}</div>
         </div>
         <p className="text-xs text-slate-400">
           Contact details are read-only for administrators. Only the seeker can update the identity they consented to use.
@@ -55,9 +55,9 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
         ) : (
           <ul className="space-y-2 text-sm">
             {consentEvents.map((e) => (
-              <li key={e.id} className="flex items-center justify-between gap-3 border-b border-slate-100 py-1">
+              <li key={e.id} className="flex flex-col items-start gap-2 border-b border-slate-100 py-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <span className="text-slate-700">{CONSENT_LABELS[e.channel] ?? e.channel}</span>
-                <span className="flex items-center gap-3">
+                <span className="flex flex-wrap items-center gap-2 sm:justify-end sm:gap-3">
                   <span
                     className={
                       'rounded-full px-2 py-0.5 text-xs font-medium ' +

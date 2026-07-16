@@ -4,7 +4,7 @@ import Link from 'next/link';
 import JsonLd from '@/components/JsonLd';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
-import { stateName, stateSlug } from '@/lib/geo';
+import { stateName, stateSlug, US_STATES } from '@/lib/geo';
 import { throwOnPublicReadError } from '@/lib/public-read-error';
 
 export const revalidate = 3600;
@@ -30,13 +30,22 @@ function hueFor(code: string): number {
   return h;
 }
 
-// The url() layer sits above the color layer; if that state's photo doesn't exist the
-// image layer just fails to paint and the tinted color shows through. Public-domain
-// terrain photos live in /public/states/{code}.jpg — see CREDITS.txt.
+// Public-domain terrain photos that actually exist in /public/states. Keep this list
+// in sync with that directory so a missing asset never becomes an eager 404 request.
+// States without a photo use the deterministic gradient below.
+const STATE_PHOTO_CODES = new Set([
+  'AK', 'AL', 'AR', 'AZ', 'CA', 'CO', 'DE', 'FL', 'GA', 'HI', 'IA', 'ID', 'IL',
+  'IN', 'LA', 'MA', 'MI', 'MN', 'MO', 'MS', 'MT', 'NC', 'ND', 'NH', 'NJ', 'NV',
+  'NY', 'OH', 'OR', 'SD', 'TN', 'TX', 'UT', 'WA', 'WI', 'WV', 'WY',
+]);
+
 function tileStyle(code: string): React.CSSProperties {
   const c = code.toLowerCase();
+  const overlay = 'linear-gradient(180deg,rgba(15,59,52,0.20),rgba(15,59,52,0.66))';
   return {
-    backgroundImage: `linear-gradient(180deg,rgba(15,59,52,0.20),rgba(15,59,52,0.66)),url(/states/${c}.jpg)`,
+    backgroundImage: STATE_PHOTO_CODES.has(code.toUpperCase())
+      ? `${overlay},url(/states/${c}.jpg)`
+      : overlay,
     backgroundColor: `hsl(${hueFor(c)} 32% 30%)`,
     backgroundSize: 'cover',
     backgroundPosition: 'center',
@@ -58,8 +67,12 @@ export default async function TreatmentIndex() {
   const states = ((data as { state: string; n: number }[]) ?? [])
     .map(({ state, n }) => {
       const code = (state ?? '').toUpperCase();
-      return { code, n: Number(n), name: stateName(code), slug: stateSlug(code) };
+      return { code, n: Number(n) };
     })
+    // The state landing route intentionally accepts only codes represented by
+    // US_STATES. Imported territory/invalid codes must not create broken links.
+    .filter(({ code }) => Object.hasOwn(US_STATES, code))
+    .map(({ code, n }) => ({ code, n, name: stateName(code), slug: stateSlug(code) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const jsonLd = {
@@ -100,10 +113,9 @@ export default async function TreatmentIndex() {
                 href={`/treatment/${s.slug}`}
                 className="group relative block aspect-square overflow-hidden rounded-2xl ring-1 ring-black/5 transition hover:ring-2 hover:ring-teal-400"
               >
-                {/* Photo of that state's outdoor terrain under a teal wash. States we
-                    don't have a public-domain photo for yet 404 the url() layer, which
-                    simply reveals the tinted backgroundColor — a clean branded fallback
-                    with no broken-image state and no filesystem lookup at render. */}
+                {/* Photo of that state's outdoor terrain under a teal wash. The allow-list
+                    prevents missing assets from generating requests; other states render
+                    the deterministic gradient fallback from tileStyle(). */}
                 <span
                   aria-hidden
                   className="absolute inset-0 bg-cover bg-center transition duration-300 group-hover:scale-105"

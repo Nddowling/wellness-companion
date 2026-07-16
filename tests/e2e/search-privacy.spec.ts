@@ -6,7 +6,9 @@ import { expect, test } from '@playwright/test';
 import {
   coarseDirectoryHref,
   insuranceDestination,
-} from '../../src/components/search/FindTreatmentSearch';
+  parseDirectoryLanguage,
+  withApproximateState,
+} from '../../src/lib/search/directory-language';
 
 test('SEARCH-PRIVACY-1 · raw treatment text is reduced to allow-listed coarse filters', () => {
   const raw = 'Need detox after a relapse in Georgia with Medicaid';
@@ -25,6 +27,57 @@ test('SEARCH-PAYER-1 · named carriers never widen to generic commercial results
   expect(insuranceDestination({ slug: 'medicaid', kind: 'public', payerType: 'medicaid' })).toBe(
     '/programs?pay=medicaid',
   );
+  expect(coarseDirectoryHref('residential with Aetna in Georgia')).toBe('/insurance/aetna/georgia');
+});
+
+test('SEARCH-LANGUAGE-1 · common conversational terms become visible directory facets', () => {
+  expect(coarseDirectoryHref('Residential in GA with Medicaid')).toBe(
+    '/programs?level=residential&pay=medicaid&region=GA',
+  );
+  expect(coarseDirectoryHref('self-pay outpatient in Florida')).toBe(
+    '/programs?level=op&pay=self_pay&region=FL',
+  );
+  expect(coarseDirectoryHref('medication-assisted treatment in Alabama')).toBe(
+    '/programs?spec=mat&region=AL',
+  );
+  expect(coarseDirectoryHref('teen IOP near me with private insurance')).toBe(
+    '/programs?level=iop&pay=commercial&pop=adolescent',
+  );
+
+  const nearby = parseDirectoryLanguage('residential with open beds near me');
+  expect(nearby.needsApproximateState).toBe(true);
+  expect(withApproximateState(nearby, 'FL')).toBe('/programs?level=residential&open=1&region=FL');
+});
+
+test('SEARCH-LANGUAGE-2 · visible natural-language action applies the typed sentence', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Search treatment/i }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Find treatment' });
+  const input = dialog.getByRole('textbox', { name: 'Describe the treatment you are looking for' });
+  await input.fill('Teen IOP in Georgia with Medicaid');
+
+  const recognized = dialog.locator('[data-search-filter]');
+  await expect(recognized.filter({ hasText: /^IOP \(Intensive Outpatient\)$/ })).toBeVisible();
+  await expect(recognized.filter({ hasText: /^Medicaid$/ })).toBeVisible();
+  await expect(recognized.filter({ hasText: /^Teens$/ })).toBeVisible();
+  await expect(recognized.filter({ hasText: /^Georgia$/ })).toBeVisible();
+
+  await dialog.getByRole('button', { name: /Search the way you speak/i }).click();
+  await expect(page).toHaveURL(/\/programs\?level=iop&pay=medicaid&pop=adolescent&region=GA$/);
+  expect(page.url()).not.toContain('Teen');
+});
+
+test('SEARCH-LANGUAGE-3 · unknown narrative gets guidance instead of an unfiltered redirect', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Search treatment/i }).click();
+  const dialog = page.getByRole('dialog', { name: 'Find treatment' });
+  await dialog.getByRole('textbox', { name: 'Describe the treatment you are looking for' }).fill(
+    'A personal clinical story with no directory terms',
+  );
+  await dialog.getByRole('button', { name: /Search the way you speak/i }).click();
+  await expect(dialog.getByRole('status')).toContainText('I could not match that yet');
+  await expect(page).toHaveURL(/\/$/);
 });
 
 test('SEARCH-PRIVACY-2 · search and retired nearby route do not expose precise location', () => {
@@ -56,6 +109,10 @@ test('SEARCH-PRIVACY-2 · search and retired nearby route do not expose precise 
 test('SEARCH-PRIVACY-3 · public program autocomplete keeps raw text out of URLs and analytics', () => {
   const root = process.cwd();
   const filterSource = fs.readFileSync(path.join(root, 'src/components/FilterBar.tsx'), 'utf8');
+  const comboboxSource = fs.readFileSync(
+    path.join(root, 'src/components/search/useProgramCombobox.ts'),
+    'utf8',
+  );
   const directorySource = fs.readFileSync(
     path.join(root, 'src/app/(public)/programs/page.tsx'),
     'utf8',
@@ -66,9 +123,9 @@ test('SEARCH-PRIVACY-3 · public program autocomplete keeps raw text out of URLs
   );
   const seoSource = fs.readFileSync(path.join(root, 'src/lib/seo.ts'), 'utf8');
 
-  expect(filterSource).toContain("fetch('/api/facilities/search', {");
-  expect(filterSource).toContain("method: 'POST'");
-  expect(filterSource).toContain('body: JSON.stringify({ q })');
+  expect(comboboxSource).toContain("fetch('/api/facilities/search', {");
+  expect(comboboxSource).toContain("method: 'POST'");
+  expect(comboboxSource).toContain('body: JSON.stringify({ q })');
   expect(filterSource).toContain('router.push(`/programs/${id}`)');
   expect(filterSource).not.toMatch(/sp\.get\(['"]q['"]\)|push\(\{\s*q:|\/programs\?q=/);
   expect(apiSource).toContain('export async function POST(request: Request)');

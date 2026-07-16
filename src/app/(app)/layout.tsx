@@ -77,8 +77,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen text-slate-800">
-      <header className="border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
+      <header className="border-b border-slate-200 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur">
+        <div className="safe-x mx-auto flex max-w-5xl items-center justify-between py-3">
           <div className="flex items-center gap-5">
             <Link href={homeHref} aria-label="Clear Bed Recovery — home">
               <Logo className="text-lg" />
@@ -120,7 +120,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       </header>
       {/* pb leaves room for the fixed mobile tab bar so content is never hidden behind it */}
-      <main className="mx-auto max-w-5xl px-4 py-6 pb-24 sm:px-6 lg:py-8 lg:pb-8">{children}</main>
+      <main className="safe-x mx-auto max-w-5xl py-6 pb-[calc(6rem+env(safe-area-inset-bottom))] lg:py-8 lg:pb-8">{children}</main>
       <MobileTabBar tabs={tabs} />
     </div>
   );

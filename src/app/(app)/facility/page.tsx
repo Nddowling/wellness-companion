@@ -67,10 +67,10 @@ export default async function FacilityHome() {
             <Link
               key={f.id}
               href={`/facility/${f.id}`}
-              className="flex items-center justify-between rounded-md border border-slate-200 bg-white p-4 hover:border-teal-300"
+              className="flex flex-col items-start gap-3 rounded-md border border-slate-200 bg-white p-4 hover:border-teal-300 sm:flex-row sm:items-center sm:justify-between"
             >
-              <div>
-                <div className="flex items-center gap-2">
+              <div className="min-w-0 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-slate-800">{f.name}</span>
                   {!f.is_published && (
                     <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">draft</span>
@@ -81,7 +81,7 @@ export default async function FacilityHome() {
                   {residentialCaps.length ? `${beds} residential ${beds === 1 ? 'bed' : 'beds'} reported` : 'no residential-bed report'}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end sm:gap-3">
                 {leads > 0 && (
                   <span className="rounded-full bg-teal-700 px-2 py-1 text-xs font-medium text-white">
                     {leads} new lead{leads === 1 ? '' : 's'}

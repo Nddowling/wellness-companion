@@ -37,7 +37,7 @@ export function FacilityStickyNav() {
             .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
           if (visible[0]) setActive(visible[0].target.id);
         },
-        { rootMargin: '-96px 0px -70% 0px', threshold: 0 },
+        { rootMargin: '-116px 0px -70% 0px', threshold: 0 },
       );
       present.forEach((t) => {
         const el = document.getElementById(t.id);
@@ -53,14 +53,14 @@ export function FacilityStickyNav() {
   if (tabs.length < 2) return null;
 
   return (
-    <nav className="sticky top-0 z-20 -mx-4 mb-1 border-b border-slate-200 bg-white/90 px-4 backdrop-blur">
+    <nav className="sticky top-[59px] z-20 -mx-4 mb-1 border-b border-slate-200 bg-white/90 px-4 backdrop-blur">
       <div className="flex gap-1 overflow-x-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {tabs.map((t) => (
           <a
             key={t.id}
             href={`#${t.id}`}
             className={
-              'shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition ' +
+              'flex min-h-11 shrink-0 items-center rounded-full px-3 py-1.5 text-sm font-medium transition ' +
               (active === t.id
                 ? 'bg-teal-700 text-white'
                 : 'text-slate-600 hover:bg-teal-50 hover:text-teal-700')

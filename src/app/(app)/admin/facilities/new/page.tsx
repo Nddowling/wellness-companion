@@ -16,7 +16,7 @@ export default function NewFacilityPage() {
 
       <form action={createFacility} className="space-y-6">
         <section className="grid grid-cols-1 gap-4 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-2">
-          <label className="col-span-2 flex flex-col gap-1">
+          <label className="flex flex-col gap-1 sm:col-span-2">
             <span className={labelClass}>Facility name *</span>
             <input name="name" required className={inputClass} />
           </label>
@@ -98,10 +98,10 @@ export default function NewFacilityPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-4 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-3">
-          <p className={`${labelClass} col-span-3`}>Intake contact — shown publicly so matched seekers can reach the program&apos;s admissions team</p>
+          <p className={`${labelClass} sm:col-span-3`}>Intake contact — shown publicly so matched seekers can reach the program&apos;s admissions team</p>
           <input name="contact_name" placeholder="Name" className={inputClass} />
-          <input name="contact_email" type="email" placeholder="Email" className={inputClass} />
-          <input name="contact_phone" placeholder="Phone" className={inputClass} />
+          <input name="contact_email" type="email" autoComplete="email" placeholder="Email" className={inputClass} />
+          <input name="contact_phone" type="tel" autoComplete="tel" placeholder="Phone" className={inputClass} />
         </section>
 
         <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">

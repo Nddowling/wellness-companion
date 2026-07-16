@@ -35,7 +35,7 @@ export default async function LandingPage() {
     <JsonLd data={[organizationJsonLd, websiteJsonLd]} />
     <main className="text-slate-800">
       {/* ── HERO ─────────────────────────────────────────────── */}
-      <section className="relative isolate flex min-h-[88vh] flex-col overflow-hidden">
+      <section className="relative isolate flex min-h-[88svh] flex-col overflow-hidden">
         {/* Brand gradient — the palette, without the literal photo */}
         <div className="absolute inset-0 -z-20 bg-gradient-to-br from-ink via-brand to-teal-900" />
         <div
@@ -47,7 +47,7 @@ export default async function LandingPage() {
         />
 
         {/* Top bar — logo + an above-the-fold entry for providers, kept clear of the patient flow */}
-        <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-5 pr-6 sm:pr-20">
+        <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-5 sm:px-6 sm:pr-20">
           <Logo tone="light" className="text-lg" />
           <div className="hidden shrink-0 items-center gap-2 sm:flex">
             {!authed && (
@@ -68,9 +68,9 @@ export default async function LandingPage() {
         </div>
 
         {/* Patient hero — the dominant message */}
-        <div className="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-6 pb-24 pt-3 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.92fr)] lg:gap-12 lg:pt-0">
-          <div className="max-w-2xl animate-fade-up text-white">
-            <span className="inline-block rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase tracking-wide backdrop-blur">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-[minmax(0,1fr)] flex-1 items-center gap-10 px-4 pb-24 pt-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,0.92fr)] lg:gap-12 lg:pt-0">
+          <div className="min-w-0 max-w-2xl animate-fade-up text-white">
+            <span className="inline-block max-w-full rounded-full bg-white/15 px-3 py-1 text-xs font-medium uppercase leading-relaxed tracking-wide backdrop-blur">
               A clearer path through addiction-treatment options
             </span>
             <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
@@ -118,7 +118,7 @@ export default async function LandingPage() {
             </p>
           </div>
 
-          <div className="relative mt-1 animate-fade-up lg:mt-0">
+          <div className="relative mt-1 min-w-0 animate-fade-up lg:mt-0">
             <div className="absolute -inset-5 rounded-[2rem] bg-sage/15 blur-2xl" aria-hidden />
             <div className="relative h-64 overflow-hidden rounded-2xl border border-white/20 bg-white/10 shadow-2xl shadow-ink/35 sm:h-80 lg:h-[min(36rem,64vh)] lg:min-h-[27rem]">
               <Image
@@ -151,7 +151,7 @@ export default async function LandingPage() {
 
       {/* ── HOW IT WORKS ─────────────────────────────────────── */}
       <section className="bg-[#eef5f2] py-16">
-        <div className="mx-auto max-w-5xl px-6">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6">
           <Reveal className="text-center">
             <h2 className="text-2xl font-semibold text-slate-800">Finding care, made gentle</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">

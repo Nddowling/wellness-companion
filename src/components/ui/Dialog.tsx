@@ -166,7 +166,7 @@ export function Dialog({
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="grid h-8 w-8 place-items-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-ink"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-ink sm:h-9 sm:w-9"
               >
                 <span aria-hidden className="text-lg leading-none">×</span>
               </button>

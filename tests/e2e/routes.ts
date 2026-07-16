@@ -20,6 +20,8 @@ export const PUBLIC_ROUTES: { id: string; path: string }[] = [
   { id: 'AC-P12', path: '/resources' },
   { id: 'AC-P13', path: '/insurance' },
   { id: 'AC-P14', path: '/programs' },
+  { id: 'AC-P15a', path: '/treatment' },
+  { id: 'AC-P15b', path: '/contact' },
   { id: 'AC-P16a', path: '/match' },
   { id: 'AC-P16b', path: '/match/nearby' },
   { id: 'AC-P17a', path: '/privacy' },

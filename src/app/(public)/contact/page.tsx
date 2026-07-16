@@ -72,7 +72,12 @@ export default function ContactPage() {
           </p>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
             <Link href="/claim" className="font-medium text-teal-700 hover:underline">Claim your facility →</Link>
-            <a href={`mailto:${EMAIL}`} className="text-teal-700 hover:underline">Provider support: {EMAIL}</a>
+            <a
+              href={`mailto:${EMAIL}`}
+              className="min-w-0 text-teal-700 [overflow-wrap:anywhere] hover:underline"
+            >
+              Provider support: {EMAIL}
+            </a>
           </div>
         </section>
 
@@ -80,7 +85,12 @@ export default function ContactPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-teal-700">Press, partnerships &amp; data</h2>
           <p className="mt-1 text-sm text-slate-600">
             We publish original data on treatment access and availability. For press or partnership inquiries:{' '}
-            <a href={`mailto:${EMAIL}`} className="font-medium text-teal-700 hover:underline">{EMAIL}</a>.
+            <a
+              href={`mailto:${EMAIL}`}
+              className="font-medium text-teal-700 [overflow-wrap:anywhere] hover:underline"
+            >
+              {EMAIL}
+            </a>.
           </p>
         </section>
 
@@ -93,7 +103,14 @@ export default function ContactPage() {
             </div>
             <div className="flex gap-2">
               <dt className="w-16 shrink-0 text-slate-500">Email</dt>
-              <dd><a href={`mailto:${EMAIL}`} className="font-medium text-teal-700 hover:underline">{EMAIL}</a></dd>
+              <dd className="min-w-0">
+                <a
+                  href={`mailto:${EMAIL}`}
+                  className="font-medium text-teal-700 [overflow-wrap:anywhere] hover:underline"
+                >
+                  {EMAIL}
+                </a>
+              </dd>
             </div>
             <div className="flex gap-2">
               <dt className="w-16 shrink-0 text-slate-500">Serving</dt>

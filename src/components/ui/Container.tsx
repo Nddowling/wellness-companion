@@ -17,5 +17,5 @@ export type ContainerProps = React.HTMLAttributes<HTMLDivElement> & {
 };
 
 export function Container({ size = 'content', className, ...props }: ContainerProps) {
-  return <div className={cn('mx-auto w-full px-6', sizes[size], className)} {...props} />;
+  return <div className={cn('mx-auto w-full px-4 sm:px-6', sizes[size], className)} {...props} />;
 }

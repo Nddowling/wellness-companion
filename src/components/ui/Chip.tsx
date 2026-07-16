@@ -68,7 +68,7 @@ export function Chip({
         'inline-flex items-center rounded-full border font-medium transition select-none',
         sizeClasses[size],
         active ? t.on : t.off,
-        clickable && 'cursor-pointer hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40',
+        clickable && 'min-h-11 cursor-pointer hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 sm:min-h-0',
         className,
       )}
       {...rest}

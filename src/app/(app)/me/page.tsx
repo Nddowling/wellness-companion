@@ -115,11 +115,11 @@ export default async function SeekerDashboard() {
                 </div>
                 <div className="mt-2 space-y-1">
                   {facilities.map((f) => (
-                    <div key={f.id} className="flex items-center justify-between text-sm">
-                      <Link href={`/programs/${f.id}`} className="text-teal-700 hover:underline">
+                    <div key={f.id} className="flex flex-col items-start gap-0.5 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                      <Link href={`/programs/${f.id}`} className="min-w-0 break-words text-teal-700 hover:underline">
                         {f.name}
                       </Link>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-left text-xs text-slate-400 sm:text-right">
                         {f.levels.map((l) => LEVEL_LABELS[l as LevelOfCare] ?? l).join(', ')}
                       </span>
                     </div>

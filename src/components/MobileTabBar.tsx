@@ -24,6 +24,12 @@ const ICONS: Record<TabIcon, ReactNode> = {
 
 export function MobileTabBar({ tabs }: { tabs: Tab[] }) {
   const pathname = usePathname();
+  const activeHref = tabs.reduce<string | null>((longest, tab) => {
+    const matches = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
+    if (!matches) return longest;
+    return longest === null || tab.href.length > longest.length ? tab.href : longest;
+  }, null);
+
   return (
     <nav
       aria-label="Primary"
@@ -32,7 +38,7 @@ export function MobileTabBar({ tabs }: { tabs: Tab[] }) {
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around">
         {tabs.map((t) => {
-          const active = pathname === t.href || pathname.startsWith(`${t.href}/`);
+          const active = activeHref === t.href;
           return (
             <Link
               key={t.href}

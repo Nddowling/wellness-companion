@@ -230,14 +230,14 @@ export default async function FacilityManage({
               ))}
             </div>
           )}
-          <form action={uploadPhoto} className="flex items-center gap-2">
+          <form action={uploadPhoto} className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
             <input type="hidden" name="facility_id" value={id} />
             <input
               type="file"
               name="photo"
               accept="image/jpeg,image/png,image/webp,image/avif"
               required
-              className="text-sm"
+              className="w-full max-w-full text-sm sm:w-auto"
             />
             <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
               Upload photo
@@ -272,14 +272,14 @@ export default async function FacilityManage({
               ))}
             </div>
           )}
-          <form action={uploadVideo} className="flex items-center gap-2">
+          <form action={uploadVideo} className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
             <input type="hidden" name="facility_id" value={id} />
             <input
               type="file"
               name="video"
               accept="video/mp4,video/quicktime,video/webm,video/ogg"
               required
-              className="text-sm"
+              className="w-full max-w-full text-sm sm:w-auto"
             />
             <button type="submit" className="rounded-md bg-teal-700 px-3 py-1 text-sm font-medium text-white">
               Upload video
@@ -344,11 +344,11 @@ export default async function FacilityManage({
                 <form
                   key={lvl}
                   action={updateCapacity}
-                  className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3"
+                  className="flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-white p-3"
                 >
                   <input type="hidden" name="facility_id" value={id} />
                   <input type="hidden" name="level_of_care" value={lvl} />
-                  <span className="w-48 text-sm text-slate-700">
+                  <span className="w-full text-sm text-slate-700 sm:w-48">
                     {LEVEL_LABELS[lvl as LevelOfCare] ?? lvl}
                   </span>
                   <input
@@ -394,6 +394,8 @@ export default async function FacilityManage({
             />
             <input
               name="contact_phone"
+              type="tel"
+              autoComplete="tel"
               defaultValue={contact.phone ?? ''}
               placeholder="Phone"
               className="rounded border border-slate-300 px-2 py-1 text-sm"
@@ -586,7 +588,7 @@ export default async function FacilityManage({
             </div>
           )}
           {facility.website && (
-            <a href={facility.website} target="_blank" rel="noreferrer" className="inline-block text-sm text-teal-700 hover:underline">
+            <a href={facility.website} target="_blank" rel="noreferrer" className="inline-block break-all text-sm text-teal-700 hover:underline">
               {facility.website.replace(/^https?:\/\//, '')} ↗
             </a>
           )}
@@ -634,7 +636,7 @@ export default async function FacilityManage({
         )}
         {routes.map((r) => (
           <div key={r.id} className="rounded-md border border-slate-200 bg-white p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <Link
                 href={`/facility/${id}/contacts#${r.id}`}
                 className="text-sm font-medium text-slate-800 hover:text-teal-700"
@@ -664,7 +666,7 @@ export default async function FacilityManage({
                 : 'Concern —'}{' '}
               · limited non-contact match data
             </div>
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               {canUseLeadStatusWorkflow ? (
                 (['viewed', 'accepted', 'declined'] as const).map((s) => (
                   <form key={s} action={setLeadStatus}>
@@ -685,7 +687,7 @@ export default async function FacilityManage({
               )}
               <Link
                 href={`/facility/${id}/contacts#${r.id}`}
-                className="ml-auto text-xs font-medium text-teal-700 hover:underline"
+                className="w-full text-xs font-medium text-teal-700 hover:underline sm:ml-auto sm:w-auto"
               >
                 View details →
               </Link>
@@ -711,7 +713,7 @@ export default async function FacilityManage({
           <div className="grid max-w-lg gap-1 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-700">
             {contact.name && <div className="font-medium text-slate-800">{contact.name}</div>}
             {contact.phone && <div>{contact.phone}</div>}
-            {contact.email && <div>{contact.email}</div>}
+            {contact.email && <div className="break-all">{contact.email}</div>}
           </div>
         ) : (
           <p className="text-sm text-slate-400">No intake contact set yet.</p>

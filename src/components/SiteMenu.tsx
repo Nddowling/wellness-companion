@@ -104,7 +104,7 @@ export default function SiteMenu({
           className="fixed inset-0 z-30 cursor-default bg-ink/25 backdrop-blur-[2px]"
         />
       )}
-      <div className="fixed right-3 top-3 z-40 sm:right-5 sm:top-5">
+      <div className="fixed right-[max(0.75rem,env(safe-area-inset-right))] top-[max(0.75rem,env(safe-area-inset-top))] z-40 sm:right-5 sm:top-5">
         <button
           onClick={() => setOpen((o) => !o)}
           aria-label={open ? 'Close menu' : 'Open menu'}
@@ -124,7 +124,7 @@ export default function SiteMenu({
           <nav
             id="site-navigation"
             aria-label="Site navigation"
-            className="fixed inset-x-3 top-[4.5rem] max-h-[calc(100dvh-5.5rem)] overflow-y-auto rounded-2xl border border-white/70 bg-white/95 p-2 shadow-2xl shadow-ink/25 backdrop-blur-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-72"
+            className="fixed inset-x-3 top-[calc(4.5rem+env(safe-area-inset-top))] max-h-[calc(100dvh-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-y-auto rounded-2xl border border-white/70 bg-white/95 p-2 shadow-2xl shadow-ink/25 backdrop-blur-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-72"
           >
             <div className="px-3 pb-2 pt-2">
               <div className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-700">Clear Bed Recovery</div>

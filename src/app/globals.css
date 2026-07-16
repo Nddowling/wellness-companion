@@ -99,6 +99,8 @@
 }
 
 body {
+  max-width: 100%;
+  overflow-x: clip;
   background-color: #f3f7f5;
   /* Calm, on-brand flair — soft sage glow up top, teal & terracotta washes below. */
   background-image:
@@ -154,6 +156,19 @@ body {
   text-transform: uppercase;
 }
 
+/* Horizontal padding that respects landscape/notched-device safe areas. */
+.safe-x {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+@media (min-width: 640px) {
+  .safe-x {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
+
 /*
  * Mobile form ergonomics. On phones, a 16px font size on form fields stops iOS
  * Safari from auto-zooming when an input is focused (it zooms anything < 16px),
@@ -161,6 +176,9 @@ body {
  * fields (and submit buttons) so compact chips/icon buttons are unaffected.
  */
 @media (max-width: 640px) {
+  body {
+    background-attachment: scroll;
+  }
   input:not([type='checkbox']):not([type='radio']):not([type='file']),
   select {
     font-size: 16px;
@@ -170,7 +188,8 @@ body {
     font-size: 16px;
     min-height: 88px;
   }
-  button[type='submit'] {
+  button[type='submit'],
+  form button:not([type]) {
     min-height: 44px;
   }
 }

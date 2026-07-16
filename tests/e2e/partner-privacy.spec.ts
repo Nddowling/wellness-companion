@@ -76,14 +76,15 @@ test('PARTNER-PRIVACY-4 · partner program lookup keeps typed text out of URLs a
   const home = source('src/app/(app)/partners/page.tsx');
   const search = source('src/app/(app)/partners/search/page.tsx');
   const lookup = source('src/components/partner/ProgramLookup.tsx');
+  const combobox = source('src/components/search/useProgramCombobox.ts');
 
   expect(home).toContain('<ProgramLookup />');
   expect(home).not.toMatch(/name=["']q["']|action=["']\/partners\/search["']/);
   expect(search).not.toMatch(/name=["']q["']|\.set\(['"]q['"]|name\.ilike|city\.ilike/);
   expect(search).toContain('if (q !== undefined || hasNonCanonicalFacet)');
-  expect(lookup).toContain("fetch('/api/facilities/search', {");
-  expect(lookup).toContain("method: 'POST'");
-  expect(lookup).toContain('body: JSON.stringify({ q })');
+  expect(combobox).toContain("fetch('/api/facilities/search', {");
+  expect(combobox).toContain("method: 'POST'");
+  expect(combobox).toContain('body: JSON.stringify({ q })');
   expect(lookup).toContain('router.push(`/partners/facility/${hit.id}`)');
   expect(lookup).not.toMatch(/URLSearchParams|[?&]q=/);
 });
