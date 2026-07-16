@@ -86,7 +86,7 @@ export default function HowWeMakeMoneyPage() {
             <li>❌ A higher ranking or position in your matches.</li>
             <li>❌ Any change to how the matching agent works or which directory options it displays.</li>
             <li>
-              ❌ Access to your phone or email — payment never buys it; a contact method is made available only when
+              ❌ Access to your name, email, or phone — payment never buys it; contact details are made available only when
               you consent. The same limited, non-contact match summary is routed regardless of payment.
             </li>
           </ul>

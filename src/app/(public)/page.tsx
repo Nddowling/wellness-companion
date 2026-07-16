@@ -155,15 +155,15 @@ export default async function LandingPage() {
           <Reveal className="text-center">
             <h2 className="text-2xl font-semibold text-slate-800">Finding care, made gentle</h2>
             <p className="mx-auto mt-2 max-w-xl text-sm text-slate-500">
-              Three short steps before results. Sharing a contact method is optional.
+              Three short steps before results. Sharing contact details is optional.
             </p>
           </Reveal>
 
           <div className="mt-10 grid gap-6 sm:grid-cols-3">
             {[
               {
-                title: 'Talk it through',
-                body: 'A calm conversation — no forms, no judgment. We listen for what matters.',
+                title: 'Choose what matters',
+                body: 'A short, calm directory form — only the minimum choices needed to narrow programs.',
                 icon: (
                   <path d="M4 5h16v10H7l-3 3V5z" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
                 ),

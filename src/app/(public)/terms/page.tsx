@@ -54,8 +54,8 @@ export default function TermsPage() {
         <p>
           We are <strong>not a healthcare provider</strong>. We do not provide medical advice, diagnosis,
           treatment, counseling, therapy, or crisis intervention, and nothing on the Service is a substitute for
-          professional care. Conversations with our guided intake assistant are a limited way to narrow directory
-          options — not clinical care or a placement assessment. No provider-patient relationship is created by using
+          professional care. Our guided directory form is a limited way to narrow directory options — not clinical
+          care or a placement assessment. No provider-patient relationship is created by using
           the Service.
         </p>
       </Section>
@@ -83,7 +83,7 @@ export default function TermsPage() {
           not include your name, phone number, email, date of birth, street address, member ID, exact carrier, or a
           clinical narrative. A supported commercial carrier you volunteer may narrow results
           transiently, but is not saved with the match or routed to programs.
-          <strong> We only make your phone number or email available to a displayed program when you explicitly consent
+          <strong> We only make your name, email, and phone available to a displayed program when you explicitly consent
           to it</strong>, and we record when you grant or decline that consent. You can decline and still see results.
           Your contact consent is <strong>specific to the programs displayed in that match</strong>, is limited to the
           requested connection, and may be revoked for future in-app access by contacting us. Treatment providers may
@@ -91,9 +91,9 @@ export default function TermsPage() {
           and circumstances; the Service does not provide legal advice or determine those duties for you or a Provider.
         </p>
         <p>
-          <strong>Communications.</strong> Providing a contact method does not itself authorize Clear Bed Recovery to
-          contact you. After matches are shown, you choose separately whether the displayed programs may use one
-          contact method to reach you and whether Clear Bed Recovery may email one copy of those matches. A phone
+          <strong>Communications.</strong> Providing contact details does not itself authorize Clear Bed Recovery to
+          contact you. After matches are shown, you choose separately whether the displayed programs may use your
+          name, email, and phone to reach you and whether Clear Bed Recovery may email one copy of those matches. A phone
           number shared with programs does not authorize marketing calls or texts from us. We do not add matcher
           contacts to promotional lists, and either permission is optional and not a condition of seeing matches.
         </p>

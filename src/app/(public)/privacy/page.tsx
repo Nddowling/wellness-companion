@@ -7,7 +7,7 @@ const LAST_UPDATED = 'July 15, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: `How ${SITE_NAME} collects, uses, protects, and shares information — including non-contact match routing and optional phone or email consent.`,
+  description: `How ${SITE_NAME} collects, uses, protects, and shares information — including non-contact match routing and optional name, email, and phone consent.`,
   alternates: { canonical: '/privacy' },
   openGraph: { title: `Privacy Policy | ${SITE_NAME}`, url: absoluteUrl('/privacy') },
 };
@@ -32,7 +32,7 @@ export default function PrivacyPage() {
       <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
         <strong>Your privacy is the point.</strong> You can use {SITE_NAME} without an account, name, phone, or email.
         To show results, we route a limited, non-contact summary to the programs selected and displayed by the
-        matcher before asking for contact permission. <strong>We make your phone or email available only when you
+        matcher before asking for contact permission. <strong>We make your name, email, and phone available only when you
         explicitly tell us to</strong> — and we record when you grant or decline that permission. You can decline and
         still see your results.
       </div>
@@ -75,14 +75,15 @@ export default function PrivacyPage() {
         <p className="font-medium text-slate-700">Contact details (only if you choose to connect).</p>
         <p>
           After you see your matches, we ask permission first. You may choose whether the displayed programs may
-          contact you, whether we may email one copy of your matches, both, or neither. Only if you choose one of
-          those options do we ask for one phone number or email address. We do not ask for your name, date of birth,
-          policy number, member number, group number, or subscriber details in the matcher.
+          contact you, whether we may email one copy of your matches, both, or neither. Only if you make an affirmative
+          connection or email choice do we ask for your name and email. If you ask the displayed programs to contact you, we also
+          ask for your phone number so their intake teams have complete follow-up details. We do not ask for your home
+          address, date of birth, policy number, member number, group number, subscriber details, or clinical narrative.
         </p>
-        <p className="font-medium text-slate-700">Conversation content.</p>
+        <p className="font-medium text-slate-700">Guided-form content.</p>
         <p>
-          The messages you exchange with our matching assistant are processed to guide that live session. We do not
-          save the raw transcript to a conversation history.
+          The directory form processes only the limited choices described above. It does not ask for or save a free-text
+          intake conversation or transcript.
         </p>
         <p className="font-medium text-slate-700">Account information.</p>
         <p>
@@ -113,7 +114,7 @@ export default function PrivacyPage() {
         <ul className="ml-5 list-disc space-y-1">
           <li>To narrow addiction-treatment directory options by listed care level, payment information, and region;</li>
           <li>To route a limited, non-contact match summary to the programs selected and displayed by the matcher;</li>
-          <li>To make your phone number or email available to those displayed programs only when you consent (see Section 5);</li>
+          <li>To make your name, email, and phone available to those displayed programs only when you consent (see Section 5);</li>
           <li>To create and secure your account;</li>
           <li>To send a transactional message you requested (for example, one email containing your matches);</li>
           <li>To operate, maintain, secure, debug, and improve the Service;</li>
@@ -132,7 +133,7 @@ export default function PrivacyPage() {
           sensitive. Clear Bed Recovery is a directory and connector, not a treatment provider, and whether a
           particular privacy law applies depends on the parties and circumstances. We design the Service around
           strict consent, data minimization, and applicable consumer-health privacy requirements. Your identifying
-          contact detail is <strong>not disclosed to a treatment program without your explicit, recorded consent</strong>.
+          contact details are <strong>not disclosed to a treatment program without your explicit, recorded consent</strong>.
         </p>
         <p>
           Treatment providers may have separate duties under HIPAA, 42 CFR Part 2, and state law. We do not make a
@@ -140,7 +141,7 @@ export default function PrivacyPage() {
           treatment records should be directed to that provider or qualified counsel.
         </p>
         <p>
-          A consented contact method is kept in restricted, access-controlled tables that are logically separated
+          Consented contact details are kept in restricted, access-controlled tables that are logically separated
           from public directory data and reachable only through authorized server-side processes. It is never exposed
           through public database access.
         </p>
@@ -152,17 +153,18 @@ export default function PrivacyPage() {
           To produce your results, we create a <strong>limited, non-contact summary</strong>: your{' '}
           <strong>ZIP3 region</strong> (for example, &ldquo;787&rdquo;), <strong>directory level</strong>,{' '}
           <strong>payer type</strong>, and <strong>coarse scope</strong>. We route that summary to the programs selected
-          and displayed by the matcher <strong>before</strong> we ask whether you want to share a phone number or email.
+          and displayed by the matcher <strong>before</strong> we ask whether you want to share contact details.
           It has no name, contact details, date of birth, street address, member ID, exact carrier, or clinical
           narrative. Because combinations of otherwise limited facts can still carry privacy risk, we
-          restrict access and do not describe this summary as anonymous. Contact consent applies to your phone number
-          or email, as described next; it does not apply retroactively to this non-contact routing.
+          restrict access and do not describe this summary as anonymous. Contact consent applies to your name, email,
+          and phone, as described next; it does not apply retroactively to this non-contact routing.
         </p>
-        <p className="font-medium text-slate-700">With treatment programs — your phone or email, only with your consent.</p>
+        <p className="font-medium text-slate-700">With treatment programs — your contact details, only with your consent.</p>
         <p>
-          We make the <strong>one contact method you chose available only to the programs displayed in that match,
-          and only after you explicitly consent</strong>, so their intake teams can reach out. We do not send the chat
-          transcript or a clinical intake record. That consent is limited to connecting you with care. You may ask us
+          We make your <strong>name, email, and phone available only to the programs displayed in that match, and only
+          after you explicitly consent</strong>, so their intake teams can reach out. We do not send a home address,
+          chat transcript, insurance identifiers, or a clinical intake record. That consent is limited to connecting
+          you with care. You may ask us
           to revoke future in-app access, although a recipient cannot unlearn information it already viewed. Permission
           for us to email a copy of your matches is a separate choice. We log each consent decision (granted or
           declined) with a timestamp. If you decline, we store no contact record and you can still contact programs
@@ -181,7 +183,6 @@ export default function PrivacyPage() {
         </p>
         <ul className="ml-5 list-disc space-y-1">
           <li><strong>Supabase</strong> — database, authentication, and storage;</li>
-          <li><strong>Anthropic</strong> — the AI model that powers our guided intake assistant;</li>
           <li><strong>Google Workspace or Resend</strong> — sending transactional email, depending on configuration;</li>
           <li><strong>Stripe</strong> — processing Provider subscription payments (Seekers never pay);</li>
           <li><strong>Vercel</strong> — website hosting and delivery.</li>

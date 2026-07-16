@@ -1473,6 +1473,24 @@ export type Database = {
           shared_facility_count: number
         }[]
       }
+      complete_connector_handoff_v2: {
+        Args: {
+          p_consent_email: boolean
+          p_consent_share: boolean
+          p_email: string
+          p_match_id: string
+          p_name: string
+          p_phone: string
+          p_recipient_facility_ids: string[]
+        }
+        Returns: {
+          already_completed: boolean
+          consent_email: boolean
+          consent_share: boolean
+          seeker_id: string
+          shared_facility_count: number
+        }[]
+      }
       consume_anonymous_budget: {
         Args: { p_endpoint: string; p_ip_key: string; p_session_key: string }
         Returns: {

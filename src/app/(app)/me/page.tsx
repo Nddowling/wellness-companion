@@ -49,31 +49,57 @@ export default async function SeekerDashboard() {
         </div>
       ) : (
         <>
-          {/* Edit only the single, already-consented contact method. */}
-          {latest && (latest.email || latest.phone) && (
+          {/* Edit only the same identity fields covered by the existing permissions. */}
+          {latest && (latest.consent_share || latest.consent_email) && (
             <form action={updateMyInfoAction} className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="text-sm font-semibold text-slate-700">Your contact method</h2>
+              <h2 className="text-sm font-semibold text-slate-700">Your contact details</h2>
               <input type="hidden" name="seeker_id" value={latest.id} />
-              <input type="hidden" name="channel" value={latest.email ? 'email' : 'phone'} />
               <label className="grid gap-1 text-xs font-medium text-slate-600">
-                {latest.email ? 'Email you chose' : 'Phone you chose'}
+                Name
                 <input
-                  name="value"
-                  type={latest.email ? 'email' : 'tel'}
-                  defaultValue={latest.email ?? latest.phone ?? ''}
+                  name="name"
+                  type="text"
+                  defaultValue={latest.name ?? ''}
                   required
-                  autoComplete={latest.email ? 'email' : 'tel'}
+                  maxLength={120}
+                  autoComplete="name"
                   className={field}
                 />
               </label>
+              <label className="grid gap-1 text-xs font-medium text-slate-600">
+                Email
+                <input
+                  name="email"
+                  type="email"
+                  defaultValue={latest.email ?? ''}
+                  required
+                  maxLength={254}
+                  autoComplete="email"
+                  className={field}
+                />
+              </label>
+              {latest.consent_share && (
+                <label className="grid gap-1 text-xs font-medium text-slate-600">
+                  Phone
+                  <input
+                    name="phone"
+                    type="tel"
+                    defaultValue={latest.phone ?? ''}
+                    required
+                    maxLength={50}
+                    autoComplete="tel"
+                    className={field}
+                  />
+                </label>
+              )}
               <label className="flex items-start gap-2 text-xs leading-relaxed text-slate-600">
                 <input type="checkbox" name="confirmed" value="1" required className="mt-0.5" />
                 <span>
-                  I confirm Clear Bed may continue using this contact method for the permissions I previously chose.
+                  I confirm Clear Bed may continue using these contact details for the permissions I previously chose.
                 </span>
               </label>
               <p className="text-xs text-slate-400">
-                This updates the same contact channel only. Start a new connection to choose a different method.
+                This does not broaden who may contact you or authorize promotional messages.
               </p>
               <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Save my info</button>
             </form>

@@ -104,9 +104,9 @@ function intakeError(raw: unknown): string | null {
   return null;
 }
 
-// Map the model's wording to a valid enum. Exact match wins; otherwise match on
-// keywords; otherwise fall back. Keeps a completed conversation from ever failing
-// on a casing/synonym mismatch (e.g. "Medicaid", "cocaine", "inpatient").
+// Normalize incoming wording to a valid enum. Exact match wins; otherwise match on
+// keywords or fall back. This keeps older clients from failing on casing/synonym
+// differences (for example, "Medicaid", "cocaine", or "inpatient").
 function pick<T extends string>(
   value: unknown,
   allowed: readonly T[],

@@ -18,7 +18,7 @@ function contactReadFailure(stage: ContactReadStage, error: ContactReadError): n
 
 // A facility's contacts = EVERY seeker the matcher routed to it. De-identified by
 // default (level/payer/coarse concern/region — never identity), enriched with
-// phone or email only for seekers who explicitly consented to share
+// name, email, and phone only for seekers who explicitly consented to share
 // with this facility. Callers MUST verify facility membership first — this uses
 // the service role for deny-all connector tables and therefore bypasses RLS.
 
@@ -34,6 +34,7 @@ export type MatchedContact = {
   region: string | null;
   // identity (only when the seeker consented to share with THIS facility)
   shared: boolean;
+  name: string | null;
   phone: string | null;
   email: string | null;
 };
@@ -61,7 +62,7 @@ export async function listFacilityContacts(facilityId: string): Promise<MatchedC
   // Identity for seekers who consented to share with THIS facility, keyed by match.
   const identityByMatch = new Map<
     string,
-    { phone: string | null; email: string | null }
+    { name: string | null; phone: string | null; email: string | null }
   >();
   const { data: interests, error: interestsError } = await admin
     .from('vault_seeker_interest')
@@ -73,7 +74,7 @@ export async function listFacilityContacts(facilityId: string): Promise<MatchedC
   if (seekerIds.length) {
     const { data: seekers, error: seekersError } = await admin
       .from('vault_seekers')
-      .select('match_id, phone, email')
+      .select('match_id, name, phone, email')
       .in('id', seekerIds)
       .eq('consent_share', true)
       .in('status', ['active', 'connected']);
@@ -82,6 +83,7 @@ export async function listFacilityContacts(facilityId: string): Promise<MatchedC
     for (const s of seekers ?? []) {
       if (!s.match_id) continue;
       identityByMatch.set(s.match_id, {
+        name: s.name,
         phone: s.phone,
         email: s.email,
       });
@@ -101,6 +103,7 @@ export async function listFacilityContacts(facilityId: string): Promise<MatchedC
       concern: m?.concern_category ?? null,
       region: m?.region_zip3 ?? null,
       shared: !!id,
+      name: id?.name ?? null,
       phone: id?.phone ?? null,
       email: id?.email ?? null,
     };

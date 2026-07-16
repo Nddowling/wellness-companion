@@ -107,7 +107,7 @@ test('SK-06 · deterministic match shows results before contact and never calls 
   page.on('request', (request) => {
     const pathname = new URL(request.url()).pathname;
     if (pathname === '/api/intake') intakeRequests.push(request.url());
-    if (pathname === '/api/handoff') handoffRequests.push(request.url());
+    if (pathname === '/api/handoff' && request.method() === 'POST') handoffRequests.push(request.url());
   });
   await page.route('**/api/match', async (route) => {
     matchPayload = route.request().postDataJSON() as Record<string, unknown>;
@@ -116,7 +116,7 @@ test('SK-06 · deterministic match shows results before contact and never calls 
   });
 
   await acknowledge(page);
-  await expect(page.locator('input[type="email"], input[type="tel"]')).toHaveCount(0);
+  await expect(page.locator('input[autocomplete="name"], input[type="email"], input[type="tel"]')).toHaveCount(0);
   await completeDeterministicFilters(page);
   const resultsHeading = page.getByRole('heading', { name: /directory (?:options|matches)/i });
   await expect(resultsHeading).toBeVisible();
@@ -149,6 +149,14 @@ test('SK-07 · checked connection choice directly controls handoff consent boole
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_MATCH) }),
   );
   await page.route('**/api/handoff', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ emailCopyAvailable: true }),
+      });
+      return;
+    }
     handoffPayload = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({
       status: 200,
@@ -168,13 +176,19 @@ test('SK-07 · checked connection choice directly controls handoff consent boole
   await completeDeterministicFilters(page);
   await page.getByRole('button', { name: /choose how to connect/i }).click();
   await page.getByRole('radio', { name: /^Both:/i }).check();
+  await page.getByRole('textbox', { name: 'Name', exact: true }).fill('Jordan Smith');
   await page.getByRole('textbox', { name: 'Email address' }).fill('seeker@example.com');
+  await page.getByRole('textbox', { name: 'Phone number' }).fill('+1 555 010 4401');
   await page.getByRole('button', { name: /confirm this permission/i }).click();
 
-  await expect(page.getByText(/chosen contact method is available/i)).toBeVisible();
+  await expect(page.getByText(/name, email, and phone are available/i)).toBeVisible();
   expect(handoffPayload).toEqual({
     match_id: MOCK_MATCH.match_id,
-    contact: { email: 'seeker@example.com' },
+    contact: {
+      name: 'Jordan Smith',
+      email: 'seeker@example.com',
+      phone: '+1 555 010 4401',
+    },
     consents: { email: true, share: true },
   });
   expect(intakeRequests, 'consent must not be interpreted by /api/intake or a model').toEqual([]);

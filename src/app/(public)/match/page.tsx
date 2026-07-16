@@ -16,7 +16,6 @@ import { createClient } from '@/lib/supabase/client';
 type ConcernCategory = 'substance_use' | 'mental_health' | 'co_occurring' | 'unsure';
 type Phase = 'intake' | 'matching' | 'results' | 'connect';
 type ConnectChoice = 'programs' | 'email' | 'both' | 'neither';
-type ContactMethod = 'phone' | 'email';
 
 type MatchedFacility = {
   id: string;
@@ -40,7 +39,7 @@ type Choice<T extends string> = {
 
 // Bump when the acknowledgment-gate / Terms consent text changes. Anyone who
 // accepted an older version is re-prompted to review the current disclosure.
-const TERMS_VERSION = '2026-07-15T17:21:00.000Z';
+const TERMS_VERSION = '2026-07-15T23:57:43.000Z';
 
 const LEVEL_CHOICES: readonly Choice<LevelOfCare>[] = [
   {
@@ -205,8 +204,9 @@ export default function MatchPage() {
   const [matches, setMatches] = useState<MatchedFacility[] | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [connectChoice, setConnectChoice] = useState<ConnectChoice | null>(null);
-  const [contactMethod, setContactMethod] = useState<ContactMethod | null>(null);
-  const [contactValue, setContactValue] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [connectCompleted, setConnectCompleted] = useState(false);
   const [contactSaved, setContactSaved] = useState<boolean | null>(null);
   const [shared, setShared] = useState(false);
@@ -262,8 +262,9 @@ export default function MatchPage() {
 
   function resetConnect() {
     setConnectChoice(null);
-    setContactMethod(null);
-    setContactValue('');
+    setContactName('');
+    setContactEmail('');
+    setContactPhone('');
     setConnectCompleted(false);
     setContactSaved(null);
     setShared(false);
@@ -389,35 +390,34 @@ export default function MatchPage() {
       setError('Email copies are temporarily unavailable. You can still let programs contact you or reach out directly.');
       return;
     }
-    const requiredMethod: ContactMethod | null =
-      connectChoice === 'neither' ? null : consentEmail ? 'email' : contactMethod;
-    const value = contactValue.trim();
+    const name = contactName.trim().replace(/\s+/g, ' ');
+    const email = contactEmail.trim().toLowerCase();
+    const phone = contactPhone.trim();
 
-    if (connectChoice !== 'neither' && !requiredMethod) {
-      setError('Choose whether the programs may use a phone number or email address.');
+    if (connectChoice !== 'neither' && (!name || name.length > 120 || /[\u0000-\u001f\u007f]/.test(name))) {
+      setError('Enter your name.');
       return;
     }
-    if (requiredMethod === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    if (connectChoice !== 'neither' && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) {
       setError('Enter a valid email address.');
       return;
     }
-    if (requiredMethod === 'phone') {
-      const digits = value.replace(/\D/g, '');
-      if (digits.length < 7 || digits.length > 15) {
-        setError('Enter a valid phone number.');
-        return;
-      }
+    const digits = phone.replace(/\D/g, '');
+    if (consentShare && (phone.length > 50 || digits.length < 7 || digits.length > 15)) {
+      setError('Enter a valid phone number.');
+      return;
     }
 
     setBusy(true);
     setError(null);
     try {
-      const contact =
-        requiredMethod === 'email'
-          ? { email: value }
-          : requiredMethod === 'phone'
-            ? { phone: value }
-            : {};
+      const contact = connectChoice === 'neither'
+        ? {}
+        : {
+            name,
+            email,
+            ...(consentShare ? { phone } : {}),
+          };
       const response = await fetch('/api/handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -438,7 +438,9 @@ export default function MatchPage() {
       setContactSaved(data.contactSaved === true);
       setEmailSent(typeof data.emailSent === 'boolean' ? data.emailSent : null);
       setConnectCompleted(true);
-      setContactValue('');
+      setContactName('');
+      setContactEmail('');
+      setContactPhone('');
       setPhase('results');
     } catch (cause) {
       setError(
@@ -657,7 +659,7 @@ export default function MatchPage() {
                 Narrow the directory <span className="italic text-brand">without a clinical intake.</span>
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-                Make four explicit choices, see programs, then decide whether to share any contact method. The form
+                Make four explicit choices, see programs, then decide whether to share contact details. The form
                 does not send a narrative or contact information to an AI model.
               </p>
             </div>
@@ -905,14 +907,14 @@ export default function MatchPage() {
                   </p>
                   <div className="mt-4 space-y-2">
                     {([
-                      ['programs', 'Programs displayed in this match may contact me'],
+                      ['programs', 'Programs displayed in this match may contact me by email or phone'],
                       ...(emailCopyAvailable
                         ? ([
                             ['email', 'Email me one copy of these matches'],
-                            ['both', 'Both: programs may contact me and email my matches'],
+                            ['both', 'Both: programs may contact me and email me these matches'],
                           ] as const)
                         : []),
-                      ['neither', 'Neither: keep my contact details private'],
+                      ['neither', 'Neither: do not save my contact details'],
                     ] as readonly (readonly [ConnectChoice, string])[]).map(([value, label]) => (
                       <label
                         key={value}
@@ -930,8 +932,9 @@ export default function MatchPage() {
                           checked={connectChoice === value}
                           onChange={() => {
                             setConnectChoice(value);
-                            setContactMethod(value === 'email' || value === 'both' ? 'email' : null);
-                            setContactValue('');
+                            setContactName('');
+                            setContactEmail('');
+                            setContactPhone('');
                             setError(null);
                           }}
                           className="h-4 w-4 shrink-0 accent-teal-700"
@@ -942,51 +945,63 @@ export default function MatchPage() {
                   </div>
                 </fieldset>
 
-                {connectChoice === 'programs' && (
-                  <fieldset className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <legend className="px-1 text-sm font-semibold text-ink">Which one contact method may they use?</legend>
-                    <div className="mt-2 flex flex-wrap gap-3">
-                      {(['phone', 'email'] as const).map((method) => (
-                        <label key={method} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm">
-                          <input
-                            type="radio"
-                            name="contact-method"
-                            value={method}
-                            checked={contactMethod === method}
-                            onChange={() => {
-                              setContactMethod(method);
-                              setContactValue('');
-                              setError(null);
-                            }}
-                            className="h-4 w-4 accent-teal-700"
-                          />
-                          {method === 'phone' ? 'Phone number' : 'Email address'}
-                        </label>
-                      ))}
-                    </div>
-                  </fieldset>
-                )}
-
-                {connectChoice && connectChoice !== 'neither' && (connectChoice !== 'programs' || contactMethod) && (
-                  <div className="mt-4">
-                    <label htmlFor="contact-value" className="block text-sm font-semibold text-ink">
-                      {connectChoice === 'email' || connectChoice === 'both' || contactMethod === 'email'
-                        ? 'Email address'
-                        : 'Phone number'}
+                {connectChoice && connectChoice !== 'neither' && (
+                  <div className="mt-5 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-xs leading-relaxed text-slate-600">
+                      We keep these contact details for this connection. Do not enter an address, birth date,
+                      insurance member information, or medical details.
+                    </p>
+                    <label htmlFor="contact-name" className="block text-sm font-semibold text-ink">
+                      Name
+                      <input
+                        ref={contactRef}
+                        id="contact-name"
+                        type="text"
+                        autoComplete="name"
+                        maxLength={120}
+                        value={contactName}
+                        onChange={(event) => {
+                          setContactName(event.target.value);
+                          setError(null);
+                        }}
+                        required
+                        className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-md"
+                      />
                     </label>
-                    <input
-                      ref={contactRef}
-                      id="contact-value"
-                      type={connectChoice === 'email' || connectChoice === 'both' || contactMethod === 'email' ? 'email' : 'tel'}
-                      autoComplete={connectChoice === 'email' || connectChoice === 'both' || contactMethod === 'email' ? 'email' : 'tel'}
-                      value={contactValue}
-                      onChange={(event) => {
-                        setContactValue(event.target.value.slice(0, 200));
-                        setError(null);
-                      }}
-                      required
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-md"
-                    />
+                    <label htmlFor="contact-email" className="block text-sm font-semibold text-ink">
+                      Email address
+                      <input
+                        id="contact-email"
+                        type="email"
+                        autoComplete="email"
+                        maxLength={254}
+                        value={contactEmail}
+                        onChange={(event) => {
+                          setContactEmail(event.target.value);
+                          setError(null);
+                        }}
+                        required
+                        className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-md"
+                      />
+                    </label>
+                    {(connectChoice === 'programs' || connectChoice === 'both') && (
+                      <label htmlFor="contact-phone" className="block text-sm font-semibold text-ink">
+                        Phone number
+                        <input
+                          id="contact-phone"
+                          type="tel"
+                          autoComplete="tel"
+                          maxLength={50}
+                          value={contactPhone}
+                          onChange={(event) => {
+                            setContactPhone(event.target.value);
+                            setError(null);
+                          }}
+                          required
+                          className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-md"
+                        />
+                      </label>
+                    )}
                   </div>
                 )}
 
@@ -1043,8 +1058,8 @@ export default function MatchPage() {
 
                 {shared && (
                   <div role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                    ✓ Your chosen contact method is available in Clear Bed to the programs displayed in this match.
-                    Their authorized users may see it and may reach out; Clear Bed cannot confirm that anyone viewed it.
+                    ✓ Your name, email, and phone are available in Clear Bed to the programs displayed in this match.
+                    Their authorized users may see them and may reach out; Clear Bed cannot confirm that anyone viewed them.
                   </div>
                 )}
 

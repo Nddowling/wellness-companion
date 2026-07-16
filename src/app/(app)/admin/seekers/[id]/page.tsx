@@ -9,7 +9,7 @@ const field = 'rounded border border-slate-300 px-3 py-2 text-sm';
 
 const CONSENT_LABELS: Record<string, string> = {
   share: 'Share details with matched programs',
-  email: 'Be contacted by email',
+  email: 'Email one copy of these matches',
 };
 
 export default async function AdminSeekerDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -30,17 +30,17 @@ export default async function AdminSeekerDetail({ params }: { params: Promise<{ 
         <h1 className="text-lg font-semibold text-slate-800">Manage connector contact</h1>
         <input type="hidden" name="seeker_id" value={seeker.id} />
         <div className="grid gap-2 sm:grid-cols-2">
-          <div className={`${field} bg-slate-50 text-slate-600`}>
-            {seeker.email ?? seeker.phone ?? 'No contact method retained'}
-          </div>
+          <div className={`${field} bg-slate-50 text-slate-600`}>{seeker.name ?? 'No name retained'}</div>
           <select name="status" defaultValue={seeker.status} className={field}>
             <option value="active">active</option>
             <option value="connected">connected</option>
             <option value="unsubscribed">unsubscribed</option>
           </select>
+          <div className={`${field} bg-slate-50 text-slate-600`}>{seeker.email ?? 'No email retained'}</div>
+          <div className={`${field} bg-slate-50 text-slate-600`}>{seeker.phone ?? 'No phone retained'}</div>
         </div>
         <p className="text-xs text-slate-400">
-          Contact details are read-only for administrators. Only the seeker can update the method they consented to use.
+          Contact details are read-only for administrators. Only the seeker can update the identity they consented to use.
         </p>
         <button className="rounded-md bg-teal-700 px-4 py-2 text-sm font-medium text-white">Save</button>
       </form>

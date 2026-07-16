@@ -299,7 +299,7 @@ export function adminWelcomeEmail(params: {
        'Open the secure sign-in link above.',
        'Use password recovery if you have not set a password yet.',
        'You’ll land on the admin dashboard — claims, facilities, and seekers are all there.',
-       'You can open the seeker AI from your menu (“AI chat (test)”) any time to try it.',
+       'You can open the directory matcher from your menu (“Matcher (test)”) any time to try it.',
      ])}`,
     footer
   );

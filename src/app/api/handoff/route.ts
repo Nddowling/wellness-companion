@@ -21,7 +21,7 @@ import {
 // Seeker "complete & connect" endpoint.
 //
 // PATH A — we are a CONNECTOR, not a provider. After matches are shown, this accepts
-// only one voluntary contact method and explicit permissions. Match facilities are
+// only the voluntary contact details needed for follow-up and explicit permissions. Match facilities are
 // derived from the signed program manifest returned with /api/match; the browser
 // cannot nominate arbitrary programs or inherit routes appended later.
 //
@@ -31,7 +31,7 @@ import {
 
 type Body = {
   match_id?: string;
-  contact?: { phone?: unknown; email?: unknown };
+  contact?: { name?: unknown; phone?: unknown; email?: unknown };
   consents?: { email?: boolean; share?: boolean };
 };
 
@@ -56,6 +56,13 @@ function json(
 function validEmail(value: string | undefined): string | undefined {
   if (!value || value.length > 254) return undefined;
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ? value.toLowerCase() : undefined;
+}
+
+function validName(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized || normalized.length > 120 || /[\u0000-\u001f\u007f]/.test(value)) return undefined;
+  return normalized;
 }
 
 function validPhone(value: string | undefined): string | undefined {
@@ -109,10 +116,13 @@ export async function POST(request: Request) {
   }
   const consents = { email: body.consents.email, share: body.consents.share };
 
-  const allowedContact = new Set(['phone', 'email']);
+  const allowedContact = new Set(['name', 'phone', 'email']);
   const contact = body.contact === undefined ? {} : body.contact;
   if (!isRecord(contact) || Object.keys(contact).some((key) => !allowedContact.has(key))) {
-    return json({ error: 'Provide one contact method only' }, 400);
+    return json({ error: 'Only name, email, and phone may be provided' }, 400);
+  }
+  if (contact.name !== undefined && typeof contact.name !== 'string') {
+    return json({ error: 'Enter a valid name' }, 400);
   }
   if (contact.phone !== undefined && typeof contact.phone !== 'string') {
     return json({ error: 'Enter a valid phone number' }, 400);
@@ -120,23 +130,37 @@ export async function POST(request: Request) {
   if (contact.email !== undefined && typeof contact.email !== 'string') {
     return json({ error: 'Enter a valid email address' }, 400);
   }
+  const rawName = str(contact.name);
   const rawPhone = str(contact.phone);
   const rawEmail = str(contact.email);
-  const identity = { phone: validPhone(rawPhone), email: validEmail(rawEmail) };
+  const identity = {
+    name: validName(rawName),
+    phone: validPhone(rawPhone),
+    email: validEmail(rawEmail),
+  };
+  if (rawName && !identity.name) {
+    return json({ error: 'Enter a valid name' }, 400);
+  }
   if (rawPhone && !identity.phone) {
     return json({ error: 'Enter a valid phone number' }, 400);
   }
   if (rawEmail && !identity.email) {
     return json({ error: 'Enter a valid email address' }, 400);
   }
-  if (identity.phone && identity.email) {
-    return json({ error: 'Provide only one contact method' }, 400);
+  if (!consents.share && !consents.email && (rawName || rawPhone || rawEmail)) {
+    return json({ error: 'Contact details require an explicit permission choice' }, 400);
   }
-  if ((consents.share || consents.email) && !identity.phone && !identity.email) {
-    return json({ error: 'A contact method is required for this permission' }, 400);
+  if ((consents.share || consents.email) && !identity.name) {
+    return json({ error: 'Your name is required for this connection' }, 400);
   }
-  if (consents.email && !identity.email) {
-    return json({ error: 'An email address is required for email permission' }, 400);
+  if ((consents.share || consents.email) && !identity.email) {
+    return json({ error: 'An email address is required for this connection' }, 400);
+  }
+  if (consents.share && !identity.phone) {
+    return json({ error: 'A phone number is required for program follow-up' }, 400);
+  }
+  if (!consents.share && identity.phone) {
+    return json({ error: 'Phone numbers are retained only when programs may contact you' }, 400);
   }
   if (consents.email && !sensitiveEmailConfigured()) {
     return json(
@@ -247,7 +271,7 @@ export async function POST(request: Request) {
       try {
         const reservation = await reserveTreatmentEmail(seekerId, identity.email);
         if (reservation.shouldSend) {
-          const message = treatmentInfoEmail(undefined, summaries);
+          const message = treatmentInfoEmail(identity.name, summaries);
           const result = await sendSensitiveEmail({ to: identity.email, ...message });
           emailSent = result.ok;
           try {

@@ -45,7 +45,7 @@ export function effectivePlan(
 // profile-content feature — description, photos, video, website, maps/directions, call
 // button, and review responses. Paid tiers exist only for implemented in-app
 // analytics and lead-status workflow, never for profile richness or a seeker's
-// explicitly consented contact method.
+// explicitly consented contact details.
 export const FEATURE_MIN_PLAN = {
   // Profile content — free (unlocked by a free claim).
   photos: 'free',

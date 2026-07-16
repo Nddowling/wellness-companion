@@ -44,7 +44,7 @@ function ContactCard({ c }: { c: MatchedContact }) {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="font-medium text-slate-800">
-            Matched seeker
+            {c.shared && c.name ? c.name : 'Matched seeker'}
           </div>
           <div className="mt-0.5 text-sm text-slate-500">{summary || 'Match details on file'}</div>
 
@@ -60,7 +60,7 @@ function ContactCard({ c }: { c: MatchedContact }) {
                   {c.email}
                 </a>
               )}
-              {!c.phone && !c.email && <span className="text-slate-400">No contact method shared</span>}
+              {!c.phone && !c.email && <span className="text-slate-400">No contact details shared</span>}
             </div>
           ) : (
             <div className="mt-1 text-xs text-slate-400">Hasn&apos;t shared contact details</div>

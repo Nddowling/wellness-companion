@@ -65,11 +65,12 @@ const F = {
     enum: [...COMMERCIAL_CARRIER_NAMES],
     description: 'Exact commercial carrier only when the person explicitly named one. Omit otherwise.',
   },
+  name: { type: 'string', description: 'Name to use for this consented connection.' },
   phone: { type: 'string', description: 'Best phone number.' },
   email: { type: 'string', description: 'Best email address.' },
   consent_share: {
     type: 'boolean',
-    description: 'TRUE only if they agreed to share their contact method with the programs displayed in this match.',
+    description: 'TRUE only if they agreed to share their name, email, and phone with the programs displayed in this match.',
   },
   consent_contact: {
     type: 'boolean',
@@ -117,7 +118,7 @@ export const STEP_TOOLS: Record<StepKey, Anthropic.Tool> = {
   identity: tool(
     'record_identity',
     'Record the optional connect flow after the person answers the permission choice. Contact is required only when at least one permission is granted.',
-    ['phone', 'email', 'consent_share', 'consent_contact'],
+    ['name', 'phone', 'email', 'consent_share', 'consent_contact'],
     ['consent_share', 'consent_contact'],
   ),
 };
@@ -182,15 +183,15 @@ Find out only how care would be paid for: Medicaid, Medicare, commercial/employe
   identity: `${PREAMBLE}
 
 THIS STEP — "Connect" (OPTIONAL, and the person has ALREADY been shown their matches):
-They've already seen filter-based directory options. No contact information has been collected or stored yet. A limited, non-contact summary was already routed to the programs displayed in the match; this optional step is only about whether one contact method may be made available to those programs in Clear Bed and/or used to send one requested email copy. Don't re-introduce the search or imply you're still finding programs.
+They've already seen filter-based directory options. No contact information has been collected or stored yet. A limited, non-contact summary was already routed to the programs displayed in the match; this optional step is only about whether consented contact details may be made available to those programs in Clear Bed and/or used to send one requested email copy. Don't re-introduce the search or imply you're still finding programs.
 
 Ask permission BEFORE asking for any contact detail. Ask at most TWO questions, one at a time, in this exact order:
 1. Ask whether they want (a) the programs shown in this match to contact them, (b) Clear Bed Recovery to email them a copy of these matches, (c) both, or (d) neither. End with:
 [[chips]] Programs contact me | Email my matches | Both | Neither
-2. Only if they chose a, b, or c, ask for exactly one contact method:
-   - "Programs contact me" → ask for a phone number OR email address.
-   - "Email my matches" or "Both" → ask for an email address.
-If they chose "Neither," do not ask for contact information. Give one brief warm line and call record_identity immediately with consent_share=false and consent_contact=false and no phone/email.
+2. Only if they chose a, b, or c, ask once for the applicable contact details:
+   - "Programs contact me" or "Both" → ask for their name, email address, and phone number.
+   - "Email my matches" → ask for their name and email address only.
+If they chose "Neither," do not ask for contact information. Give one brief warm line and call record_identity immediately with consent_share=false and consent_contact=false and no name/phone/email.
 
 Map the final choice exactly:
 - "Programs contact me" → consent_share=true and consent_contact=false
@@ -198,5 +199,5 @@ Map the final choice exactly:
 - "Both" → consent_share=true and consent_contact=true
 - "Neither" → consent_share=false and consent_contact=false
 
-Do not ask for their name, date of birth, a second contact method, an emergency contact, insurance identifiers, legal involvement, clinical details, or any other optional information. Except for "Neither," do not call record_identity until the required contact method was supplied. Once the applicable answers are complete, give ONE brief warm line and call record_identity in that same turn.`,
+Do not ask for a home address, date of birth, emergency contact, insurance identifiers, legal involvement, clinical details, or any other optional information. Except for "Neither," do not call record_identity until the applicable name/email/phone fields were supplied. Once the applicable answers are complete, give ONE brief warm line and call record_identity in that same turn.`,
 };

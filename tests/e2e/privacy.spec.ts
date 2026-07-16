@@ -64,7 +64,12 @@ test('PRIV-P0 · handoff stores nothing without consent and rejects prohibited f
     const prohibited = await request.post('/api/handoff', {
       data: {
         match_id: matchId,
-        contact: { phone: '+1 555 010 9911' },
+        contact: {
+          name: 'Do Not Store',
+          email: 'do-not-store@example.invalid',
+          phone: '+1 555 010 9911',
+          address: '123 Do Not Store Street',
+        },
         consents: { share: true, email: false },
         face_sheet: { date_of_birth: '1980-01-01', member_id: 'DO-NOT-STORE', narrative: 'private' },
       },
@@ -83,7 +88,7 @@ test('PRIV-P0 · handoff stores nothing without consent and rejects prohibited f
   }
 });
 
-test('PRIV-P0 · consented handoff stores only one contact method and server-routed interests', async ({ request }) => {
+test('PRIV-P0 · consented handoff stores contact identity and server-routed interests', async ({ request }) => {
   previewOnly();
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -106,7 +111,11 @@ test('PRIV-P0 · consented handoff stores only one contact method and server-rou
     const shared = await request.post('/api/handoff', {
       data: {
         match_id: matchId,
-        contact: { phone: '+1 555 010 9922' },
+        contact: {
+          name: 'Jordan Smith',
+          email: 'jordan.smith@example.invalid',
+          phone: '+1 555 010 9922',
+        },
         consents: { share: true, email: false },
       },
     });
@@ -115,12 +124,14 @@ test('PRIV-P0 · consented handoff stores only one contact method and server-rou
 
     const { data: seekers } = await admin
       .from('vault_seekers')
-      .select('id, email, phone, coverage_status, consent_share, consent_email')
+      .select('id, name, email, phone, insurance, coverage_status, consent_share, consent_email')
       .eq('match_id', matchId);
     expect(seekers).toHaveLength(1);
     expect(seekers?.[0]).toMatchObject({
-      email: null,
+      name: 'Jordan Smith',
+      email: 'jordan.smith@example.invalid',
       phone: '+1 555 010 9922',
+      insurance: null,
       coverage_status: null,
       consent_share: true,
       consent_email: false,
@@ -139,7 +150,11 @@ test('PRIV-P0 · consented handoff stores only one contact method and server-rou
     const retried = await request.post('/api/handoff', {
       data: {
         match_id: matchId,
-        contact: { phone: '+1 555 010 9922' },
+        contact: {
+          name: 'Jordan Smith',
+          email: 'jordan.smith@example.invalid',
+          phone: '+1 555 010 9922',
+        },
         consents: { share: true, email: false },
       },
     });

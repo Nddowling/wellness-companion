@@ -13,7 +13,7 @@ export default async function AdminSeekers() {
         <h1 className="text-xl font-semibold text-slate-800">Seeker contacts</h1>
         <p className="text-sm text-slate-500">
           {seekers.length} {seekers.length === 1 ? 'contact' : 'contacts'} · everyone who shared their details through
-          the care chat. Protected information — handle with care.
+          the guided connection flow. Protected information — handle with care.
         </p>
       </div>
 
@@ -30,9 +30,10 @@ export default async function AdminSeekers() {
             className="flex items-center justify-between rounded-md border border-slate-200 bg-white p-4 hover:border-teal-300"
           >
             <div className="min-w-0">
-              <div className="font-medium text-slate-800">Consented connector contact</div>
+              <div className="font-medium text-slate-800">{s.name || 'Consented connector contact'}</div>
               <div className="truncate text-xs text-slate-500">
-                {s.email || s.phone || 'contact unavailable'} · {new Date(s.created_at).toLocaleDateString()}
+                {[s.email, s.phone].filter(Boolean).join(' · ') || 'contact unavailable'} ·{' '}
+                {new Date(s.created_at).toLocaleDateString()}
               </div>
             </div>
             <span

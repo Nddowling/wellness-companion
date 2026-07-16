@@ -382,7 +382,7 @@ export default async function FacilityManage({
           <h2 className="text-sm font-semibold text-slate-700">Intake contact</h2>
           <p className="text-xs text-slate-500">
             Your admissions/intake point of contact. It is shown publicly so people can contact the program directly.
-            When a seeker separately consents to share one contact method, authorized users can view it in Contacts.
+            When a seeker separately consents to connect, authorized users can view their name, email, and phone in Contacts.
           </p>
           <form action={updateContact} className="grid max-w-lg gap-2 rounded-md border border-slate-200 bg-white p-3">
             <input type="hidden" name="facility_id" value={id} />

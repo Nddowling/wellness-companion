@@ -15,19 +15,19 @@ const SUBTITLE: Record<Profile, string> = {
   facility: 'Manage your listing and account.',
   partner: 'Find programs, save favorites, and share shortlists.',
   rep: 'Your profile, your facilities, and your team.',
-  admin: 'Admin tools — plus the seeker AI to test.',
+  admin: 'Admin tools — plus the directory matcher to test.',
   none: 'Find care or explore treatment programs.',
 };
 
 // The public hamburger is built strictly from the viewer's canonical profile so it
 // never offers another lane's pages:
-//   • Seeker AI ("Find care") — seekers, guests/roleless, and admin (as a test). NOT facilities.
+//   • Directory matcher ("Find care") — seekers, guests/roleless, and admin (as a test). NOT facilities.
 //   • Provider marketing ("For providers", "Pricing") — everyone EXCEPT seekers.
 //   • A dashboard shortcut into the viewer's own lane.
 function buildLinks(profile: Profile, dashboardHref: string | null): NavLink[] {
   const links: NavLink[] = [{ href: '/', label: 'Home' }];
   if (profile !== 'facility') {
-    links.push({ href: '/match', label: profile === 'admin' ? 'AI chat (test)' : 'Find care' });
+    links.push({ href: '/match', label: profile === 'admin' ? 'Matcher (test)' : 'Find care' });
   }
   links.push({ href: '/programs', label: 'Browse programs' });
   links.push({ href: '/treatment', label: 'Browse by state' });

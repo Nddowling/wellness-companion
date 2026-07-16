@@ -84,8 +84,9 @@ export default function AboutPage() {
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
             You can browse the directory without an account. The guided match uses only coarse, non-contact answers
             and excludes direct identifiers.
-            After seeing matches, you may choose one contact method so a program can follow up — never a name or
-            insurance member ID, and there&apos;s no account or commitment. When
+            After seeing matches, you may choose to share your name, email, and phone so those displayed programs can
+            follow up. We do not ask for a home address, date of birth, insurance member ID, or clinical narrative,
+            and there&apos;s no account or commitment. When
             you choose to share your information with the programs displayed in that match, you control that, and we
             record your consent with a timestamp. We never sell personal information. Treatment providers may have
             separate duties under HIPAA, 42 CFR Part 2, and state law; see our Privacy Policy for our practices.

@@ -3,13 +3,15 @@ import 'server-only';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Lead data-access. PATH A: we are a CONNECTOR, not a provider — we store only what is
-// needed to make an INTRODUCTION, never what is needed to run an intake. No HIPAA
-// identifiers (no DOB), no clinical detail (no substances/medications/diagnoses), no
-// face sheet. The clinical record belongs to the facility, in the facility's own system.
+// needed to make an INTRODUCTION: the person's consented name, email, and phone. We do
+// not store a home address, DOB, insurance/member identifiers, clinical detail
+// (substances/medications/diagnoses), or a face sheet. The clinical record belongs to
+// the facility, in the facility's own system.
 // Re-enabling PHI storage requires the project-b preconditions (BAA + HIPAA add-on +
 // security review + 42 CFR Part 2 / EKRA sign-off) — not a feature flag.
 
 export type SeekerIdentity = {
+  name?: string;
   email?: string;
   phone?: string;
 };
@@ -30,7 +32,7 @@ export type ConnectorHandoffResult = {
 
 type ConnectorRpcClient = {
   rpc: (
-    name: 'complete_connector_handoff' | 'reserve_treatment_email' | 'finish_treatment_email' | 'revoke_connector_contact',
+    name: 'complete_connector_handoff_v2' | 'reserve_treatment_email' | 'finish_treatment_email' | 'revoke_connector_contact',
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: { code?: string } | null }>;
 };
@@ -43,9 +45,10 @@ export async function completeConnectorHandoff(params: {
   consents: { email: boolean; share: boolean };
 }): Promise<ConnectorHandoffResult> {
   const vault = createLeadClient() as unknown as ConnectorRpcClient;
-  const { data, error } = await vault.rpc('complete_connector_handoff', {
+  const { data, error } = await vault.rpc('complete_connector_handoff_v2', {
     p_match_id: params.matchId,
     p_recipient_facility_ids: params.recipientFacilityIds,
+    p_name: params.identity.name ?? null,
     p_email: params.identity.email ?? null,
     p_phone: params.identity.phone ?? null,
     p_consent_email: params.consents.email,
@@ -75,6 +78,7 @@ export async function createSeekerWithInterest(params: {
 
   const fields = {
     match_id: params.matchId,
+    name: params.identity.name ?? null,
     email: params.identity.email ?? null,
     coverage_status: params.coverageStatus ?? null,
     phone: params.identity.phone ?? null,
@@ -257,6 +261,7 @@ export async function setSeekerAuthUser(seekerId: string, authUserId: string): P
 
 export type SeekerRow = {
   id: string;
+  name: string | null;
   email: string | null;
   phone: string | null;
   coverage_status: string | null;
@@ -268,7 +273,7 @@ export type SeekerRow = {
 };
 
 const SEEKER_COLS =
-  'id, email, phone, coverage_status, consent_share, consent_email, match_id, status, created_at';
+  'id, name, email, phone, coverage_status, consent_share, consent_email, match_id, status, created_at';
 
 async function facilitiesForSeeker(
   vault: ReturnType<typeof createLeadClient>,
@@ -301,7 +306,7 @@ async function facilitiesForSeeker(
     .filter((f): f is { id: string; name: string; city: string | null; state: string | null; levels: string[] } => f !== null);
 }
 
-/** Admin: list all seeker records (PHI). */
+/** Admin: list restricted connector contact records. */
 export async function listSeekers(): Promise<SeekerRow[]> {
   const vault = createLeadClient();
   const { data } = await vault.from('vault_seekers').select(SEEKER_COLS).order('created_at', { ascending: false });
@@ -345,44 +350,50 @@ export async function getSearchesByAuthUser(
 }
 
 /**
- * Seeker self-edit: update only the single contact method they already consented
- * to use. Switching channels requires a new handoff/consent decision; this path
- * cannot quietly turn a phone-only permission into an email permission (or vice
- * versa).
+ * Seeker self-edit: update the same consented connector identity. Program-sharing
+ * consent covers the retained name, email, and phone; email-copy-only consent keeps
+ * only name and email. This path cannot broaden either permission.
  */
 export async function updateMyInfo(
   authUserId: string,
   seekerId: string,
-  patch: { channel: 'email' | 'phone'; value: string }
+  patch: { name: string; email: string; phone?: string }
 ): Promise<void> {
   const vault = createLeadClient();
   const { data: current, error: currentError } = await vault
     .from('vault_seekers')
-    .select('id, email, phone, consent_share, consent_email, match_id')
+    .select('id, consent_share, consent_email, match_id, status')
     .eq('id', seekerId)
     .eq('auth_user_id', authUserId)
     .maybeSingle();
   if (currentError || !current) throw new Error('Connector contact not found.');
-
-  const existingChannel = current.email ? 'email' : current.phone ? 'phone' : null;
-  if (!existingChannel || patch.channel !== existingChannel) {
-    throw new Error('Start a new connection to share a different contact method.');
+  if (current.status === 'unsubscribed' || (!current.consent_share && !current.consent_email)) {
+    throw new Error('Start a new connection before saving contact details.');
   }
 
-  const value = patch.value.trim();
-  if (patch.channel === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+  const name = patch.name.trim().replace(/\s+/g, ' ');
+  const email = patch.email.trim().toLowerCase();
+  const phone = patch.phone?.trim() ?? '';
+  if (!name || name.length > 120 || /[\u0000-\u001f\u007f]/.test(name)) {
+    throw new Error('Enter a valid name.');
+  }
+  if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error('Enter a valid email address.');
   }
-  const digits = value.replace(/\D/g, '');
-  if (patch.channel === 'phone' && (digits.length < 7 || digits.length > 15)) {
+  const digits = phone.replace(/\D/g, '');
+  if (current.consent_share && (phone.length > 50 || digits.length < 7 || digits.length > 15)) {
     throw new Error('Enter a valid phone number.');
+  }
+  if (!current.consent_share && phone) {
+    throw new Error('Phone sharing requires a new connection choice.');
   }
 
   const { data: updated, error } = await vault
     .from('vault_seekers')
     .update({
-      email: patch.channel === 'email' ? value.toLowerCase() : null,
-      phone: patch.channel === 'phone' ? value : null,
+      name,
+      email,
+      phone: current.consent_share ? phone : null,
       consent_at: new Date().toISOString(),
     })
     .eq('id', seekerId)

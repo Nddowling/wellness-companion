@@ -82,7 +82,15 @@ test('MATCH-3 · /api/intake · AI intake permanently retired · 410', async ({ 
 
 test('MATCH-5 · /api/handoff · no browser-bound match capability · 403', async ({ request }) => {
   const res = await request.post('/api/handoff', {
-    data: { match_id: crypto.randomUUID(), contact: { phone: '555-0100' }, consents: { share: true, email: false } },
+    data: {
+      match_id: crypto.randomUUID(),
+      contact: {
+        name: 'Jordan Smith',
+        email: 'jordan.smith@example.invalid',
+        phone: '+1 555 010 4401',
+      },
+      consents: { share: true, email: false },
+    },
   });
   expect(res.status(), 'handoff must be bound to the browser that created the match').toBe(403);
 });

@@ -67,9 +67,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     tabs.push({ href: '/rep', label: 'Profile', icon: 'referrer' });
   } else if (profile === 'admin') {
     links.push({ href: '/admin', label: 'Admin' });
-    links.push({ href: '/match', label: 'AI chat (test)' }); // admin-only test of the seeker AI
+    links.push({ href: '/match', label: 'Matcher (test)' }); // admin-only test of the directory matcher
     tabs.push({ href: '/admin', label: 'Admin', icon: 'admin' });
-    tabs.push({ href: '/match', label: 'AI test', icon: 'chat' });
+    tabs.push({ href: '/match', label: 'Matcher test', icon: 'chat' });
   } else {
     links.push({ href: '/get-started', label: 'Get started' });
     tabs.push({ href: '/get-started', label: 'Get started', icon: 'home' });
