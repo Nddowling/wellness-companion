@@ -34,6 +34,17 @@ and a changelog so any future session (and Nick) can see the state of play.
 - Billing flipped to free-for-everyone (reversible flag). PII vault hard-locked.
 
 ## Changelog
+- **2026-08-12 (pricing copy)** — Softened leftover paid-plan references on `/pricing` so the
+  page reads consistently during the free launch (header, "no per-referral fees" block, and
+  footer CTA now branch on `BILLING_ENABLED`). Confirmed `sitemap.ts` is already well-built
+  (paginates all published facilities + programmatic landing pages; single file correct < 50k).
+- **2026-08-12 (deploy)** — Shipped the launch commit `ea69fba` to production via git push
+  (Vercel auto-deploy, build OK, 49s). Verified live: `/pricing` shows the founding-member
+  "everything free" banner; checkout closed; PII vault hard-locked. The 25-file WIP was
+  deliberately NOT deployed — it depends on 2 prod migrations not yet applied
+  (`provider_reliability_transactions`, ranking RPC `match_directory_options`); no CLI/DB
+  access to apply them. WIP preserved uncommitted, held until migrations land.
+  Minor follow-up: `/pricing` static copy still mentions "paid plans/upgrade" — soften later.
 - **2026-08-12** — Charter created. Made billing free-for-everyone behind
   `NEXT_PUBLIC_BILLING_ENABLED` (default off): `effectivePlan` returns top tier,
   upgrade CTAs hidden, `/api/checkout` closed, `/pricing` shows founding-member banner.

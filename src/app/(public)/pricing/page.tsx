@@ -63,9 +63,17 @@ export default async function PricingPage({
           Simple, flat pricing
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-slate-500">
-          Programs can claim a complete public profile free. Paid plans add the in-app analytics and lead-status
-          workflow described below.
-          People seeking care <strong>never</strong> pay.
+          {BILLING_ENABLED ? (
+            <>
+              Programs can claim a complete public profile free. Paid plans add the in-app analytics and lead-status
+              workflow described below. People seeking care <strong>never</strong> pay.
+            </>
+          ) : (
+            <>
+              Every program can claim a complete public profile — plus all analytics and workflow tools —{' '}
+              <strong>free</strong> during our founding-member launch. People seeking care <strong>never</strong> pay.
+            </>
+          )}
         </p>
         {/* Seeker escape — this is provider pricing; never let someone seeking care think they'd pay. */}
         <p className="mx-auto mt-4 max-w-xl rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-800">
@@ -110,11 +118,13 @@ export default async function PricingPage({
 
       <section className="mx-auto max-w-3xl px-6 py-8">
         <div className="rounded-xl border border-slate-200 bg-mist/60 p-5 text-sm text-slate-600">
-          <h3 className="font-semibold text-slate-800">Flat fees — always</h3>
+          <h3 className="font-semibold text-slate-800">
+            {BILLING_ENABLED ? 'Flat fees — always' : 'No per-referral fees — ever'}
+          </h3>
           <p className="mt-1">
-            We never charge per referral, per lead, or per admission. Subscriptions are flat facility fees for the
-            implemented in-app analytics and workflow shown on this page; payment does not affect matching or access
-            to seeker-consented contact details.
+            {BILLING_ENABLED
+              ? 'We never charge per referral, per lead, or per admission. Subscriptions are flat facility fees for the implemented in-app analytics and workflow shown on this page; payment does not affect matching or access to seeker-consented contact details.'
+              : 'We never charge per referral, per lead, or per admission — and everything is free during our founding-member launch. Listing and matching are never pay-to-play.'}
           </p>
         </div>
       </section>
@@ -122,7 +132,9 @@ export default async function PricingPage({
       <section className="mx-auto max-w-3xl px-6 pb-20 text-center">
         <h2 className="text-xl font-semibold text-slate-800">Not sure where to start?</h2>
         <p className="mt-2 text-sm text-slate-500">
-          List your program for free today — you can upgrade to a paid plan anytime.
+          {BILLING_ENABLED
+            ? 'List your program for free today — you can upgrade to a paid plan anytime.'
+            : 'List your program free today and lock in founding-member status while we grow the network.'}
         </p>
         <Link
           href="/claim"
