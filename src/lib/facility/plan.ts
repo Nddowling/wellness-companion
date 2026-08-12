@@ -5,6 +5,8 @@
 // enforces. They never affect matching, inclusion, or access to contact details a
 // seeker explicitly chose to share with a program.
 
+import { BILLING_ENABLED } from '@/lib/billing/flags';
+
 export type Plan = 'free' | 'starter' | 'growth' | 'anchor';
 
 export const PLAN_RANK: Record<Plan, number> = { free: 0, starter: 1, growth: 2, anchor: 3 };
@@ -33,6 +35,9 @@ export function effectivePlan(
   value: string | null | undefined,
   status: string | null | undefined,
 ): Plan {
+  // Launch / list-building mode: with billing disabled, every facility gets the full
+  // toolset for free. Flip NEXT_PUBLIC_BILLING_ENABLED="true" to restore paid tiers.
+  if (!BILLING_ENABLED) return 'anchor';
   const plan = normalizePlan(value);
   if (plan === 'free') return 'free';
   const normalizedStatus = status?.trim().toLowerCase();

@@ -16,8 +16,17 @@ import type { Database } from '@/types/database';
  * Connection requires the isolated Vault project explicitly. It never falls back
  * to Core: a partial production configuration must fail closed.
  */
+/**
+ * OWNER DIRECTIVE (Nick, 2026-08-12): ClearBed must NOT store any seeker PII/PHI
+ * under any circumstances until the owner explicitly lifts this lock in person.
+ * This hard lock overrides the env gate below, so PHI storage cannot be turned on
+ * by a config/env change alone — re-enabling requires a deliberate code change too.
+ */
+const PII_VAULT_HARD_LOCK = true;
+
 /** Non-throwing check — for UIs that degrade gracefully when PHI is gated off. */
 export function isVaultEnabled(): boolean {
+  if (PII_VAULT_HARD_LOCK) return false;
   return Boolean(
     process.env.HANDOFF_BAA_SIGNED === 'true' &&
       process.env.VAULT_SUPABASE_URL &&

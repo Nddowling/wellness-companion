@@ -14,6 +14,7 @@ import {
   type BillingPlan,
 } from '@/lib/billing/guards';
 import { getStripe, priceIdFor } from '@/lib/billing/stripe-server';
+import { BILLING_ENABLED } from '@/lib/billing/flags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import type { Database } from '@/types/database';
@@ -121,6 +122,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  // Launch mode: billing is off, so no checkout session can be created. Every
+  // facility feature is free. Stripe stays wired; this just closes the register.
+  if (!BILLING_ENABLED) {
+    return json(
+      {
+        error: 'Billing is off during launch — every facility feature is free right now.',
+        action: 'contact',
+        url: SUPPORT_URL,
+      },
+      503,
+    );
+  }
   let input: { plan?: unknown; cycle?: unknown; facilityId?: unknown };
   try {
     input = (await request.json()) as typeof input;

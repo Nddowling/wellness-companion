@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { BILLING_ENABLED } from '@/lib/billing/flags';
+
 // Reusable Free→paid upgrade CTA. Three shapes:
 //   banner — full-width nudge at the top of a Free user's page
 //   card   — replaces a locked feature section (📷 Photos, website, etc.)
@@ -21,6 +23,8 @@ export function UpgradePrompt({
   facilityId?: string;
   variant?: Variant;
 }) {
+  // Paywall is off during launch — never show an upgrade CTA.
+  if (!BILLING_ENABLED) return null;
   const billingHref = href ?? (facilityId ? `/pricing?facility=${encodeURIComponent(facilityId)}` : '/pricing');
   if (variant === 'inline') {
     return (

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { PricingTable, type BillingFacilityOption } from '@/components/PricingTable';
 import SiteFooter from '@/components/SiteFooter';
 import { hasManagedBilling, isBillingCycle, isBillingPlan, isUuid } from '@/lib/billing/guards';
+import { BILLING_ENABLED } from '@/lib/billing/flags';
 import { createClient } from '@/lib/supabase/server';
 
 export const metadata: Metadata = {
@@ -77,14 +78,34 @@ export default async function PricingPage({
       </section>
 
       <section className="mx-auto max-w-5xl px-6 py-8">
-        <PricingTable
-          facilities={facilities}
-          initialCycle={initialCycle}
-          initialFacilityId={initialFacilityId}
-          initialPlan={initialPlan}
-          isSignedIn={!!user}
-          membershipCount={membershipCount}
-        />
+        {BILLING_ENABLED ? (
+          <PricingTable
+            facilities={facilities}
+            initialCycle={initialCycle}
+            initialFacilityId={initialFacilityId}
+            initialPlan={initialPlan}
+            isSignedIn={!!user}
+            membershipCount={membershipCount}
+          />
+        ) : (
+          <div className="rounded-2xl border border-teal-200 bg-teal-50 p-8 text-center">
+            <span className="eyebrow text-teal-700">Founding-member launch</span>
+            <h2 className="mt-2 text-2xl font-semibold text-slate-800">
+              Everything is free right now
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-slate-600">
+              While we grow the network, every program gets a complete profile{' '}
+              <strong>and</strong> all analytics and workflow tools at no cost — no card, no
+              per-referral fees, ever. Claim your listing now and lock in founding-member status.
+            </p>
+            <Link
+              href="/claim"
+              className="mt-5 inline-block rounded-md bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              Claim your free listing →
+            </Link>
+          </div>
+        )}
       </section>
 
       <section className="mx-auto max-w-3xl px-6 py-8">
