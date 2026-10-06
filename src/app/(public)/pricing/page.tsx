@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 
 import { PricingTable, type BillingFacilityOption } from '@/components/PricingTable';
 import SiteFooter from '@/components/SiteFooter';
@@ -19,6 +20,8 @@ export default async function PricingPage({
 }: {
   searchParams: Promise<{ plan?: string; cycle?: string; facility?: string }>;
 }) {
+  if (!BILLING_ENABLED) redirect('/for-providers');
+
   const query = await searchParams;
   const supabase = await createClient();
   const {

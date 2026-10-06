@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { signOut } from '@/app/(app)/actions';
+import { BILLING_ENABLED } from '@/lib/billing/flags';
 
 type NavLink = { href: string; label: string };
 type Profile = 'admin' | 'facility' | 'partner' | 'rep' | 'seeker' | 'none';
@@ -42,7 +43,7 @@ function buildLinks(profile: Profile, dashboardHref: string | null): NavLink[] {
   }
   if (profile !== 'seeker') {
     links.push({ href: '/for-providers', label: 'For providers' });
-    links.push({ href: '/pricing', label: 'Pricing' });
+    if (BILLING_ENABLED) links.push({ href: '/pricing', label: 'Pricing' });
   }
   if (dashboardHref) links.push({ href: dashboardHref, label: 'My dashboard' });
   return links;

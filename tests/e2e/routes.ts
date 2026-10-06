@@ -8,7 +8,6 @@
 export const PUBLIC_ROUTES: { id: string; path: string }[] = [
   { id: 'AC-P1', path: '/' },
   { id: 'AC-P2', path: '/about' },
-  { id: 'AC-P3', path: '/pricing' },
   { id: 'AC-P4', path: '/how-we-make-money' },
   { id: 'AC-P5', path: '/for-providers' },
   { id: 'AC-P6', path: '/for-partners' },

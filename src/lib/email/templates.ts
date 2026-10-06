@@ -268,9 +268,9 @@ export function providerClaimApprovedEmail(params: {
      ${steps([
        'Click the button above and choose your password.',
        'Complete your profile and keep your bed availability current.',
-       'Your full public profile is free; paid plans add in-app analytics and lead-status workflow.',
+       'Your full public profile and currently available tools are free during this launch.',
      ])}
-     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:12px 0 0">Recent bed reports can improve ordering within the same region. Flat monthly pricing — never per-lead or per-admission.</p>`,
+     <p style="font-size:13px;color:${BRAND.slate};line-height:1.6;margin:12px 0 0">Recent bed reports can improve ordering within the same region. We do not charge per lead, referral, or admission.</p>`,
     footer
   );
 

@@ -27,7 +27,6 @@ test('SEO-SITEMAP-1 · sitemap is complete-or-error and uses defensible modifica
     '/for-reps',
     '/insurance',
     '/library',
-    '/pricing',
     '/privacy',
     '/terms',
   ]) {
@@ -35,6 +34,8 @@ test('SEO-SITEMAP-1 · sitemap is complete-or-error and uses defensible modifica
       `["${route}",`,
     );
   }
+  expect(sitemap).toContain('["/pricing", "monthly", 0.6]');
+  expect(sitemap).toContain('STATIC_ROUTES.filter(([path]) => BILLING_ENABLED || path !== "/pricing")');
   expect(sitemap).toContain('...PAYERS.map((payer)');
 });
 

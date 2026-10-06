@@ -20,11 +20,27 @@ test('SK-01 · homepage renders the core promise', async ({ page }) => {
 });
 
 test('SK-02 · directory hub pages load without error', async ({ page }) => {
-  for (const path of ['/programs', '/insurance', '/guides', '/library', '/pricing', '/how-we-make-money']) {
+  for (const path of ['/programs', '/insurance', '/guides', '/library', '/for-providers', '/how-we-make-money']) {
     const res = await page.goto(path, { waitUntil: 'domcontentloaded' });
     expect(res?.status(), `${path}`).toBeLessThan(400);
     await expect(page.locator('body')).not.toContainText(/application error|something went wrong/i);
   }
+});
+
+test('SK-02A · pricing redirects to the free provider offer while billing is off', async ({ request }) => {
+  test.skip(process.env.NEXT_PUBLIC_BILLING_ENABLED?.trim().toLowerCase() === 'true', 'Paid pricing is enabled.');
+
+  const redirect = await request.get('/pricing?plan=growth', { maxRedirects: 0 });
+  expect(redirect.status()).toBe(307);
+  expect(new URL(redirect.headers()['location'], 'http://localhost').pathname).toBe('/for-providers');
+
+  const offer = await request.get('/for-providers');
+  expect(offer.status()).toBe(200);
+  const html = await offer.text();
+  expect(html).toContain('Your listing and provider tools are free');
+  expect(html).toContain('Claim your free listing');
+  expect(html).not.toContain('$499');
+  expect(html).not.toContain('href="/pricing"');
 });
 
 test('SK-03 · a program profile renders a heading and a way to act', async ({ page }) => {

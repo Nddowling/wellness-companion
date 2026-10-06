@@ -7,6 +7,7 @@ import { stateSlug, slugify } from "@/lib/geo";
 import { GUIDES } from "@/lib/guides";
 import { PAYERS } from "@/lib/payers";
 import { profileIndexable, landingIndexable } from "@/lib/indexable";
+import { BILLING_ENABLED } from "@/lib/billing/flags";
 
 // Regenerate hourly so newly published programs + SEO landing pages appear without a redeploy.
 export const revalidate = 3600;
@@ -63,7 +64,7 @@ type SitemapFacility = {
 // Build the full ordered URL list once (deduped per request via React cache).
 const buildAll = cache(async (): Promise<MetadataRoute.Sitemap> => {
   const staticRoutes: MetadataRoute.Sitemap = [
-    ...STATIC_ROUTES.map(([path, changeFrequency, priority]) => ({
+    ...STATIC_ROUTES.filter(([path]) => BILLING_ENABLED || path !== "/pricing").map(([path, changeFrequency, priority]) => ({
       url: `${SITE_URL}${path}`,
       changeFrequency,
       priority,

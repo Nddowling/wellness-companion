@@ -10,7 +10,7 @@ const MOBILE_PUBLIC_ROUTES = [
   '/library',
   '/data',
   '/contact',
-  '/pricing',
+  '/for-providers',
   '/claim',
   '/match',
   '/login',

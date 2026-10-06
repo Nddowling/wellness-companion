@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { SITE_NAME } from '@/lib/seo';
 import { LEVELS_OF_CARE, LEVEL_LABELS } from '@/lib/constants';
+import { BILLING_ENABLED } from '@/lib/billing/flags';
 
 // Site-wide footer. Crawlable internal links to the directory hubs (which in turn
 // link every state/city/level/insurance landing page), plus the crisis + "not a
@@ -51,7 +52,7 @@ export default function SiteFooter() {
             <h3 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">For treatment providers</h3>
             <ul className="mt-3 space-y-2 text-sm text-slate-600">
               <li><Link href="/for-providers" className="hover:text-teal-700 hover:underline">List your facility</Link></li>
-              <li><Link href="/pricing" className="hover:text-teal-700 hover:underline">Provider pricing</Link></li>
+              {BILLING_ENABLED && <li><Link href="/pricing" className="hover:text-teal-700 hover:underline">Provider pricing</Link></li>}
             </ul>
           </nav>
 

@@ -5,9 +5,9 @@ import JsonLd from '@/components/JsonLd';
 import SiteFooter from '@/components/SiteFooter';
 import { SITE_NAME, SITE_URL, absoluteUrl, breadcrumbJsonLd } from '@/lib/seo';
 
-const TITLE = `How ${SITE_NAME} Makes Money — and Why Nobody Can Buy Their Way Up`;
+const TITLE = `How ${SITE_NAME} Is Funded — and Why Nobody Can Buy Their Way Up`;
 const DESCRIPTION =
-  'Radical transparency: directory inclusion does not require payment, an approved ownership claim unlocks the full profile, and paid tools never influence matching.';
+  'Directory inclusion and current provider tools do not require payment. Self-service provider billing is paused while we evaluate a sustainable model; payment cannot influence matching.';
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -43,12 +43,12 @@ export default function HowWeMakeMoneyPage() {
         </nav>
 
         <h1 className="mt-2 font-serif text-3xl leading-tight text-ink sm:text-4xl">
-          How {SITE_NAME} makes money
+          How {SITE_NAME} is funded
           <span className="block text-xl text-brand sm:text-2xl">— and why nobody can buy their way up</span>
         </h1>
         <p className="mt-4 text-base leading-relaxed text-slate-700">
-          Paid placement can be difficult to distinguish on treatment websites. {SITE_NAME} publishes how payment
-          works here so people and programs can evaluate the model directly; programs cannot purchase directory rank.
+          Paid placement can be difficult to distinguish on treatment websites. We explain our current funding
+          status and the limits we place on any future model: programs cannot purchase directory rank.
         </p>
 
         <section className="mt-8">
@@ -72,11 +72,12 @@ export default function HowWeMakeMoneyPage() {
         </section>
 
         <section className="mt-8">
-          <h2 className="font-serif text-xl text-ink">So how do we actually make money?</h2>
+          <h2 className="font-serif text-xl text-ink">What is the current model?</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
             A facility can claim and fully represent itself for free — including photos, programs, staff credentials,
-            reported payment details, and availability. Paid flat monthly subscriptions add the in-app analytics and
-            lead-status workflow described on our pricing page. The fee is never tied to views, referrals, or admissions.
+            reported payment details, and availability. The currently available analytics and workflow tools are also
+            accessible without self-service payment. We have paused provider subscriptions while we evaluate how to
+            fund the service sustainably. We do not sell patient leads or charge per referral or admission.
           </p>
         </section>
 
@@ -91,25 +92,18 @@ export default function HowWeMakeMoneyPage() {
             </li>
           </ul>
           <p className="mt-3 text-sm leading-relaxed text-slate-600">
-            Paying unlocks operational tools. It never changes the public-profile entitlement or match order.
+            Payment cannot change the public-profile entitlement or match order.
           </p>
         </section>
 
         <section className="mt-8">
-          <h2 className="font-serif text-xl text-ink">Why a flat fee — and why that matters</h2>
+          <h2 className="font-serif text-xl text-ink">Guardrails for any future revenue model</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
             The Eliminating Kickbacks in Recovery Act (EKRA) restricts certain remuneration connected to referrals
             involving recovery homes, clinical treatment facilities, and laboratories, subject to statutory scope and
-            exceptions. Our flat-fee model is designed with those concerns in mind; this product decision is not a
-            legal conclusion about any other business. Nothing a facility pays us is tied to referrals, admissions,
-            or revenue. In plain terms, from our facility agreement:
-          </p>
-          <blockquote className="mt-3 border-l-2 border-teal-600 pl-4 text-sm italic leading-relaxed text-slate-600">
-            &ldquo;Fees are flat-rate compensation for profile services and are not contingent on, or calculated by
-            reference to, referrals, admissions, or revenue.&rdquo;
-          </blockquote>
-          <p className="mt-3 text-sm leading-relaxed text-slate-700">
-            That separation is designed to keep facility payment out of need-based matching.
+            exceptions. We will not turn treatment seekers into paid leads or allow payment to alter need-based
+            matching. Any future paid offering would need its own clearly disclosed terms and legal review; a flat
+            price by itself is not a legal safe harbor.
           </p>
         </section>
 
@@ -117,25 +111,24 @@ export default function HowWeMakeMoneyPage() {
         <section className="mt-10 rounded-xl border border-teal-200 bg-teal-50/60 p-5">
           <h2 className="font-serif text-xl text-ink">For treatment providers</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
-            If you run or do outreach for a program, here&apos;s the case in one place — forward it to whoever signs off
-            on the budget.
+            If you run or do outreach for a program, here&apos;s what is available today.
           </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div className="rounded-lg border border-teal-200 bg-white p-4">
-              <h3 className="text-sm font-semibold text-slate-800">What paid plans add</h3>
+              <h3 className="text-sm font-semibold text-slate-800">What your free claim includes</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
                 You can&apos;t buy a better match ranking — and neither can your competitor. A free approved ownership
                 claim already includes the complete profile: photos, programs, credentials, reported payment detail,
-                and availability. Subscriptions add the in-app analytics and lead-status workflow described on our
-                pricing page. Payment does not change directory inclusion or need-based matching.
+                and availability. Currently available analytics and lead-status tools are accessible without a
+                subscription. Payment does not change directory inclusion or need-based matching.
               </p>
             </div>
             <div className="rounded-lg border border-teal-200 bg-white p-4">
               <h3 className="text-sm font-semibold text-slate-800">Compliance-conscious structure</h3>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                Fees are flat and decoupled from referrals, admissions, and revenue. That structure is designed around
-                anti-kickback and ethical-directory concerns, but it is not legal advice or a substitute for your own
-                counsel&apos;s review of your organization&apos;s arrangements.
+                We do not charge per lead, referral, or admission. Any future commercial offering will be assessed
+                against anti-kickback and ethical-directory concerns. This is not legal advice or a substitute for
+                counsel&apos;s review of a specific arrangement.
               </p>
             </div>
           </div>
@@ -150,7 +143,7 @@ export default function HowWeMakeMoneyPage() {
               href="/for-providers"
               className="rounded-md border border-teal-700 px-4 py-2 font-medium text-teal-700 transition hover:bg-teal-700 hover:text-white"
             >
-              See provider plans
+              See provider information
             </Link>
           </div>
         </section>

@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'July 15, 2026';
+const LAST_UPDATED = 'October 6, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -125,13 +125,10 @@ export default function TermsPage() {
           for handling any Seeker information you receive in compliance with applicable law.
         </p>
         <p>
-          Paid plans add only the in-app analytics and lead-status workflow described on our pricing page. The
-          complete claimed public profile and consented contact access remain free. <strong>Fees are flat subscription
-          fees</strong> and are never based on the volume or value of referrals, patients, or admissions. This model
-          is designed around ethical-directory and anti-kickback constraints, but Providers remain responsible for
-          obtaining qualified legal advice about their own arrangements.
-          Matching and routing of Seekers is need-based and is never influenced by a Provider&rsquo;s plan or
-          payment.
+          Self-service paid plans are currently paused. The complete claimed public profile and consented contact
+          access remain free; currently available analytics and lead-status tools are also free during launch. Any
+          future paid service would require separately disclosed terms. Matching and routing of Seekers is need-based
+          and is never influenced by a Provider&rsquo;s plan or payment.
         </p>
       </Section>
 

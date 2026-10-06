@@ -953,8 +953,8 @@ export async function FacilityProfileView({ f, canonicalPath }: { f: FacilityFul
           </Link>
         </DisclosurePanel>
         <DisclosurePanel label="How ClearBed makes money" icon={<span aria-hidden>⚖️</span>}>
-          Some programs pay a flat subscription for in-app analytics and lead-status workflow. Directory inclusion
-          and need-based match order do not require payment, and fees are never per admission or per call.{' '}
+          Provider self-service billing is paused. Directory inclusion and need-based match order do not require
+          payment, and we do not charge per lead, referral, admission, or call.{' '}
           <Link href="/how-we-make-money" className="font-medium text-teal-700 underline">
             The details →
           </Link>

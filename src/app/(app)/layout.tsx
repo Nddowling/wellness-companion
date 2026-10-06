@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getRoles, homePathFor, profileType } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { effectivePlan } from '@/lib/facility/plan';
+import { BILLING_ENABLED } from '@/lib/billing/flags';
 import { Logo } from '@/components/Logo';
 import { AccountMenu } from '@/components/AccountMenu';
 import { MobileTabBar, type Tab } from '@/components/MobileTabBar';
@@ -49,9 +50,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     tabs.push({ href: '/programs', label: 'Programs', icon: 'facility' });
   } else if (profile === 'facility') {
     links.push({ href: '/facility', label: 'My facility' });
-    links.push({ href: '/pricing', label: 'Upgrade' });
     tabs.push({ href: '/facility', label: 'Facility', icon: 'facility' });
-    tabs.push({ href: '/pricing', label: 'Upgrade', icon: 'home' });
+    if (BILLING_ENABLED) {
+      links.push({ href: '/pricing', label: 'Upgrade' });
+      tabs.push({ href: '/pricing', label: 'Upgrade', icon: 'home' });
+    }
   } else if (profile === 'partner') {
     links.push({ href: '/partners', label: 'Dashboard' });
     links.push({ href: '/partners/search', label: 'Search' });
@@ -93,7 +96,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            {facilityOnFree && (
+            {BILLING_ENABLED && facilityOnFree && (
               <Link
                 href="/pricing"
                 className="rounded-full bg-terracotta px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-terracotta-dark"

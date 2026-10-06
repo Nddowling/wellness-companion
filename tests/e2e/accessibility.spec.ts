@@ -5,7 +5,7 @@ import path from 'node:path';
 const root = process.cwd();
 const source = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
-const PUBLIC_PAGES = ['/', '/programs', '/match', '/privacy', '/pricing'];
+const PUBLIC_PAGES = ['/', '/programs', '/match', '/privacy', '/for-providers'];
 
 for (const path of PUBLIC_PAGES) {
   test(`A11Y · ${path} · semantic landmark, named controls, and image alternatives`, async ({ page }) => {

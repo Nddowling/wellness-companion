@@ -2,18 +2,21 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import Reveal from '@/components/Reveal';
+import { BILLING_ENABLED } from '@/lib/billing/flags';
 import { absoluteUrl } from '@/lib/seo';
 import SiteFooter from '@/components/SiteFooter';
 
 export const metadata: Metadata = {
   title: 'For Providers — List Your Addiction-Treatment Program',
-  description:
-    'Clear Bed Recovery connects treatment programs and referrers through need-based discovery, dated availability updates, and flat monthly tools — never per-lead pricing.',
+  description: BILLING_ENABLED
+    ? 'Clear Bed Recovery connects treatment programs and referrers through need-based discovery, dated availability updates, and flat monthly tools — never per-lead pricing.'
+    : 'Claim your treatment program listing for free. Keep your profile and dated availability current and use provider tools at no cost during launch.',
   alternates: { canonical: '/for-providers' },
   openGraph: {
     title: 'For Providers — List Your Program on Clear Bed Recovery',
-    description:
-      'Make documented services, payment information, and dated availability easier to find. Flat monthly pricing, never per-lead.',
+    description: BILLING_ENABLED
+      ? 'Make documented services, payment information, and dated availability easier to find. Flat monthly pricing, never per-lead.'
+      : 'Claim your treatment program listing for free and keep its profile and dated availability current.',
     url: absoluteUrl('/for-providers'),
   },
 };
@@ -121,7 +124,11 @@ export default function ForProvidersPage() {
               </Link>
             </div>
             <p className="mt-5 text-xs text-white/70">
-              Flat monthly pricing — <strong>never per-lead or per-admission</strong>.
+              {BILLING_ENABLED ? (
+                <>Flat monthly pricing — <strong>never per-lead or per-admission</strong>.</>
+              ) : (
+                <>Claim and manage your program for free during launch. No card required.</>
+              )}
             </p>
           </div>
         </div>
@@ -143,7 +150,8 @@ export default function ForProvidersPage() {
         </div>
       </section>
 
-      {/* ── PRICING ──────────────────────────────────────────── */}
+      {/* ── PROVIDER OFFER ───────────────────────────────────── */}
+      {BILLING_ENABLED ? (
       <section className="bg-[#eef5f2] py-16">
         <div className="mx-auto max-w-5xl px-6">
           <Reveal className="text-center">
@@ -205,6 +213,31 @@ export default function ForProvidersPage() {
           </p>
         </div>
       </section>
+      ) : (
+        <section className="bg-[#eef5f2] py-16">
+          <div className="mx-auto max-w-5xl px-6">
+            <Reveal className="mx-auto max-w-3xl rounded-2xl border border-teal-200 bg-white p-8 text-center shadow-sm sm:p-10">
+              <span className="eyebrow text-teal-700">Provider launch</span>
+              <h2 className="mt-2 text-3xl font-semibold text-slate-800">Your listing and provider tools are free</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-slate-600">
+                An approved ownership claim lets you complete your public profile, report availability, and use the
+                available analytics and lead-status tools at no cost during launch. No card is required to claim or
+                manage your program.
+              </p>
+              <Link
+                href="/claim"
+                className="mt-6 inline-block rounded-md bg-teal-700 px-5 py-3 text-sm font-semibold text-white hover:bg-teal-800"
+              >
+                Claim your free listing →
+              </Link>
+              <p className="mt-4 text-xs text-slate-500">
+                We review ownership claims before granting dashboard access. Payment does not determine directory
+                inclusion or need-based matching.
+              </p>
+            </Reveal>
+          </div>
+        </section>
+      )}
 
       {/* ── CLOSING CTA ──────────────────────────────────────── */}
       <section className="relative isolate overflow-hidden py-20">
@@ -213,7 +246,9 @@ export default function ForProvidersPage() {
           <h2 className="text-3xl font-semibold">Make current program information easier to find</h2>
           <p className="mx-auto mt-3 max-w-xl text-white/90">
             Claim your facility in a few minutes. We verify your authority to manage the listing before granting a
-            login. Claiming and completing the public profile is free; paid plans add operational tools.
+            login. {BILLING_ENABLED
+              ? 'Claiming and completing the public profile is free; paid plans add operational tools.'
+              : 'Claiming and completing the public profile is free, and provider tools are available at no cost during launch.'}
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link

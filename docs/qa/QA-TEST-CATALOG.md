@@ -54,7 +54,6 @@ to route X.
 |---|---|---|---|
 | AC-P1 | `/` (home hero) | 200 | 200 |
 | AC-P2 | `/about` | 200 | 200 |
-| AC-P3 | `/pricing` | 200 | 200 |
 | AC-P4 | `/how-we-make-money` | 200 | 200 |
 | AC-P5 | `/for-providers` | 200 | 200 |
 | AC-P6 | `/for-partners` | 200 | 200 |
@@ -70,6 +69,9 @@ to route X.
 | AC-P16 | `/match` + `/match/nearby` | 200 | 200 (seeker AI is **anonymous-start BY DESIGN** — do not gate) |
 | AC-P17 | `/privacy`, `/terms` | 200 | 200 |
 | AC-P18 | `/login`, `/reset` | 200 | 200 |
+
+When provider billing is off, `/pricing` returns a 307 redirect to `/for-providers` for every visitor.
+`SK-02A` checks this separately; it is not a public content page in the access-control matrix.
 | AC-P19 | `/p/[slug]` (rep public profile) | 200 | 200 |
 | AC-P20 | `/share/[token]` | 200 (valid token) / 404 (bad) | same |
 

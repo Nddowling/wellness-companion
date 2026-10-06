@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'July 15, 2026';
+const LAST_UPDATED = 'October 6, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -184,7 +184,7 @@ export default function PrivacyPage() {
         <ul className="ml-5 list-disc space-y-1">
           <li><strong>Supabase</strong> — database, authentication, and storage;</li>
           <li><strong>Google Workspace or Resend</strong> — sending transactional email, depending on configuration;</li>
-          <li><strong>Stripe</strong> — processing Provider subscription payments (Seekers never pay);</li>
+          <li><strong>Stripe</strong> — processing Provider payments when billing is available (Seekers never pay);</li>
           <li><strong>Vercel</strong> — website hosting and delivery.</li>
         </ul>
         <p className="font-medium text-slate-700">For legal reasons and business transfers.</p>
