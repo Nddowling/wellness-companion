@@ -1,16 +1,21 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Chip, Dialog } from '@/components/ui';
 import { useProgramCombobox } from '@/components/search/useProgramCombobox';
-import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, isBedBased, type PayerType } from '@/lib/constants';
+import { LEVELS_OF_CARE, LEVEL_LABELS, PAYER_LABELS, PAYER_TYPES, isBedBased, type PayerType } from '@/lib/constants';
 import { US_STATES } from '@/lib/geo';
 import { payerTypeBrand } from '@/lib/payers';
 import { PayerMark } from '@/components/PayerLogo';
 import { trackFilterApplied, trackSearchSubmitted } from '@/lib/analytics';
+import { parseSearchLocation } from '@/lib/search/directory-language';
 
 const PROGRAMS_PAGE = 'programs_directory';
+const NEARBY_SEARCH_KEY = 'clearbed:location-search:v1';
+const PUBLIC_SPECIALTIES = new Set(['occurring', 'trauma', 'mat', 'substance']);
+const PUBLIC_POPULATIONS = new Set(['men', 'women', 'adolescent', 'young adult', 'veteran', 'senior', 'pregnant']);
 
 // URL-first faceted filter bar for the directory. Every change writes the
 // querystring (Back undoes one filter; a filtered URL is shareable). Group
@@ -30,6 +35,8 @@ export function FilterBar({ facets }: { facets: Facets }) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
+  const [nearbyInput, setNearbyInput] = useState('');
+  const [nearbyError, setNearbyError] = useState<'invalid' | 'storage' | ''>('');
 
   const cur = {
     level: sp.get('level') ?? '',
@@ -40,6 +47,29 @@ export function FilterBar({ facets }: { facets: Facets }) {
     pop: sp.get('pop') ?? '',
   };
   const bedReportEligible = !cur.level || isBedBased(cur.level);
+
+  const submitNearby = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const location = parseSearchLocation(nearbyInput);
+    if (!location) {
+      setNearbyError('invalid');
+      return;
+    }
+    const filters: { level?: string; pay?: string; spec?: string; pop?: string; open?: boolean } = {};
+    if ((LEVELS_OF_CARE as readonly string[]).includes(cur.level)) filters.level = cur.level;
+    if ((PAYER_TYPES as readonly string[]).includes(cur.pay)) filters.pay = cur.pay;
+    if (PUBLIC_SPECIALTIES.has(cur.spec)) filters.spec = cur.spec;
+    if (PUBLIC_POPULATIONS.has(cur.pop)) filters.pop = cur.pop;
+    if (cur.open === '1' && (!filters.level || filters.level === 'residential')) filters.open = true;
+    try {
+      sessionStorage.setItem(NEARBY_SEARCH_KEY, JSON.stringify({ location, filters }));
+      setNearbyError('');
+      trackSearchSubmitted({ sourcePage: PROGRAMS_PAGE, searchType: 'nearby_directory_search', hasQuery: true });
+      router.push('/programs/nearby');
+    } catch {
+      setNearbyError('storage');
+    }
+  };
 
   const push = (overrides: Record<string, string | null>) => {
     const next = new URLSearchParams(sp.toString());
@@ -131,6 +161,31 @@ export function FilterBar({ facets }: { facets: Facets }) {
             <span aria-hidden className="text-emerald-500">●</span> Fresh bed report (7 days)
           </Chip>
         )}
+        <div className="w-full min-w-0 basis-full sm:w-auto sm:min-w-[17rem] sm:basis-auto">
+          <form onSubmit={submitNearby}>
+            <label htmlFor="directory-nearby-location" className="mb-1 block text-xs font-semibold text-slate-700">Search nearby by city or ZIP</label>
+            <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3.5 py-1.5">
+              <input
+                id="directory-nearby-location"
+                value={nearbyInput}
+                onChange={(event) => { setNearbyInput(event.target.value); setNearbyError(''); }}
+                placeholder="Savannah, GA or 31401"
+                autoComplete="off"
+                aria-invalid={nearbyError === 'invalid'}
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+              />
+              <button type="submit" className="shrink-0 rounded-full bg-teal-700 px-3 py-1 text-xs font-semibold text-white hover:bg-teal-800">Find nearby</button>
+            </div>
+          </form>
+          {nearbyError && (
+            <p role="alert" className="mt-1 text-xs text-red-700">
+              {nearbyError === 'invalid'
+                ? 'Enter a five-digit ZIP or city, optionally with a state.'
+                : <>Your browser blocked private search storage. <Link href="/programs/nearby" className="font-semibold underline">Open nearby search</Link> and enter your location there.</>}
+            </p>
+          )}
+          {cur.region && <p className="mt-1 text-xs text-slate-500">Nearby results can cross state lines; the state browse filter will not apply.</p>}
+        </div>
         <ProgramSearchInline
           onPick={(id) => {
             trackSearchSubmitted({ sourcePage: PROGRAMS_PAGE, searchType: 'program_autocomplete', hasQuery: true });
@@ -327,8 +382,8 @@ function ProgramSearchInline({ onPick }: { onPick: (id: string) => void }) {
             if (visibleHits.length > 0) setResultsOpen(true);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Program name or city"
-          aria-label="Find a program by name or city"
+          placeholder="Specific program name"
+          aria-label="Find a specific program by name"
           role="combobox"
           aria-autocomplete="list"
           aria-expanded={expanded}
