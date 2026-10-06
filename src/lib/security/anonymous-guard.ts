@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 const GUARD_COOKIE = 'cb_guard';
 const GUARD_TTL_SECONDS = 24 * 60 * 60;
 
-type AnonymousEndpoint = 'intake' | 'match' | 'handoff' | 'track';
+type AnonymousEndpoint = 'intake' | 'match' | 'handoff' | 'track' | 'nearby';
 
 type BudgetRow = {
   allowed: boolean;

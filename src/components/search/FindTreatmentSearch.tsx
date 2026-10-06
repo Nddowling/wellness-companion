@@ -11,6 +11,7 @@ import { trackSearchStarted, trackSearchSubmitted, trackFilterApplied } from '@/
 import {
   insuranceDestination,
   parseDirectoryLanguage,
+  parseSearchLocation,
   withApproximateState,
 } from '@/lib/search/directory-language';
 
@@ -19,6 +20,7 @@ import {
 export { coarseDirectoryHref, insuranceDestination } from '@/lib/search/directory-language';
 
 const OVERLAY_PAGE = 'find_treatment_overlay';
+const NEARBY_SEARCH_KEY = 'clearbed:location-search:v1';
 
 // Recovery.com-inspired "command palette" search for treatment seekers. A single bar
 // opens a rich overlay with coarse directory filters and links into the guided search.
@@ -92,10 +94,29 @@ export function FindTreatmentSearch({
   const open = controlledOpen ?? internalOpen;
   const setOpen = (value: boolean) => (onOpenChange ? onOpenChange(value) : setInternalOpen(value));
   const [text, setText] = useState('');
+  const [locationText, setLocationText] = useState('');
   const [locating, setLocating] = useState(false);
   const [searchFeedback, setSearchFeedback] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const locationRef = useRef<HTMLInputElement>(null);
   const interpretation = useMemo(() => parseDirectoryLanguage(text), [text]);
+  const preciseLocation = useMemo(
+    () => {
+      if (locationText.trim()) return parseSearchLocation(locationText);
+      const embedded = parseSearchLocation(text, 'request');
+      if (embedded) return embedded;
+      const standaloneCity = text.trim();
+      if (
+        !interpretation.recognized &&
+        standaloneCity.split(/\s+/).length <= 3 &&
+        !/\b(?:find|show|need|want|looking|best|me|my|i|for|care|center|addiction|recovery)\b/i.test(standaloneCity)
+      ) {
+        return parseSearchLocation(standaloneCity);
+      }
+      return undefined;
+    },
+    [locationText, text, interpretation.recognized],
+  );
 
   const go = (href: string) => {
     setSearchFeedback('');
@@ -107,15 +128,50 @@ export function FindTreatmentSearch({
   // allow-listed facets survive; raw narrative text stays in component memory.
   const runInterpretedSearch = async (searchType: string) => {
     const q = text.trim();
-    trackSearchSubmitted({ sourcePage: OVERLAY_PAGE, searchType, hasQuery: Boolean(q) });
+    trackSearchSubmitted({ sourcePage: OVERLAY_PAGE, searchType, hasQuery: Boolean(q || locationText.trim()) });
 
-    if (!q) {
-      setSearchFeedback('Type a request first — for example, “residential in Georgia that accepts Medicaid.”');
-      inputRef.current?.focus();
+    if (locationText.trim() && !preciseLocation) {
+      setSearchFeedback('Enter a five-digit ZIP or city, optionally followed by a state (for example, Savannah, GA).');
+      locationRef.current?.focus();
       return;
     }
+    if (!q && !preciseLocation) {
+      setSearchFeedback('Enter a city or ZIP, or describe the type of care you need.');
+      locationRef.current?.focus();
+      return;
+    }
+
+    // Keep named-carrier requests on their source-grounded coverage guide; a
+    // generic commercial directory row does not establish carrier acceptance.
+    if (interpretation.destination === 'insurance-guide') {
+      go(interpretation.href);
+      return;
+    }
+
+    if (preciseLocation) {
+      // Only a structured location and allow-listed facets cross the route
+      // boundary. The full request and precise location never enter the URL.
+      const filters: {
+        level?: string; pay?: string; spec?: string; pop?: string; open?: boolean;
+      } = {};
+      for (const filter of interpretation.filters) {
+        if (filter.key === 'level') filters.level = filter.value;
+        if (filter.key === 'payment') filters.pay = filter.value;
+        if (filter.key === 'specialty') filters.spec = filter.value;
+        if (filter.key === 'population') filters.pop = filter.value;
+        if (filter.key === 'availability') filters.open = true;
+      }
+      try {
+        sessionStorage.setItem(NEARBY_SEARCH_KEY, JSON.stringify({ location: preciseLocation, filters }));
+        go('/programs/nearby');
+      } catch {
+        setSearchFeedback('This browser could not start a private nearby search. Enable session storage and try again.');
+      }
+      return;
+    }
+
     if (!interpretation.recognized) {
-      setSearchFeedback('I could not match that yet. Try adding a state, care level, payment type, specialty, or who care is for.');
+      setSearchFeedback('I could not match that yet. Try a city or ZIP, state, care level, payment type, specialty, or who care is for.');
       inputRef.current?.focus();
       return;
     }
@@ -193,7 +249,7 @@ export function FindTreatmentSearch({
         >
           <SearchIcon className="h-6 w-6 shrink-0 text-teal-700" />
           <span className="min-w-0 flex-1 truncate text-base text-slate-500 sm:text-lg">
-            Search treatment — state, level of care, or payment type
+            Search treatment — city, ZIP, or care need
           </span>
           <span className="ml-auto hidden shrink-0 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white sm:inline">
             Search
@@ -207,19 +263,41 @@ export function FindTreatmentSearch({
         title="Find treatment"
         placement="center"
         className="!max-w-2xl !rounded-3xl"
-        initialFocusRef={inputRef}
+        initialFocusRef={locationRef}
       >
-        {/* search field */}
-        <form onSubmit={submitSearch} className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
+        <form onSubmit={submitSearch} className="border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
+          <label htmlFor="search-location" className="block text-xs font-semibold uppercase tracking-wide text-slate-600">
+            City or ZIP code
+          </label>
+          <div className="mt-1 flex items-center gap-3">
+            <PinIcon className="h-5 w-5 shrink-0 text-slate-400" />
+            <input
+              id="search-location"
+              ref={locationRef}
+              value={locationText}
+              onChange={(e) => {
+                setLocationText(e.target.value);
+                setSearchFeedback('');
+              }}
+              placeholder="Savannah, GA or 31401"
+              autoComplete="off"
+              className="min-w-0 flex-1 bg-transparent text-base text-slate-800 placeholder:text-slate-400 focus:outline-none"
+            />
+          </div>
+          <label htmlFor="search-care" className="mt-3 block text-xs font-semibold uppercase tracking-wide text-slate-600">
+            Treatment need <span className="font-normal normal-case">(optional)</span>
+          </label>
+          <div className="mt-1 flex items-center gap-3">
               <SearchIcon className="h-5 w-5 shrink-0 text-slate-400" />
               <input
+                id="search-care"
                 ref={inputRef}
                 value={text}
                 onChange={(e) => {
                   setText(e.target.value);
                   setSearchFeedback('');
                 }}
-                placeholder="Try: residential in Georgia with Medicaid"
+                placeholder="For example, residential with Medicaid"
                 aria-label="Describe the treatment you are looking for"
                 className="min-w-0 flex-1 bg-transparent text-base text-slate-800 placeholder:text-slate-400 focus:outline-none"
               />
@@ -231,6 +309,7 @@ export function FindTreatmentSearch({
               >
                 {locating ? <SpinnerIcon className="h-5 w-5" /> : <span aria-hidden>→</span>}
               </button>
+          </div>
         </form>
 
         <div className="px-4 pb-6 pt-4 sm:px-5">
@@ -244,11 +323,13 @@ export function FindTreatmentSearch({
                 <span className="min-w-0">
                   <span className="block font-fraunces text-lg font-semibold text-ink">Search the way you speak</span>
                   <span className="mt-0.5 block text-sm text-slate-500">
-                    {text.trim() && interpretation.recognized
-                      ? 'Search with the filters recognized below. Your full sentence stays on this device.'
-                      : text.trim()
-                        ? 'Add a state, care level, payment type, specialty, or who care is for.'
-                        : 'Try a sentence like “teen IOP near me with private insurance.”'}
+                    {preciseLocation
+                      ? 'Find programs nearest to your city or ZIP. The location stays out of the URL.'
+                      : text.trim() && interpretation.recognized
+                        ? 'Search with the filters recognized below. Your full sentence stays on this device.'
+                        : text.trim()
+                          ? 'Add a city or ZIP, care level, payment type, specialty, or who care is for.'
+                          : 'Try a city or ZIP above, or a sentence like “teen IOP near me with private insurance.”'}
                   </span>
                 </span>
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-teal-700 text-white transition group-hover:scale-105">
@@ -256,11 +337,18 @@ export function FindTreatmentSearch({
                 </span>
               </button>
 
-              {text.trim() && interpretation.filters.length > 0 && (
+              {(preciseLocation || (text.trim() && interpretation.filters.length > 0)) && (
                 <div className="mt-3" aria-live="polite">
                   <p className="text-xs font-medium text-slate-500">Understood as</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {interpretation.filters.map((filter) => (
+                    {preciseLocation && (
+                      <span className="rounded-full border border-teal-100 bg-teal-50 px-2.5 py-1 text-xs font-medium text-teal-800">
+                        Near {preciseLocation.kind === 'zip'
+                          ? preciseLocation.zip
+                          : `${preciseLocation.city}${preciseLocation.state ? `, ${preciseLocation.state}` : ''}`}
+                      </span>
+                    )}
+                    {interpretation.filters.filter((filter) => !(preciseLocation && filter.key === 'region')).map((filter) => (
                       <span
                         key={`${filter.key}:${filter.value}`}
                         data-search-filter={filter.key}
@@ -276,7 +364,7 @@ export function FindTreatmentSearch({
               {searchFeedback ? (
                 <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
                   <p role="status" aria-live="polite">{searchFeedback}</p>
-                  {!interpretation.recognized && (
+                  {!interpretation.recognized && !preciseLocation && (
                     <button
                       type="button"
                       onClick={openStructuredGuide}

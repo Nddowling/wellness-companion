@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // City search uses this checked-in ZIP crosswalk in the server-only resolver.
+  outputFileTracingIncludes: {
+    '/api/programs/nearby': ['./data/zip-county.csv'],
+  },
   // Serve modern image formats (smaller payloads → better LCP / Core Web
   // Vitals, a ranking tiebreaker). Applies to every next/image on the site.
   // Facility photos live in the Supabase `facility-photos` storage bucket, so

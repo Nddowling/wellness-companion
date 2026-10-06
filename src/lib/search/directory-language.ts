@@ -15,6 +15,82 @@ export type DirectorySearchInterpretation = {
   destination: 'directory' | 'insurance-guide';
 };
 
+export type SearchLocation =
+  | { kind: 'zip'; zip: string }
+  | { kind: 'city'; city: string; state?: string };
+
+function stateAtStart(value: string): string | undefined {
+  const code = /^[a-z]{2}\b/i.exec(value)?.[0].toUpperCase();
+  if (code && Object.hasOwn(US_STATES, code)) return code;
+  const fullName = Object.entries(US_STATES)
+    .sort((a, b) => b[1].length - a[1].length)
+    .find(([, name]) => new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\b|$)`, 'i').test(value));
+  return fullName?.[0];
+}
+
+function cleanCity(value: string): string | undefined {
+  const city = value
+    .split(/\b(?:in|near|around|from|within)\s+/i)
+    .at(-1)
+    ?.trim()
+    .replace(/\s+/g, ' ');
+  return city && city.length >= 2 && city.length <= 64 && /^[\p{L}][\p{L} .'-]*$/u.test(city)
+    ? city
+    : undefined;
+}
+
+/**
+ * Extract only a location, not the visitor's full treatment request. A dedicated
+ * location field can contain a city alone; a conversational request must either
+ * supply a ZIP or disambiguate its city with a state.
+ */
+export function parseSearchLocation(input: string, mode: 'field' | 'request' = 'field'): SearchLocation | undefined {
+  const value = input.trim();
+  if (!value || value.length > 180) return undefined;
+
+  const zip = mode === 'field'
+    ? /^(\d{5})(?:-\d{4})?$/.exec(value)?.[1]
+    : /\b(\d{5})(?:-\d{4})?\b/.exec(value)?.[1];
+  if (zip) return { kind: 'zip', zip };
+
+  const comma = value.lastIndexOf(',');
+  if (comma !== -1) {
+    const state = stateAtStart(value.slice(comma + 1).trim());
+    const city = cleanCity(value.slice(0, comma));
+    if (state && city) return { kind: 'city', city, state };
+  }
+
+  // A complete short entry such as "Savannah GA" also works without a comma.
+  // Reject care vocabulary here so "residential GA" remains a state/facet search.
+  const codeSuffix = /^(.*?)\s+([a-z]{2})$/i.exec(value);
+  const suffixState = codeSuffix && stateAtStart(codeSuffix[2]);
+  const suffixCity = suffixState && cleanCity(codeSuffix![1]);
+  if (suffixState && suffixCity && !/\b(?:in|near|around|from|within|residential|outpatient|inpatient|rehab|detox|treatment|care|program|insurance|medicaid|medicare)\b/i.test(suffixCity)) {
+    return { kind: 'city', city: suffixCity, state: suffixState };
+  }
+
+  const fullState = Object.entries(US_STATES)
+    .sort((a, b) => b[1].length - a[1].length)
+    .find(([, name]) => value.toLowerCase().endsWith(` ${name.toLowerCase()}`));
+  if (fullState) {
+    const fullStateCity = cleanCity(value.slice(0, -fullState[1].length));
+    if (fullStateCity && !/\b(?:in|near|around|from|within|residential|outpatient|inpatient|rehab|detox|treatment|care|program|insurance|medicaid|medicare)\b/i.test(fullStateCity)) {
+      return { kind: 'city', city: fullStateCity, state: fullState[0] };
+    }
+  }
+
+  if (mode === 'field') {
+    const cityOnly = cleanCity(value);
+    // A full name can also be a city (notably New York or Washington), so only
+    // reject a bare two-letter state abbreviation in the city field.
+    const isStateOnly = Object.hasOwn(US_STATES, value.toUpperCase());
+    if (cityOnly && !isStateOnly && !/\b(?:treatment|rehab|detox|program|help|insurance|medicaid|medicare|near me)\b/i.test(cityOnly)) {
+      return { kind: 'city', city: cityOnly };
+    }
+  }
+  return undefined;
+}
+
 const CARRIER_SEARCH_ALIASES: Record<string, string[]> = {
   aetna: ['aetna'],
   'blue-cross-blue-shield': ['blue cross blue shield', 'blue cross', 'blue shield', 'bcbs'],
