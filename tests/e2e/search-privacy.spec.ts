@@ -76,7 +76,8 @@ test('SEARCH-LANGUAGE-3 · unknown narrative gets guidance instead of an unfilte
     'A personal clinical story with no directory terms',
   );
   await dialog.getByRole('button', { name: /Search the way you speak/i }).click();
-  await expect(dialog.getByRole('status')).toContainText('I could not match that yet');
+  await expect(dialog.getByRole('status').filter({ hasText: 'I could not match that yet' }))
+    .toContainText('I could not match that yet');
   await expect(page).toHaveURL(/\/$/);
 });
 

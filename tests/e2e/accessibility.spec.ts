@@ -49,7 +49,7 @@ test('A11Y · match acknowledgment is keyboard-operable with an accessible check
   await expect(page.getByRole('region', { name: /clear bed directory guide/i })).toBeVisible();
 });
 
-test('A11Y · treatment search dialog focuses the field, closes on Escape, and restores focus', async ({ page }) => {
+test('A11Y · treatment search dialog focuses program lookup, closes on Escape, and restores focus', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   const trigger = page.getByRole('button', { name: /search treatment/i }).first();
   await expect.poll(() => trigger.evaluate((element) =>
@@ -60,7 +60,7 @@ test('A11Y · treatment search dialog focuses the field, closes on Escape, and r
 
   const dialog = page.getByRole('dialog', { name: 'Find treatment' });
   await expect(dialog).toBeVisible();
-  await expect(page.getByRole('textbox', { name: /describe the treatment/i })).toBeFocused();
+  await expect(dialog.getByRole('combobox', { name: 'Search by program name' })).toBeFocused();
 
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();

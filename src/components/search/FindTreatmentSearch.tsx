@@ -7,6 +7,7 @@ import { US_STATES } from '@/lib/geo';
 import { commonPayers } from '@/lib/payers';
 import { PayerLogoImage } from '@/components/LogoCarousel';
 import { Dialog } from '@/components/ui';
+import { useProgramCombobox, type ProgramHit } from '@/components/search/useProgramCombobox';
 import { trackSearchStarted, trackSearchSubmitted, trackFilterApplied } from '@/lib/analytics';
 import {
   insuranceDestination,
@@ -24,8 +25,9 @@ const NEARBY_SEARCH_KEY = 'clearbed:location-search:v1';
 
 // Recovery.com-inspired "command palette" search for treatment seekers. A single bar
 // opens a rich overlay with coarse directory filters and links into the guided search.
-// Free text is deliberately reduced to known, non-identifying filter values before
-// navigation: a seeker's raw phrase never enters a URL or browser history.
+// Care-request text is reduced to known, non-identifying filters before navigation.
+// The separate program-name lookup POSTs its query to the existing autocomplete
+// endpoint, then navigates by program ID; raw text stays out of URLs and history.
 
 type Loc = { code: string; label: string; from: number; to: number; current?: boolean; photo?: string };
 
@@ -99,6 +101,7 @@ export function FindTreatmentSearch({
   const [searchFeedback, setSearchFeedback] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const locationRef = useRef<HTMLInputElement>(null);
+  const programNameRef = useRef<HTMLInputElement>(null);
   const interpretation = useMemo(() => parseDirectoryLanguage(text), [text]);
   const preciseLocation = useMemo(
     () => {
@@ -122,6 +125,11 @@ export function FindTreatmentSearch({
     setSearchFeedback('');
     setOpen(false);
     router.push(href);
+  };
+
+  const openProgram = (hit: ProgramHit) => {
+    trackSearchSubmitted({ sourcePage: OVERLAY_PAGE, searchType: 'facility_name_lookup', hasQuery: true });
+    go(`/programs/${encodeURIComponent(hit.id)}`);
   };
 
   // Both Enter and the visible conversational CTA use this exact path. Only
@@ -249,7 +257,7 @@ export function FindTreatmentSearch({
         >
           <SearchIcon className="h-6 w-6 shrink-0 text-teal-700" />
           <span className="min-w-0 flex-1 truncate text-base text-slate-500 sm:text-lg">
-            Search treatment — city, ZIP, or care need
+            Search treatment — program name, city, ZIP, or care need
           </span>
           <span className="ml-auto hidden shrink-0 rounded-xl bg-teal-700 px-5 py-2.5 text-sm font-semibold text-white sm:inline">
             Search
@@ -263,8 +271,10 @@ export function FindTreatmentSearch({
         title="Find treatment"
         placement="center"
         className="!max-w-2xl !rounded-3xl"
-        initialFocusRef={locationRef}
+        initialFocusRef={trigger === 'none' ? inputRef : programNameRef}
       >
+        <ProgramNameSearch inputRef={programNameRef} onPick={openProgram} />
+
         <form onSubmit={submitSearch} className="border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-4">
           <label htmlFor="search-location" className="block text-xs font-semibold uppercase tracking-wide text-slate-600">
             City or ZIP code
@@ -466,6 +476,125 @@ export function FindTreatmentSearch({
               />
         </div>
       </Dialog>
+    </div>
+  );
+}
+
+function ProgramNameSearch({
+  inputRef,
+  onPick,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onPick: (hit: ProgramHit) => void;
+}) {
+  const {
+    activeHit,
+    activeIndex,
+    choose,
+    clear,
+    expanded,
+    handleBlur,
+    handleKeyDown,
+    listboxId,
+    loading,
+    setActiveIndex,
+    setResultsOpen,
+    status,
+    statusId,
+    updateValue,
+    value,
+    visibleHits,
+    wrapperRef,
+  } = useProgramCombobox(onPick);
+
+  return (
+    <div className="border-b border-slate-100 bg-teal-50/40 px-4 py-4 sm:px-5">
+      <label htmlFor="search-program-name" className="block text-xs font-semibold uppercase tracking-wide text-slate-600">
+        Search by program name
+      </label>
+      <div ref={wrapperRef} onBlur={handleBlur} className="relative mt-2">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const hit = activeHit ?? visibleHits[0];
+            if (hit) choose(hit);
+          }}
+          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 shadow-sm focus-within:border-teal-600 focus-within:ring-2 focus-within:ring-teal-100"
+        >
+          <SearchIcon className="h-5 w-5 shrink-0 text-teal-700" />
+          <input
+            id="search-program-name"
+            ref={inputRef}
+            value={value}
+            onChange={(event) => updateValue(event.target.value)}
+            onFocus={() => {
+              if (visibleHits.length > 0) setResultsOpen(true);
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Start typing a facility or program name"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded={expanded}
+            aria-controls={listboxId}
+            aria-activedescendant={activeHit ? `${listboxId}-option-${activeIndex}` : undefined}
+            aria-describedby={statusId}
+            autoComplete="off"
+            className="h-12 min-w-0 flex-1 bg-transparent text-base text-slate-800 outline-none placeholder:text-slate-400"
+          />
+          {loading && <span className="text-xs text-slate-500" aria-hidden>…</span>}
+          {value && (
+            <button
+              type="button"
+              onClick={clear}
+              aria-label="Clear program search"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+            >
+              ×
+            </button>
+          )}
+        </form>
+        <p id={statusId} role="status" aria-live="polite" className="sr-only">
+          {status}
+        </p>
+        {expanded && (
+          <ul
+            id={listboxId}
+            role="listbox"
+            aria-label="Program search results"
+            className="absolute inset-x-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl"
+          >
+            {visibleHits.map((hit, index) => (
+              <li key={hit.id} role="presentation">
+                <button
+                  id={`${listboxId}-option-${index}`}
+                  type="button"
+                  role="option"
+                  aria-selected={activeIndex === index}
+                  tabIndex={-1}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => choose(hit)}
+                  className={`w-full rounded-lg px-3 py-2 text-left focus-visible:outline-teal-700 ${activeIndex === index ? 'bg-teal-50' : 'hover:bg-teal-50'}`}
+                >
+                  <span className="block truncate text-sm font-medium text-slate-800">{hit.name}</span>
+                  <span className="block truncate text-xs text-slate-500">
+                    {[hit.city, hit.state].filter(Boolean).join(', ') || 'Location on file'}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-slate-600">
+        {value.trim().length < 2
+          ? 'Type at least two letters to see matching programs.'
+          : loading
+            ? 'Looking for matching programs…'
+            : visibleHits.length === 0
+              ? 'No matching programs found. Try another name or search by location below.'
+              : 'Choose a suggestion to open that program’s profile.'}
+      </p>
     </div>
   );
 }
