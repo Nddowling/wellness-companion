@@ -27,7 +27,7 @@ type MatchedFacility = {
   beds_available: number;
   freshness: 'green' | 'amber' | 'red';
   provider_reported: boolean;
-  region_match: boolean;
+  miles: number | null;
   referral_contact: { name?: string; email?: string; phone?: string } | null;
 };
 
@@ -39,7 +39,7 @@ type Choice<T extends string> = {
 
 // Bump when the acknowledgment-gate / Terms consent text changes. Anyone who
 // accepted an older version is re-prompted to review the current disclosure.
-const TERMS_VERSION = '2026-07-15T23:57:43.000Z';
+const TERMS_VERSION = '2026-10-13T00:00:00.000Z';
 
 const LEVEL_CHOICES: readonly Choice<LevelOfCare>[] = [
   {
@@ -107,7 +107,7 @@ const PAYER_CHOICES: readonly Choice<PayerType>[] = [
 const FILTER_STEPS = [
   { label: 'Program type', encouragement: 'Choose a directory filter. A provider determines the appropriate clinical level.' },
   { label: 'General focus', encouragement: 'Choose one broad category. We do not need a treatment or medical narrative.' },
-  { label: 'ZIP region', encouragement: 'Enter a ZIP code. Only its first three digits remain after you continue.' },
+  { label: 'ZIP location', encouragement: 'Enter a ZIP code so matching programs can be ordered by approximate distance.' },
   { label: 'Payment', encouragement: 'Choose a general payment category. Never enter member or policy numbers.' },
 ] as const;
 
@@ -197,7 +197,7 @@ export default function MatchPage() {
   const [careLevel, setCareLevel] = useState<LevelOfCare | null>(null);
   const [concernCategory, setConcernCategory] = useState<ConcernCategory | null>(null);
   const [zipInput, setZipInput] = useState('');
-  const [regionZip3, setRegionZip3] = useState<string | null>(null);
+  const [zipCode, setZipCode] = useState<string | null>(null);
   const [payerType, setPayerType] = useState<PayerType | null>(null);
   const [payerCarrier, setPayerCarrier] = useState('');
 
@@ -278,7 +278,7 @@ export default function MatchPage() {
     setCareLevel(null);
     setConcernCategory(null);
     setZipInput('');
-    setRegionZip3(null);
+    setZipCode(null);
     setPayerType(null);
     setPayerCarrier('');
     setMatches(null);
@@ -308,15 +308,16 @@ export default function MatchPage() {
       setError('Enter a valid 5-digit ZIP code.');
       return;
     }
-    // The full ZIP exists only in this input while the person is on this step.
-    // Retain only ZIP3 for the next screen and the /api/match request.
-    setRegionZip3(normalized.slice(0, 3));
+    // Keep the five-digit ZIP only in form state for transient distance ranking.
+    // The API derives ZIP3 for the saved match and never persists this exact ZIP.
+    setZipCode(normalized.slice(0, 5));
+    matchRequestKeyRef.current = null;
     setZipInput('');
     setStepIdx(3);
   }
 
   async function runMatch() {
-    if (!careLevel || !concernCategory || !regionZip3 || !payerType) {
+    if (!careLevel || !concernCategory || !zipCode || !payerType) {
       setError('Complete each directory filter before finding options.');
       return;
     }
@@ -329,7 +330,7 @@ export default function MatchPage() {
       const payload: Record<string, string> = {
         care_level_needed: careLevel,
         concern_category: concernCategory,
-        region_zip3: regionZip3,
+        zip_code: zipCode,
         payer_type: payerType,
       };
       if (payerType === 'commercial' && payerCarrier) payload.payer_carrier = payerCarrier;
@@ -498,8 +499,9 @@ export default function MatchPage() {
             <li className="flex gap-2">
               <span className="text-teal-600">•</span>
               <span>
-                Matching sends only ZIP3 region, directory level, payer category, coarse focus, and an optional
-                supported carrier. No name, phone, or email is required to see results.
+                Matching sends your five-digit ZIP to our server to estimate distance, along with the selected
+                directory filters. Only ZIP3 is saved in the match summary; no name, phone, or email is required
+                to see results.
               </span>
             </li>
           </ul>
@@ -791,10 +793,10 @@ export default function MatchPage() {
             {phase === 'intake' && stepIdx === 2 && (
               <form onSubmit={saveZipRegion}>
                 <fieldset>
-                  <legend className="text-lg font-semibold text-ink">What ZIP code should set the search region?</legend>
+                  <legend className="text-lg font-semibold text-ink">What ZIP code should we search near?</legend>
                   <p id="zip-privacy" className="mt-1 text-sm leading-relaxed text-slate-600">
-                    Enter a 5-digit ZIP code. When you continue, the full ZIP is discarded; only the first three
-                    digits are kept and sent for regional matching.
+                    Enter a 5-digit ZIP code. We use it briefly to order eligible programs by approximate distance
+                    between ZIP-area centers. Only the first three digits are saved with your match.
                   </p>
                   <label htmlFor="match-zip" className="mt-5 block text-sm font-semibold text-ink">
                     ZIP code
@@ -823,7 +825,7 @@ export default function MatchPage() {
                   disabled={!zipInput.trim()}
                   className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                 >
-                  Keep only my ZIP3 and continue
+                  Use this ZIP and continue
                 </button>
               </form>
             )}
@@ -835,10 +837,21 @@ export default function MatchPage() {
                   <p className="mt-1 text-sm leading-relaxed text-slate-600">
                     Choose a general category. Do not enter a policy, member, group, or subscriber number.
                   </p>
-                  {regionZip3 && (
-                    <p className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                      Regional search: ZIP3 {regionZip3}. The full ZIP is no longer kept in this form.
-                    </p>
+                  {zipCode && (
+                    <div className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      <p>Search near ZIP {zipCode}. The full ZIP is used only for this search; only ZIP3 is saved with the match.</p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setZipInput(zipCode);
+                          setStepIdx(2);
+                          setError(null);
+                        }}
+                        className="mt-1 font-semibold text-teal-700 underline underline-offset-2"
+                      >
+                        Change ZIP
+                      </button>
+                    </div>
                   )}
                   <div className="mt-4">
                     <ChoiceCards
@@ -1048,10 +1061,11 @@ export default function MatchPage() {
                   </p>
                 )}
 
-                {matches.some((facility) => !facility.region_match) && (
-                  <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
-                    Programs in ZIP3 {regionZip3} are ranked first. Options labeled outside that region are broader
-                    directory fallbacks based on the other filters—not nearby matches. Confirm location and travel
+                {matches.length > 0 && (
+                  <p className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-xs leading-relaxed text-teal-900">
+                    Programs matching your selected filters are ordered by approximate distance from ZIP {zipCode}.
+                    Distances use ZIP-area centers, not driving routes or verified street addresses. If nearby
+                    programs do not meet the filters, results may be farther away. Confirm location and travel
                     needs directly with each program.
                   </p>
                 )}
@@ -1110,7 +1124,7 @@ export default function MatchPage() {
                   <p className="text-sm leading-relaxed text-slate-600">
                     {concernCategory === 'mental_health'
                       ? 'Clear Bed is an addiction-treatment directory, including some programs that document co-occurring services. It does not list or match standalone mental-health providers.'
-                      : 'No directory options matched this combination of ZIP3 region, listed program level, broad focus, and reported payment information.'}{' '}
+                      : 'No directory options matched this combination of listed program level, broad focus, and reported payment information. Try different filters or broaden your search.'}{' '}
                     You can broaden the search or call <strong>SAMHSA&apos;s National Helpline at 1-800-662-4357</strong>.
                     In immediate danger call <strong>911</strong>; for crisis support call or text <strong>988</strong>.
                   </p>
@@ -1142,9 +1156,11 @@ export default function MatchPage() {
                         {[facility.city, facility.state].filter(Boolean).length ? ' · ' : ''}
                         Payment option listed—verify benefits · {currentAvailability.detail}
                       </p>
-                      {!facility.region_match && (
-                        <p className="mt-1 text-xs font-semibold text-amber-800">Outside your requested ZIP3 region</p>
-                      )}
+                      <p className="mt-1 text-xs text-slate-600">
+                        {facility.miles !== null
+                          ? `About ${facility.miles} miles from ZIP ${zipCode} (straight-line ZIP-center estimate)`
+                          : 'Distance unavailable; confirm this program’s location directly.'}
+                      </p>
                       {facility.referral_contact && (facility.referral_contact.phone || facility.referral_contact.email) && (
                         <p className="mt-2 text-sm text-slate-700">
                           Reach their intake team

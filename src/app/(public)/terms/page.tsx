@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'October 6, 2026';
+const LAST_UPDATED = 'October 13, 2026';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -81,8 +81,10 @@ export default function TermsPage() {
           your ZIP3 region, directory level, payer type, and coarse scope, and route it to the programs
           selected and displayed by the matcher <strong>before</strong> asking for contact permission. That summary does
           not include your name, phone number, email, date of birth, street address, member ID, exact carrier, or a
-          clinical narrative. A supported commercial carrier you volunteer may narrow results
-          transiently, but is not saved with the match or routed to programs.
+          clinical narrative. Your full five-digit ZIP is sent to our server transiently to order matching programs
+          by approximate distance between ZIP-area centers. It is not put in the page URL, saved with the match, or
+          routed to programs; the match summary stores and routes only ZIP3. A supported commercial carrier you
+          volunteer may narrow results transiently, but is not saved with the match or routed to programs.
           <strong> We only make your name, email, and phone available to a displayed program when you explicitly consent
           to it</strong>, and we record when you grant or decline that consent. You can decline and still see results.
           Your contact consent is <strong>specific to the programs displayed in that match</strong>, is limited to the

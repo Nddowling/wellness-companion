@@ -44,7 +44,7 @@ test('MATCH-2c · /api/match · prohibited identity field · 400', async ({ requ
   previewOnly();
   const res = await request.post('/api/match', {
     data: {
-      region_zip3: '787',
+      zip_code: '78701',
       care_level_needed: 'residential',
       payer_type: 'self_pay',
       concern_category: 'unsure',
@@ -59,7 +59,7 @@ test('MATCH-2d · /api/match · retired coverage status field · 400', async ({ 
   previewOnly();
   const res = await request.post('/api/match', {
     data: {
-      region_zip3: '787',
+      zip_code: '78701',
       care_level_needed: 'residential',
       payer_type: 'self_pay',
       concern_category: 'unsure',
@@ -67,6 +67,22 @@ test('MATCH-2d · /api/match · retired coverage status field · 400', async ({ 
     },
   });
   expect(res.status()).toBe(400);
+});
+
+test('MATCH-2e · /api/match · requires an exact five-digit ZIP, not ZIP3 · 400', async ({ request }) => {
+  // A broken older handler could write a match; run only with an isolated preview database.
+  previewOnly();
+  const res = await request.post('/api/match', {
+    headers: { 'idempotency-key': crypto.randomUUID() },
+    data: {
+      zip_code: '787',
+      care_level_needed: 'residential',
+      payer_type: 'self_pay',
+      concern_category: 'unsure',
+    },
+  });
+  expect(res.status()).toBe(400);
+  expect((await res.json()).error).toMatch(/five-digit ZIP/i);
 });
 
 test('MATCH-3 · /api/intake · AI intake permanently retired · 410', async ({ request }) => {

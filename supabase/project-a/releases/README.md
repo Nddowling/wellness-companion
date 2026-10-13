@@ -7,6 +7,15 @@ forward-only SQL bundles with their SHA-256 values recorded alongside them.
 
 Production project: `uxykrvungmfzmpzrvebh`
 
+## 2026-10-13 — guided matches ordered by full-ZIP distance
+
+- Source migration: `../migrations/20261013181809_guided_nearby_match.sql`
+- Supabase migration name: `guided_nearby_match_20261013`
+- Hosted production version: `20261013182132`
+- SHA-256 of the applied source SQL: `f785ef512a0a19f6778481d8dc67b7cf88797ea8d533643352ae5f0985b7fabf`
+- Additive function only; the legacy ZIP3 matcher remains available for rollback.
+- Depends on hosted `location_aware_directory_search` version `20261006172803`.
+
 ## 2026-07-16 — consented connector contact identity
 
 - Release: `20260716_retain_connector_contact_identity.sql`

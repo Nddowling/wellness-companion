@@ -11,6 +11,7 @@ import { CONCERN_CATEGORIES, type IntakeExtraction, type ConcernCategory } from 
 import { COMMERCIAL_CARRIER_NAMES } from '@/lib/payers';
 import { handoffCookie, issueHandoffToken } from '@/lib/matching/handoff-token';
 import { readBoundedJson, RequestBodyError } from '@/lib/request-body';
+import { resolveSearchLocation } from '@/lib/search/location-resolver';
 import {
   anonymousBudgetHeaders,
   consumeAnonymousBudget,
@@ -21,7 +22,8 @@ import {
 // de-identified `matches` row + `match_routes` for the top facilities. The seeker
 // never gets a DB account; this runs server-side with the service-role client.
 // NO identity is ever written — only ZIP3, listed care level, payer category, and
-// coarse concern scope. A volunteered carrier is used transiently and not persisted.
+// coarse concern scope. The full ZIP and any volunteered carrier are used transiently
+// for distance ranking/filtering, never persisted in the match or route records.
 
 const TOP_N = 3;
 const CANDIDATE_LIMIT = 10;
@@ -39,13 +41,14 @@ type MatchDirectoryOption = {
   beds_available: number;
   freshness: 'green' | 'amber' | 'red';
   provider_reported: boolean;
-  region_match: boolean;
+  miles: number | null;
 };
 type MatchDirectoryClient = {
   rpc: (
-    functionName: 'match_directory_options',
+    functionName: 'match_directory_options_nearby',
     args: {
-      p_region_zip3: string;
+      p_olat: number;
+      p_olng: number;
       p_care_level: string;
       p_payer_type: string;
       p_concern_category: string;
@@ -80,7 +83,7 @@ type RecordMatchClient = {
 };
 
 const INTAKE_FIELDS = new Set([
-  'region_zip3',
+  'zip_code',
   'care_level_needed',
   'payer_type',
   'payer_carrier',
@@ -91,7 +94,9 @@ function intakeError(raw: unknown): string | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 'Expected a JSON object';
   const body = raw as Record<string, unknown>;
   if (Object.keys(body).some((key) => !INTAKE_FIELDS.has(key))) return 'Unexpected intake field';
-  if (!/^\d{3}$/.test(String(body.region_zip3 ?? ''))) return 'A three-digit region is required';
+  if (typeof body.zip_code !== 'string' || !/^\d{5}$/.test(body.zip_code)) {
+    return 'A valid five-digit ZIP code is required';
+  }
   if (!LEVELS_OF_CARE.includes(body.care_level_needed as LevelOfCare)) return 'A valid level of care is required';
   if (!PAYER_TYPES.includes(body.payer_type as PayerType)) return 'A valid payer type is required';
   if (
@@ -124,8 +129,7 @@ function pick<T extends string>(
 function normalizeIntake(body: unknown): IntakeExtraction {
   const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
 
-  const zipDigits = String(b.region_zip3 ?? b.zip ?? '').replace(/\D/g, '');
-  const region_zip3 = zipDigits.slice(0, 3);
+  const region_zip3 = (b.zip_code as string).slice(0, 3);
 
   const care_level_needed = pick<LevelOfCare>(b.care_level_needed, LEVELS_OF_CARE, {
     detox: ['detox', 'withdraw'],
@@ -182,6 +186,7 @@ export async function POST(request: Request) {
   }
 
   const intake = normalizeIntake(raw);
+  const zipCode = (raw as { zip_code: string }).zip_code;
 
   const budget = await consumeAnonymousBudget(request, 'match');
   if (!budget.ok) {
@@ -198,13 +203,22 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
 
+  const location = await resolveSearchLocation({ kind: 'zip', zip: zipCode });
+  if (location.status !== 'resolved') {
+    return Response.json(
+      { error: location.status === 'error' ? location.message : 'Could not resolve that ZIP code.' },
+      { status: 422, headers: anonymousBudgetHeaders(budget) },
+    );
+  }
+
   // Rank inside Postgres so the full published directory is considered before the
   // top-N limit. Fetching rows through PostgREST and ranking in Node silently capped
   // the candidate pool at the Data API row ceiling.
   const { data: rows, error } = await (supabase as unknown as MatchDirectoryClient).rpc(
-    'match_directory_options',
+    'match_directory_options_nearby',
     {
-      p_region_zip3: intake.region_zip3,
+      p_olat: location.origin.latitude,
+      p_olng: location.origin.longitude,
       p_care_level: intake.care_level_needed,
       p_payer_type: intake.payer_type,
       p_concern_category: intake.concern_category,
@@ -223,7 +237,7 @@ export async function POST(request: Request) {
   const candidates = (rows ?? []).slice(0, CANDIDATE_LIMIT);
   const selected = candidates.slice(0, TOP_N);
   const canonicalPayload = JSON.stringify({
-    region_zip3: intake.region_zip3,
+    zip_code: zipCode,
     care_level_needed: intake.care_level_needed,
     payer_type: intake.payer_type,
     payer_carrier: intake.payer_carrier ?? null,
@@ -307,9 +321,12 @@ export async function POST(request: Request) {
         beds_available: r.beds_available,
         freshness: r.freshness,
         provider_reported: r.provider_reported,
-        region_match: r.region_match,
+        miles: typeof r.miles === 'number' && Number.isFinite(r.miles) && r.miles >= 0
+          ? Math.round(r.miles * 10) / 10
+          : null,
         referral_contact: r.referral_contact,
       })),
+      distanceBasis: 'Approximate straight-line miles between ZIP-area centers, not driving distance or verified street-address distance.',
     },
     { headers: responseHeaders },
   );

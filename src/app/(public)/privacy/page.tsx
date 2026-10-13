@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 import { absoluteUrl, SITE_NAME } from '@/lib/seo';
 
-const LAST_UPDATED = 'October 6, 2026';
+const LAST_UPDATED = 'October 13, 2026';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -66,11 +66,14 @@ export default function PrivacyPage() {
         <p className="font-medium text-slate-700">Information you give us during intake.</p>
         <p>
           Our guided flow asks a few questions so we can narrow addiction-treatment directory options: a directory
-          level, a rough location (stored as the first three ZIP digits), payer type, and a coarse scope. The scope
-          lets us distinguish substance-use or documented co-occurring requests from standalone mental-health
-          requests that are outside this directory. We do not ask which substance, symptoms, diagnoses, or whether
-          insurance is active. If you voluntarily name a supported commercial insurer, we may use that carrier name
-          transiently to require an exact program listing, but we do not save it with the match or route it to programs.
+          level, a five-digit ZIP code, payer type, and a coarse scope. We send the full ZIP to our server transiently
+          to estimate distance from its ZIP-area center and order programs that meet your selected filters. The full
+          ZIP is not put in the page URL or saved with the match. The match record stores only its first three digits
+          (ZIP3), which are the location detail in the summary routed to displayed programs. The scope lets us
+          distinguish substance-use or documented co-occurring requests from standalone mental-health requests that
+          are outside this directory. We do not ask which substance, symptoms, diagnoses, or whether insurance is
+          active. If you voluntarily name a supported commercial insurer, we may use that carrier name transiently
+          to require an exact program listing, but we do not save it with the match or route it to programs.
         </p>
         <p className="font-medium text-slate-700">Contact details (only if you choose to connect).</p>
         <p>

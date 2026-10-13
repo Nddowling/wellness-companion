@@ -17,7 +17,7 @@ test('PRIV-P0 · handoff stores nothing without consent and rejects prohibited f
   const matchRes = await request.post('/api/match', {
     headers: { 'idempotency-key': crypto.randomUUID() },
     data: {
-      region_zip3: '787',
+      zip_code: '78701',
       care_level_needed: 'residential',
       payer_type: 'self_pay',
       concern_category: 'unsure',
@@ -29,9 +29,11 @@ test('PRIV-P0 · handoff stores nothing without consent and rejects prohibited f
   try {
     const { data: savedMatch } = await admin
       .from('matches')
-      .select('coverage_status')
+      .select('region_zip3, coverage_status')
       .eq('id', matchId)
       .single();
+    expect(savedMatch?.region_zip3).toBe('787');
+    expect(savedMatch).not.toHaveProperty('zip_code');
     expect(savedMatch?.coverage_status).toBeNull();
 
     const declined = await request.post('/api/handoff', {
@@ -98,7 +100,7 @@ test('PRIV-P0 · consented handoff stores contact identity and server-routed int
   const matchRes = await request.post('/api/match', {
     headers: { 'idempotency-key': crypto.randomUUID() },
     data: {
-      region_zip3: '787',
+      zip_code: '78701',
       care_level_needed: 'residential',
       payer_type: 'self_pay',
       concern_category: 'unsure',
