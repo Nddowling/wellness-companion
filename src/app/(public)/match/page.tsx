@@ -39,7 +39,7 @@ type Choice<T extends string> = {
 
 // Bump when the acknowledgment-gate / Terms consent text changes. Anyone who
 // accepted an older version is re-prompted to review the current disclosure.
-const TERMS_VERSION = '2026-10-13T00:00:00.000Z';
+const TERMS_VERSION = '2026-10-13T18:36:00.000Z';
 
 const LEVEL_CHOICES: readonly Choice<LevelOfCare>[] = [
   {
@@ -151,39 +151,51 @@ function ChoiceCards<T extends string>({
   choices,
   selected,
   onChange,
+  showMobileDetail = true,
 }: {
   name: string;
   choices: readonly Choice<T>[];
   selected: T | null;
   onChange: (value: T) => void;
+  showMobileDetail?: boolean;
 }) {
+  const selectedChoice = choices.find((choice) => choice.value === selected);
+
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {choices.map((choice) => (
-        <label
-          key={choice.value}
-          className={
-            'flex min-h-20 cursor-pointer items-start gap-3 rounded-xl border p-3 transition ' +
-            (selected === choice.value
-              ? 'border-teal-600 bg-teal-50 ring-1 ring-teal-600'
-              : 'border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/40')
-          }
-        >
-          <input
-            type="radio"
-            name={name}
-            value={choice.value}
-            checked={selected === choice.value}
-            onChange={() => onChange(choice.value)}
-            className="mt-1 h-4 w-4 shrink-0 accent-teal-700"
-          />
-          <span>
-            <span className="block text-sm font-semibold text-ink">{choice.label}</span>
-            <span className="mt-0.5 block text-xs leading-relaxed text-slate-500">{choice.detail}</span>
-          </span>
-        </label>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-2 gap-2">
+        {choices.map((choice) => (
+          <label
+            key={choice.value}
+            className={
+              'flex min-h-14 cursor-pointer items-center gap-2 rounded-xl border px-2 py-2 transition sm:min-h-20 sm:items-start sm:gap-3 sm:p-3 ' +
+              (selected === choice.value
+                ? 'border-teal-600 bg-teal-50 ring-1 ring-teal-600'
+                : 'border-slate-200 bg-white hover:border-teal-300 hover:bg-teal-50/40')
+            }
+          >
+            <input
+              type="radio"
+              name={name}
+              value={choice.value}
+              aria-label={`${choice.label}. ${choice.detail}`}
+              checked={selected === choice.value}
+              onChange={() => onChange(choice.value)}
+              className="h-4 w-4 shrink-0 accent-teal-700 sm:mt-1"
+            />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-semibold leading-snug text-ink sm:text-sm">{choice.label}</span>
+              <span className="mt-0.5 hidden text-xs leading-relaxed text-slate-500 sm:block">{choice.detail}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {selectedChoice && showMobileDetail && (
+        <p aria-live="polite" className="mt-2 rounded-lg bg-teal-50 px-2.5 py-2 text-xs leading-snug text-teal-900 sm:hidden">
+          {selectedChoice.detail}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -202,6 +214,7 @@ export default function MatchPage() {
   const [payerCarrier, setPayerCarrier] = useState('');
 
   const [matches, setMatches] = useState<MatchedFacility[] | null>(null);
+  const [routedFacilityIds, setRoutedFacilityIds] = useState<string[]>([]);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [connectChoice, setConnectChoice] = useState<ConnectChoice | null>(null);
   const [contactName, setContactName] = useState('');
@@ -228,6 +241,8 @@ export default function MatchPage() {
   }, [phase, stepIdx]);
 
   useEffect(() => {
+    // Avoid opening the mobile keyboard before the person chooses to type.
+    if (!window.matchMedia('(min-width: 640px)').matches) return;
     if (acknowledged && phase === 'intake' && stepIdx === 2) zipRef.current?.focus();
     if (phase === 'connect' && connectChoice && connectChoice !== 'neither') contactRef.current?.focus();
   }, [acknowledged, connectChoice, phase, stepIdx]);
@@ -282,6 +297,7 @@ export default function MatchPage() {
     setPayerType(null);
     setPayerCarrier('');
     setMatches(null);
+    setRoutedFacilityIds([]);
     setMatchId(null);
     setError(null);
     resetConnect();
@@ -349,6 +365,11 @@ export default function MatchPage() {
       }
 
       setMatches(Array.isArray(data.facilities) ? data.facilities : []);
+      setRoutedFacilityIds(
+        Array.isArray(data.routedFacilityIds)
+          ? data.routedFacilityIds.filter((id: unknown): id is string => typeof id === 'string')
+          : [],
+      );
       setMatchId(typeof data.match_id === 'string' ? data.match_id : null);
       setPhase('results');
     } catch (cause) {
@@ -376,7 +397,7 @@ export default function MatchPage() {
 
   async function runHandoff(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!matchId || !matches?.length) {
+    if (!matchId || !matches?.length || !routedFacilityIds.length) {
       setPhase('results');
       return;
     }
@@ -455,6 +476,8 @@ export default function MatchPage() {
 
   const activeChoiceReady =
     (stepIdx === 0 && Boolean(careLevel)) || (stepIdx === 1 && Boolean(concernCategory));
+  const routedIds = new Set(routedFacilityIds);
+  const routedCount = matches?.filter((facility) => routedIds.has(facility.id)).length ?? 0;
 
   return (
     <main className="grid h-[100dvh] min-h-0 overflow-hidden lg:grid-cols-[minmax(0,22rem)_1fr]">
@@ -719,10 +742,11 @@ export default function MatchPage() {
             aria-label="Clear Bed directory guide"
             aria-live="polite"
             aria-busy={busy || phase === 'matching'}
-            className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-sm sm:mt-4 sm:p-5"
+            className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-2xl bg-white p-3 shadow-sm sm:mt-4 sm:p-5"
           >
             {phase === 'intake' && stepIdx === 0 && (
               <form
+                id="match-care-form"
                 onSubmit={(event) => {
                   event.preventDefault();
                   continueSelection();
@@ -734,7 +758,7 @@ export default function MatchPage() {
                     This is a directory filter, not a recommendation or assessment. If you are unsure, choose the
                     closest browsing category and confirm the setting with a qualified provider.
                   </p>
-                  <div className="mt-4">
+                  <div className="mt-3 sm:mt-4">
                     <ChoiceCards
                       name="care-level"
                       choices={LEVEL_CHOICES}
@@ -746,18 +770,12 @@ export default function MatchPage() {
                     />
                   </div>
                 </fieldset>
-                <button
-                  type="submit"
-                  disabled={!activeChoiceReady}
-                  className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                >
-                  Continue
-                </button>
               </form>
             )}
 
             {phase === 'intake' && stepIdx === 1 && (
               <form
+                id="match-concern-form"
                 onSubmit={(event) => {
                   event.preventDefault();
                   continueSelection();
@@ -768,7 +786,7 @@ export default function MatchPage() {
                   <p className="mt-1 text-sm leading-relaxed text-slate-600">
                     No details about substances, symptoms, diagnoses, or treatment history are needed.
                   </p>
-                  <div className="mt-4">
+                  <div className="mt-3 sm:mt-4">
                     <ChoiceCards
                       name="concern-category"
                       choices={CONCERN_CHOICES}
@@ -780,18 +798,11 @@ export default function MatchPage() {
                     />
                   </div>
                 </fieldset>
-                <button
-                  type="submit"
-                  disabled={!activeChoiceReady}
-                  className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                >
-                  Continue
-                </button>
               </form>
             )}
 
             {phase === 'intake' && stepIdx === 2 && (
-              <form onSubmit={saveZipRegion}>
+              <form id="match-zip-form" onSubmit={saveZipRegion}>
                 <fieldset>
                   <legend className="text-lg font-semibold text-ink">What ZIP code should we search near?</legend>
                   <p id="zip-privacy" className="mt-1 text-sm leading-relaxed text-slate-600">
@@ -820,26 +831,19 @@ export default function MatchPage() {
                     className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-sm"
                   />
                 </fieldset>
-                <button
-                  type="submit"
-                  disabled={!zipInput.trim()}
-                  className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                >
-                  Use this ZIP and continue
-                </button>
               </form>
             )}
 
             {phase === 'intake' && stepIdx === 3 && (
-              <form onSubmit={submitPayer}>
+              <form id="match-payer-form" onSubmit={submitPayer}>
                 <fieldset>
                   <legend className="text-lg font-semibold text-ink">How would care be paid for?</legend>
                   <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                    Choose a general category. Do not enter a policy, member, group, or subscriber number.
+                    Choose payment type. Never enter policy, member, group, or subscriber numbers.
                   </p>
                   {zipCode && (
-                    <div className="mt-2 rounded-md bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                      <p>Search near ZIP {zipCode}. The full ZIP is used only for this search; only ZIP3 is saved with the match.</p>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-600 sm:mt-2 sm:rounded-md sm:bg-slate-50 sm:px-3 sm:py-2">
+                      <p>ZIP {zipCode} · only ZIP3 saved</p>
                       <button
                         type="button"
                         onClick={() => {
@@ -847,17 +851,18 @@ export default function MatchPage() {
                           setStepIdx(2);
                           setError(null);
                         }}
-                        className="mt-1 font-semibold text-teal-700 underline underline-offset-2"
+                        className="shrink-0 font-semibold text-teal-700 underline underline-offset-2 sm:mt-1"
                       >
                         Change ZIP
                       </button>
                     </div>
                   )}
-                  <div className="mt-4">
+                  <div className="mt-3 sm:mt-4">
                     <ChoiceCards
                       name="payer-type"
                       choices={PAYER_CHOICES}
                       selected={payerType}
+                      showMobileDetail={false}
                       onChange={(value) => {
                         setPayerType(value);
                         if (value !== 'commercial') setPayerCarrier('');
@@ -868,20 +873,19 @@ export default function MatchPage() {
                 </fieldset>
 
                 {payerType === 'commercial' && (
-                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-2 sm:mt-4 sm:p-3">
                     <label htmlFor="payer-carrier" className="block text-sm font-semibold text-ink">
                       Exact carrier (optional)
                     </label>
-                    <p id="carrier-help" className="mt-1 text-xs leading-relaxed text-slate-500">
-                      Choosing one requires a program to list that carrier. It does not prove network status or
-                      coverage. Skip it if you are unsure.
+                    <p id="carrier-help" className="mt-0.5 text-xs leading-snug text-slate-500">
+                      A listed carrier does not prove network status or coverage. Verify directly; skip if unsure.
                     </p>
                     <select
                       id="payer-carrier"
                       value={payerCarrier}
                       onChange={(event) => setPayerCarrier(event.target.value)}
                       aria-describedby="carrier-help"
-                      className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-ink focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100 sm:max-w-md"
+                      className="mt-1.5 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-ink focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-100 sm:max-w-md"
                     >
                       <option value="">No exact carrier / skip</option>
                       {COMMERCIAL_CARRIER_NAMES.map((carrier) => (
@@ -891,13 +895,6 @@ export default function MatchPage() {
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={!payerType || busy}
-                  className="mt-4 w-full rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                >
-                  Find directory options
-                </button>
               </form>
             )}
 
@@ -911,20 +908,22 @@ export default function MatchPage() {
             )}
 
             {phase === 'connect' && (
-              <form onSubmit={runHandoff}>
+              <form id="match-connect-form" onSubmit={runHandoff}>
                 <fieldset>
                   <legend className="text-lg font-semibold text-ink">What would you like to happen next?</legend>
                   <p className="mt-1 text-sm leading-relaxed text-slate-600">
-                    Contact is optional. Choose one exact permission; no AI model interprets or changes this choice.
+                    Contact is optional and applies only to your {routedCount} contact-shortlist program{routedCount === 1 ? '' : 's'}.
+                    Browse-only programs never receive your details through this match. Choose one exact permission;
+                    no AI model interprets or changes it.
                     {!emailCopyAvailable && ' Email copies are not currently available, so that option is hidden.'}
                   </p>
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-3 space-y-2 sm:mt-4">
                     {([
-                      ['programs', 'Programs displayed in this match may contact me by email or phone'],
+                      ['programs', 'Contact-shortlist programs may contact me by email or phone'],
                       ...(emailCopyAvailable
                         ? ([
-                            ['email', 'Email me one copy of these matches'],
-                            ['both', 'Both: programs may contact me and email me these matches'],
+                            ['email', 'Email me one copy of my contact shortlist'],
+                            ['both', 'Both: shortlist programs may contact me and email me the shortlist'],
                           ] as const)
                         : []),
                       ['neither', 'Neither: do not save my contact details'],
@@ -932,7 +931,7 @@ export default function MatchPage() {
                       <label
                         key={value}
                         className={
-                          'flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition ' +
+                          'flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-sm transition sm:min-h-12 sm:gap-3 sm:py-2.5 ' +
                           (connectChoice === value
                             ? 'border-teal-600 bg-teal-50 ring-1 ring-teal-600'
                             : 'border-slate-200 hover:border-teal-300')
@@ -959,7 +958,7 @@ export default function MatchPage() {
                 </fieldset>
 
                 {connectChoice && connectChoice !== 'neither' && (
-                  <div className="mt-5 space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:mt-5 sm:space-y-4 sm:p-4">
                     <p className="text-xs leading-relaxed text-slate-600">
                       We keep these contact details for this connection. Do not enter an address, birth date,
                       insurance member information, or medical details.
@@ -978,7 +977,7 @@ export default function MatchPage() {
                           setError(null);
                         }}
                         required
-                        className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-md"
+                        className="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:mt-2 sm:max-w-md sm:px-4 sm:py-3"
                       />
                     </label>
                     <label htmlFor="contact-email" className="block text-sm font-semibold text-ink">
@@ -994,7 +993,7 @@ export default function MatchPage() {
                           setError(null);
                         }}
                         required
-                        className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-md"
+                        className="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:mt-2 sm:max-w-md sm:px-4 sm:py-3"
                       />
                     </label>
                     {(connectChoice === 'programs' || connectChoice === 'both') && (
@@ -1011,68 +1010,56 @@ export default function MatchPage() {
                             setError(null);
                           }}
                           required
-                          className="mt-2 block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:max-w-md"
+                          className="mt-1 block min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-base font-normal text-ink outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-100 sm:mt-2 sm:max-w-md sm:px-4 sm:py-3"
                         />
                       </label>
                     )}
                   </div>
                 )}
 
-                <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                  <button
-                    type="submit"
-                    disabled={!connectChoice || busy}
-                    className="rounded-xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {busy ? 'Saving your choice…' : connectChoice === 'neither' ? 'Confirm no contact' : 'Confirm this permission'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setError(null);
-                      setPhase('results');
-                    }}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel and keep browsing
-                  </button>
-                </div>
               </form>
             )}
 
             {phase === 'results' && matches && (
               <div className="space-y-3">
                 <h2 className="text-lg font-semibold text-ink">
-                  {matches.length ? 'Directory options based on your choices' : 'No directory matches for these choices'}
+                  {matches.length
+                    ? `${matches.length} directory option${matches.length === 1 ? '' : 's'} based on your choices`
+                    : 'No directory matches for these choices'}
                 </h2>
 
-                {matches.length > 0 && payerType === 'commercial' && payerCarrier && (
-                  <p className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
-                    These programs list {payerCarrier} as a payment option. That does not confirm current network
-                    participation, eligibility, authorization, or what your plan will pay. Verify with the program
-                    and insurer.
-                  </p>
-                )}
-
-                {matches.length > 0 && payerType === 'commercial' && !payerCarrier && (
-                  <p className="rounded-md bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
-                    These programs list commercial insurance, but an exact carrier and network status were not
-                    confirmed. Verify both with the program and insurer.
-                  </p>
-                )}
-
                 {matches.length > 0 && (
-                  <p className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-xs leading-relaxed text-teal-900">
-                    Programs matching your selected filters are ordered by approximate distance from ZIP {zipCode}.
-                    Distances use ZIP-area centers, not driving routes or verified street addresses. If nearby
-                    programs do not meet the filters, results may be farther away. Confirm location and travel
-                    needs directly with each program.
-                  </p>
+                  <div className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-xs leading-relaxed text-teal-900">
+                    <p>
+                      Nearest first from ZIP {zipCode}. Distance, openings, and insurance must be confirmed directly.
+                      {' '}{routedCount > 0
+                        ? `Only ${routedCount} marked contact-shortlist program${routedCount === 1 ? '' : 's'} can receive your details if you choose.`
+                        : 'These are browse-only results; no program receives your details.'}
+                    </p>
+                    <details className="mt-1">
+                      <summary className="cursor-pointer font-semibold underline underline-offset-2">How these results work</summary>
+                      <p className="mt-1">
+                        Distance is approximate between ZIP-area centers, not a driving route or verified street
+                        address. Matches may be farther away when nearby programs do not meet your filters. Confirm
+                        location, travel needs, services, and availability with each program. Browse-only results
+                        never receive your contact details through this match.
+                      </p>
+                      {payerType === 'commercial' && (
+                        <p className="mt-1">
+                          {payerCarrier
+                            ? `These programs list ${payerCarrier} as a payment option.`
+                            : 'These programs list commercial insurance, but no exact carrier was selected.'}
+                          {' '}This does not confirm network participation, eligibility, authorization, or what
+                          your plan will pay. Verify with the program and insurer.
+                        </p>
+                      )}
+                    </details>
+                  </div>
                 )}
 
                 {shared && (
                   <div role="status" className="rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                    ✓ Your name, email, and phone are available in Clear Bed to the programs displayed in this match.
+                    ✓ Your name, email, and phone are available in Clear Bed only to the marked contact-shortlist programs.
                     Their authorized users may see them and may reach out; Clear Bed cannot confirm that anyone viewed them.
                   </div>
                 )}
@@ -1085,32 +1072,13 @@ export default function MatchPage() {
 
                 {emailSent === true && (
                   <div role="status" className="rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
-                    📬 A copy of these matches is on its way to the email address you chose.
+                    📬 A copy of your contact shortlist is on its way to the email address you chose.
                   </div>
                 )}
 
                 {emailSent === false && (
                   <div role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
                     The email copy could not be sent. Your matches remain below, and you can contact each program directly.
-                  </div>
-                )}
-
-                {matches.length > 0 && !connectCompleted && (
-                  <div className="rounded-xl border border-teal-200 bg-teal-50 p-3">
-                    <p className="text-sm text-ink">
-                      Results come first. If you want, you may now give one explicit permission for program contact
-                      {emailCopyAvailable ? ', one emailed copy, both, or neither.' : ', or choose neither.'}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={startConnect}
-                      className="mt-2 w-full rounded-md bg-teal-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-teal-800 sm:w-auto sm:py-2"
-                    >
-                      Choose how to connect →
-                    </button>
-                    <p className="mt-1.5 text-xs text-slate-500">
-                      Prefer to reach out yourself? Each available program intake contact appears below.
-                    </p>
                   </div>
                 )}
 
@@ -1132,8 +1100,17 @@ export default function MatchPage() {
 
                 {matches.map((facility) => {
                   const currentAvailability = availability(facility);
+                  const isRouted = routedIds.has(facility.id);
                   return (
                     <article key={facility.id} className="rounded-lg border border-slate-200 p-3">
+                      <span
+                        className={
+                          'mb-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ' +
+                          (isRouted ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-600')
+                        }
+                      >
+                        {isRouted ? 'Contact shortlist' : 'Browse-only result'}
+                      </span>
                       <div className="flex flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                         <Link href={`/programs/${facility.id}`} className="font-medium text-teal-700 hover:underline">
                           {facility.name}
@@ -1193,7 +1170,51 @@ export default function MatchPage() {
             )}
           </div>
 
-          {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+          {error && (
+            <p id="match-error" role="alert" className="mt-2 shrink-0 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
+              {error}
+            </p>
+          )}
+
+          {phase === 'intake' && (
+            <div className="mt-2 shrink-0 rounded-xl bg-white p-2 shadow-sm sm:mt-3 sm:p-3">
+              <button
+                type="submit"
+                form={['match-care-form', 'match-concern-form', 'match-zip-form', 'match-payer-form'][stepIdx]}
+                disabled={stepIdx < 2 ? !activeChoiceReady : stepIdx === 2 ? !zipInput.trim() : !payerType || busy}
+                aria-describedby={error ? 'match-error' : undefined}
+                className="min-h-11 w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {stepIdx === 2 ? 'Use this ZIP and continue' : stepIdx === 3 ? 'Find directory options' : 'Continue'}
+              </button>
+            </div>
+          )}
+
+          {phase === 'connect' && (
+            <div className="mt-2 shrink-0 rounded-xl bg-white p-2 shadow-sm sm:mt-3 sm:p-3">
+              <button
+                type="submit"
+                form="match-connect-form"
+                disabled={!connectChoice || busy}
+                aria-describedby={error ? 'match-error' : undefined}
+                className="min-h-11 w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busy ? 'Saving your choice…' : connectChoice === 'neither' ? 'Confirm no contact' : 'Confirm this permission'}
+              </button>
+            </div>
+          )}
+
+          {phase === 'results' && matches && !connectCompleted && (
+            <div className="mt-2 shrink-0 rounded-xl bg-white p-2 shadow-sm sm:mt-3 sm:p-3">
+              <button
+                type="button"
+                onClick={routedCount > 0 ? startConnect : startOver}
+                className="min-h-11 w-full rounded-lg bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-800"
+              >
+                {routedCount > 0 ? 'Choose how to connect →' : 'Start a new search'}
+              </button>
+            </div>
+          )}
         </div>
       </section>
     </main>

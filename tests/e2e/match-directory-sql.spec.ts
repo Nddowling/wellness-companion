@@ -14,6 +14,11 @@ const nearbyMigration = fs.readFileSync(
   'utf8',
 );
 const nearbySql = nearbyMigration.replace(/--.*$/gm, '').replace(/\s+/g, ' ').trim().toLowerCase();
+const browseMigration = fs.readFileSync(
+  path.join(root, 'supabase/project-a/migrations/20261013183708_guided_nearby_browse_limit.sql'),
+  'utf8',
+);
+const browseSql = browseMigration.replace(/--.*$/gm, '').replace(/\s+/g, ' ').trim().toLowerCase();
 const route = fs.readFileSync(path.join(root, 'src/app/api/match/route.ts'), 'utf8');
 const handoffRoute = fs.readFileSync(path.join(root, 'src/app/api/handoff/route.ts'), 'utf8');
 const handoffToken = fs.readFileSync(path.join(root, 'src/lib/matching/handoff-token.ts'), 'utf8');
@@ -85,6 +90,19 @@ test('MATCH-SQL-3B · new distance RPC cannot be called directly by browser role
   );
 });
 
+test('MATCH-SQL-3C · browse expansion keeps hard filters, distance order, and server-only access', () => {
+  expect(browseSql).toContain('create or replace function public.match_directory_options_nearby(');
+  expect(browseSql).toContain('and f.is_published');
+  expect(browseSql).toContain('p_care_level = any(f.levels_of_care)');
+  expect(browseSql).toContain('fp.payer_type = p_payer_type');
+  expect(browseSql).toContain('lower(listed_carrier.name) = lower(p_payer_carrier)');
+  expect(browseSql).toContain('n.miles nulls last');
+  expect(browseSql).toContain('limit least(greatest(coalesce(p_limit, 3), 1), 24)');
+  expect(browseSql).toContain('security invoker');
+  expect(browseSql).toContain('revoke all on function public.match_directory_options_nearby(');
+  expect(browseSql).toContain('grant execute on function public.match_directory_options_nearby(');
+});
+
 test('MATCH-SQL-4 · match API resolves full ZIP but persists only a coarse match summary', () => {
   expect(route).toMatch(/\.rpc\(\s*['"]match_directory_options_nearby['"]/);
   expect(route).toContain("resolveSearchLocation({ kind: 'zip', zip: zipCode })");
@@ -106,7 +124,15 @@ test('MATCH-SQL-4 · match API resolves full ZIP but persists only a coarse matc
   expect(route).toContain('distanceBasis:');
 });
 
-test('MATCH-SQL-5 · handoff capability is bound to exactly the displayed recipients', () => {
+test('MATCH-SQL-5 · handoff capability is limited to the routed shortlist, not browse-only cards', () => {
+  expect(route).toContain('const TOP_N = 3');
+  expect(route).toContain('const CANDIDATE_LIMIT = 24');
+  expect(route).toContain('const selected = candidates.slice(0, TOP_N)');
+  expect(route).toContain('p_facility_ids: selected.map((facility) => facility.id)');
+  expect(route).toContain('routedFacilityIds: ranked.map((facility) => facility.id)');
+  expect(route).toContain('facilities: candidates.map((r) => ({');
+  expect(route).toMatch(/issueHandoffToken\(\s*recorded\.recorded_match_id,\s*ranked\.map/);
+  expect(route).not.toMatch(/issueHandoffToken\(\s*recorded\.recorded_match_id,\s*candidates\.map/);
   expect(handoffToken).toContain('recipientFacilityIds: [...recipientFacilityIds]');
   expect(handoffToken).toContain('recipientFacilityIds: Object.freeze');
   expect(handoffRoute).toContain('capability.recipientFacilityIds');
@@ -121,7 +147,7 @@ test('MATCH-SQL-6 · browser retries are idempotent and distance semantics are e
   expect(page).toContain("'Idempotency-Key': requestKey");
   expect(page).toContain('matchRequestKeyRef.current = null');
   expect(page).toContain('zip_code: zipCode');
-  expect(page).toContain('ordered by approximate distance from ZIP');
+  expect(page).toContain('Nearest first from ZIP');
   expect(page).toContain('Only the first three digits are saved with your match.');
   expect(page).not.toContain('Outside your requested ZIP3 region');
 });

@@ -7,6 +7,15 @@ forward-only SQL bundles with their SHA-256 values recorded alongside them.
 
 Production project: `uxykrvungmfzmpzrvebh`
 
+## 2026-10-13 — guided directory browse window
+
+- Source migration: `../migrations/20261013183708_guided_nearby_browse_limit.sql`
+- Supabase migration name: `guided_nearby_browse_limit_20261013`
+- Hosted production version: `20261013183708`
+- SHA-256 of the applied source SQL: `bad8ad09cbc943131a83f4efbb855f163181b76fc22bdfad7dd805a894b6dc1e`
+- Increases the server-only nearby RPC cap to 24, without changing filters or distance order.
+- The separately recorded and consent-limited contact shortlist remains capped at three.
+
 ## 2026-10-13 — guided matches ordered by full-ZIP distance
 
 - Source migration: `../migrations/20261013181809_guided_nearby_match.sql`

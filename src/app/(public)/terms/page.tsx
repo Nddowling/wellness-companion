@@ -79,24 +79,26 @@ export default function TermsPage() {
         <p>
           To produce results, we ask for a few limited details during intake. We create a non-contact summary containing
           your ZIP3 region, directory level, payer type, and coarse scope, and route it to the programs
-          selected and displayed by the matcher <strong>before</strong> asking for contact permission. That summary does
-          not include your name, phone number, email, date of birth, street address, member ID, exact carrier, or a
+          selected and clearly marked as your contact shortlist (up to three) <strong>before</strong> asking for contact
+          permission. Additional results are browse-only and receive neither this summary nor your contact details
+          through guided match. The summary does not include your name, phone number, email, date of birth, street
+          address, member ID, exact carrier, or a
           clinical narrative. Your full five-digit ZIP is sent to our server transiently to order matching programs
           by approximate distance between ZIP-area centers. It is not put in the page URL, saved with the match, or
           routed to programs; the match summary stores and routes only ZIP3. A supported commercial carrier you
           volunteer may narrow results transiently, but is not saved with the match or routed to programs.
-          <strong> We only make your name, email, and phone available to a displayed program when you explicitly consent
+          <strong> We only make your name, email, and phone available to a shortlisted program when you explicitly consent
           to it</strong>, and we record when you grant or decline that consent. You can decline and still see results.
-          Your contact consent is <strong>specific to the programs displayed in that match</strong>, is limited to the
+          Your contact consent is <strong>specific to the programs marked as your contact shortlist</strong>, is limited to the
           requested connection, and may be revoked for future in-app access by contacting us. Treatment providers may
           have separate duties under HIPAA, 42 CFR Part 2, and state law. Whether a law applies depends on the parties
           and circumstances; the Service does not provide legal advice or determine those duties for you or a Provider.
         </p>
         <p>
           <strong>Communications.</strong> Providing contact details does not itself authorize Clear Bed Recovery to
-          contact you. After matches are shown, you choose separately whether the displayed programs may use your
-          name, email, and phone to reach you and whether Clear Bed Recovery may email one copy of those matches. A phone
-          number shared with programs does not authorize marketing calls or texts from us. We do not add matcher
+          contact you. After results are shown, you choose separately whether the up-to-three shortlisted programs may
+          use your name, email, and phone to reach you and whether Clear Bed Recovery may email one copy of that
+          shortlist. A phone number shared with programs does not authorize marketing calls or texts from us. We do not add matcher
           contacts to promotional lists, and either permission is optional and not a condition of seeing matches.
         </p>
         <p>

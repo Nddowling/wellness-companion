@@ -31,10 +31,10 @@ export default function PrivacyPage() {
 
       <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-900">
         <strong>Your privacy is the point.</strong> You can use {SITE_NAME} without an account, name, phone, or email.
-        To show results, we route a limited, non-contact summary to the programs selected and displayed by the
-        matcher before asking for contact permission. <strong>We make your name, email, and phone available only when you
-        explicitly tell us to</strong> — and we record when you grant or decline that permission. You can decline and
-        still see your results.
+        Guided match may show additional browse-only listings, but only up to three programs clearly marked as your
+        contact shortlist receive a limited, non-contact match summary before we ask for contact permission.
+        <strong> We make your name, email, and phone available to that shortlist only when you explicitly tell us to</strong>
+        — and we record when you grant or decline that permission. You can decline and still see your results.
       </div>
 
       <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -69,7 +69,7 @@ export default function PrivacyPage() {
           level, a five-digit ZIP code, payer type, and a coarse scope. We send the full ZIP to our server transiently
           to estimate distance from its ZIP-area center and order programs that meet your selected filters. The full
           ZIP is not put in the page URL or saved with the match. The match record stores only its first three digits
-          (ZIP3), which are the location detail in the summary routed to displayed programs. The scope lets us
+          (ZIP3), which are the location detail in the summary routed to shortlisted programs. The scope lets us
           distinguish substance-use or documented co-occurring requests from standalone mental-health requests that
           are outside this directory. We do not ask which substance, symptoms, diagnoses, or whether insurance is
           active. If you voluntarily name a supported commercial insurer, we may use that carrier name transiently
@@ -77,11 +77,12 @@ export default function PrivacyPage() {
         </p>
         <p className="font-medium text-slate-700">Contact details (only if you choose to connect).</p>
         <p>
-          After you see your matches, we ask permission first. You may choose whether the displayed programs may
-          contact you, whether we may email one copy of your matches, both, or neither. Only if you make an affirmative
-          connection or email choice do we ask for your name and email. If you ask the displayed programs to contact you, we also
-          ask for your phone number so their intake teams have complete follow-up details. We do not ask for your home
-          address, date of birth, policy number, member number, group number, subscriber details, or clinical narrative.
+          After you see your results, we ask permission first. You may choose whether the up-to-three programs marked
+          as your contact shortlist may contact you, whether we may email one copy of that shortlist, both, or neither.
+          Only if you make an affirmative connection or email choice do we ask for your name and email. If you ask the
+          shortlisted programs to contact you, we also ask for your phone number so their intake teams have complete
+          follow-up details. We do not ask for your home address, date of birth, policy number, member number, group
+          number, subscriber details, or clinical narrative.
         </p>
         <p className="font-medium text-slate-700">Guided-form content.</p>
         <p>
@@ -116,10 +117,10 @@ export default function PrivacyPage() {
       <Section n={3} title="How we use your information">
         <ul className="ml-5 list-disc space-y-1">
           <li>To narrow addiction-treatment directory options by listed care level, payment information, and region;</li>
-          <li>To route a limited, non-contact match summary to the programs selected and displayed by the matcher;</li>
-          <li>To make your name, email, and phone available to those displayed programs only when you consent (see Section 5);</li>
+          <li>To route a limited, non-contact match summary to up to three programs marked as your contact shortlist;</li>
+          <li>To make your name, email, and phone available to those shortlisted programs only when you consent (see Section 5);</li>
           <li>To create and secure your account;</li>
-          <li>To send a transactional message you requested (for example, one email containing your matches);</li>
+          <li>To send a transactional message you requested (for example, one email containing your contact shortlist);</li>
           <li>To operate, maintain, secure, debug, and improve the Service;</li>
           <li>To comply with law and enforce our Terms.</li>
         </ul>
@@ -156,20 +157,22 @@ export default function PrivacyPage() {
           To produce your results, we create a <strong>limited, non-contact summary</strong>: your{' '}
           <strong>ZIP3 region</strong> (for example, &ldquo;787&rdquo;), <strong>directory level</strong>,{' '}
           <strong>payer type</strong>, and <strong>coarse scope</strong>. We route that summary to the programs selected
-          and displayed by the matcher <strong>before</strong> we ask whether you want to share contact details.
-          It has no name, contact details, date of birth, street address, member ID, exact carrier, or clinical
+          and clearly marked as your contact shortlist (up to three) <strong>before</strong> we ask whether you want
+          to share contact details. Other results are browse-only: they do not receive this summary or your contact
+          details through guided match. The summary has no name, contact details, date of birth, street address,
+          member ID, exact carrier, or clinical
           narrative. Because combinations of otherwise limited facts can still carry privacy risk, we
           restrict access and do not describe this summary as anonymous. Contact consent applies to your name, email,
           and phone, as described next; it does not apply retroactively to this non-contact routing.
         </p>
         <p className="font-medium text-slate-700">With treatment programs — your contact details, only with your consent.</p>
         <p>
-          We make your <strong>name, email, and phone available only to the programs displayed in that match, and only
-          after you explicitly consent</strong>, so their intake teams can reach out. We do not send a home address,
+          We make your <strong>name, email, and phone available only to the programs marked as your contact shortlist,
+          and only after you explicitly consent</strong>, so their intake teams can reach out. We do not send a home address,
           chat transcript, insurance identifiers, or a clinical intake record. That consent is limited to connecting
           you with care. You may ask us
           to revoke future in-app access, although a recipient cannot unlearn information it already viewed. Permission
-          for us to email a copy of your matches is a separate choice. We log each consent decision (granted or
+          for us to email a copy of your contact shortlist is a separate choice. We log each consent decision (granted or
           declined) with a timestamp. If you decline, we store no contact record and you can still contact programs
           yourself.
         </p>

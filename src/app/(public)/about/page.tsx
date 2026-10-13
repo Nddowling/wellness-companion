@@ -84,11 +84,15 @@ export default function AboutPage() {
           <p className="mt-2 text-sm leading-relaxed text-slate-700">
             You can browse the directory without an account. The guided match uses only coarse, non-contact answers
             and excludes direct identifiers.
-            After seeing matches, you may choose to share your name, email, and phone so those displayed programs can
+            Guided match can show additional browse-only results, while up to three programs are clearly marked as
+            your contact shortlist. Only those shortlisted programs receive a limited, non-contact match summary;
+            browse-only listings receive neither that summary nor your contact details through guided match. After
+            seeing results, you may choose to share your name, email, and phone so the shortlisted programs can
             follow up. We do not ask for a home address, date of birth, insurance member ID, or clinical narrative,
             and there&apos;s no account or commitment. When
-            you choose to share your information with the programs displayed in that match, you control that, and we
-            record your consent with a timestamp. We never sell personal information. Treatment providers may have
+            you choose to share your information with the shortlist, you control that, and we record your consent
+            with a timestamp. An optional email from us contains the shortlist, not all browse-only results. We never
+            sell personal information. Treatment providers may have
             separate duties under HIPAA, 42 CFR Part 2, and state law; see our Privacy Policy for our practices.
           </p>
         </section>

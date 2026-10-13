@@ -19,14 +19,14 @@ import {
 } from '@/lib/security/anonymous-guard';
 
 // Takes the de-identified intake, ranks published facilities, and records a
-// de-identified `matches` row + `match_routes` for the top facilities. The seeker
+// de-identified `matches` row + `match_routes` for the top three facilities. The seeker
 // never gets a DB account; this runs server-side with the service-role client.
 // NO identity is ever written — only ZIP3, listed care level, payer category, and
 // coarse concern scope. The full ZIP and any volunteered carrier are used transiently
 // for distance ranking/filtering, never persisted in the match or route records.
 
 const TOP_N = 3;
-const CANDIDATE_LIMIT = 10;
+const CANDIDATE_LIMIT = 24;
 const MAX_BODY_BYTES = 16 * 1024;
 const IDEMPOTENCY_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 type ReferralContact = { name?: string; email?: string; phone?: string };
@@ -274,9 +274,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // On an idempotent retry, return only the facilities originally routed. The
-  // larger candidate window makes a recent option resilient to small rank shifts;
-  // an option that is no longer eligible/published is deliberately omitted.
+  // On an idempotent retry, retain only the original routed recipients that are
+  // still in the eligible candidate window. The full candidate window is for
+  // browsing; it must never expand the contact-sharing capability or match routes.
   const candidateById = new Map(candidates.map((facility) => [facility.id, facility]));
   const ranked = recorded.recorded_facility_ids
     .map((facilityId) => candidateById.get(facilityId))
@@ -311,7 +311,8 @@ export async function POST(request: Request) {
   return Response.json(
     {
       match_id: recorded.recorded_match_id,
-      facilities: ranked.map((r) => ({
+      routedFacilityIds: ranked.map((facility) => facility.id),
+      facilities: candidates.map((r) => ({
         id: r.id,
         name: r.name,
         city: r.city,

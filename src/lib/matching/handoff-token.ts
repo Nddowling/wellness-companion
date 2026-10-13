@@ -38,9 +38,10 @@ function validRecipientIds(value: unknown): value is string[] {
 }
 
 /**
- * Issue a short-lived, HttpOnly capability for the exact program cards returned
- * by /api/match. The manifest is ordered and signed; later routes added to the
- * same match never inherit this browser's sharing permission.
+ * Issue a short-lived, HttpOnly capability for the exact three-or-fewer routed
+ * contact-shortlist programs returned by /api/match. Additional browse-only
+ * results never inherit this browser's sharing permission. The manifest is
+ * ordered and signed; later routes added to the same match are also excluded.
  */
 export function issueHandoffToken(matchId: string, recipientFacilityIds: readonly string[]): string {
   if (!UUID.test(matchId) || !validRecipientIds(recipientFacilityIds)) {

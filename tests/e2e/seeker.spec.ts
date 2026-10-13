@@ -81,6 +81,7 @@ test('SK-05 · match page loads deterministic directory choices (no login wall)'
 const MOCK_MATCH = {
   match_id: '11111111-1111-4111-8111-111111111111',
   distanceBasis: 'Approximate straight-line miles between ZIP-area centers, not driving distance.',
+  routedFacilityIds: ['22222222-2222-4222-8222-222222222222'],
   facilities: [
     {
       id: '22222222-2222-4222-8222-222222222222',
@@ -111,7 +112,7 @@ async function completeDeterministicFilters(page: Page, zip = '30301') {
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   const zipInput = page.getByRole('textbox', { name: 'ZIP code' });
   await zipInput.fill(zip);
-  await zipInput.locator('xpath=ancestor::form').getByRole('button').click();
+  await page.getByRole('button', { name: 'Use this ZIP and continue' }).click();
   await page.getByRole('radio', { name: /^Medicaid/i }).check();
   await page.getByRole('button', { name: /find directory options/i }).click();
 }
@@ -136,7 +137,7 @@ test('SK-06 · deterministic match shows results before contact and never calls 
   await acknowledge(page);
   await expect(page.locator('input[autocomplete="name"], input[type="email"], input[type="tel"]')).toHaveCount(0);
   await completeDeterministicFilters(page);
-  const resultsHeading = page.getByRole('heading', { name: /directory (?:options|matches)/i });
+  const resultsHeading = page.getByRole('heading', { name: /directory options? based on your choices/i });
   await expect(resultsHeading).toBeVisible();
   await expect(page.getByText(/About 6\.2 miles from ZIP 30301/i)).toBeVisible();
   await expect(page.getByText(/outside your requested ZIP3 region/i)).toHaveCount(0);
@@ -173,12 +174,14 @@ test('SK-06A · full ZIP search preserves selected focus and exact carrier, norm
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
   const zipInput = page.getByRole('textbox', { name: 'ZIP code' });
   await zipInput.fill('30301-1234');
-  await zipInput.locator('xpath=ancestor::form').getByRole('button').click();
+  await page.getByRole('button', { name: 'Use this ZIP and continue' }).click();
   await page.getByRole('radio', { name: /^Employer or private insurance/i }).check();
   await page.getByLabel('Exact carrier (optional)').selectOption('Aetna');
+  await expect(page.getByLabel('Exact carrier (optional)')).toBeInViewport({ ratio: 0.9 });
+  await expect(page.getByRole('button', { name: /find directory options/i })).toBeInViewport({ ratio: 0.9 });
   await page.getByRole('button', { name: /find directory options/i }).click();
 
-  await expect(page.getByRole('heading', { name: /directory options based on your choices/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /directory options? based on your choices/i })).toBeVisible();
   expect(matchPayload).toEqual({
     care_level_needed: 'residential',
     concern_category: 'co_occurring',
@@ -186,6 +189,40 @@ test('SK-06A · full ZIP search preserves selected focus and exact carrier, norm
     payer_type: 'commercial',
     payer_carrier: 'Aetna',
   });
+});
+
+test('SK-06C · guided results show a scrollable browse list while marking only the contact shortlist', async ({ page }) => {
+  const firstFacility = MOCK_MATCH.facilities[0];
+  const facilities = [
+    firstFacility,
+    ...Array.from({ length: 7 }, (_, index) => ({
+      ...firstFacility,
+      id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      name: `Browse Facility ${index + 2}`,
+      miles: 7 + index,
+    })),
+  ];
+  await page.route('**/api/match', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ...MOCK_MATCH,
+        facilities,
+        routedFacilityIds: facilities.slice(0, 3).map((facility) => facility.id),
+      }),
+    }),
+  );
+
+  await acknowledge(page);
+  await completeDeterministicFilters(page);
+
+  await expect(page.getByRole('link', { name: 'Browse Facility 8' })).toBeVisible();
+  await expect(page.getByText('Contact shortlist', { exact: true })).toHaveCount(3);
+  await expect(page.getByText('Browse-only result', { exact: true })).toHaveCount(5);
+  const resultsPane = page.locator('[aria-label="Clear Bed directory guide"]');
+  expect(await resultsPane.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  await expect(page.getByRole('button', { name: /choose how to connect/i })).toBeInViewport({ ratio: 0.9 });
 });
 
 test('SK-06B · unknown ZIP shows a correction prompt, never unrelated results', async ({ page }) => {
@@ -200,7 +237,7 @@ test('SK-06B · unknown ZIP shows a correction prompt, never unrelated results',
   await acknowledge(page);
   await completeDeterministicFilters(page, '00000');
   await expect(page.getByRole('alert').filter({ hasText: 'We could not find ZIP 00000' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: /directory options based on your choices/i })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /directory options? based on your choices/i })).toHaveCount(0);
   await page.getByRole('button', { name: 'Change ZIP' }).click();
   await expect(page.getByRole('textbox', { name: 'ZIP code' })).toHaveValue('00000');
 });
